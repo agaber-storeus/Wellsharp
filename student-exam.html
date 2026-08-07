@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WellSharp - Exam</title>
+    <link rel="stylesheet" href="css/student.css" />
+  </head>
+  <body>
+    <main class="app-shell flow-shell dimmed">
+      <header class="topbar exam-bg-head">
+        <img class="brand-logo jumbo" src="assets/iadcLoginLgo.png" alt="IADC WellSharp" />
+        <div class="user-tools">
+          <div class="user-line"><strong>ZAINAB RAHEEM KAREEM</strong></div>
+          <a href="https://intellidata.tech/wellsharp/support1/" class="support-link" target="_blank" rel="noopener">Database/Program Assistance?</a>
+          <a href="https://intellidata.tech/wellsharp/support2/" class="support-link" target="_blank" rel="noopener">Proctor Assistance?</a>
+        </div>
+      </header>
+      <div class="main-area">
+        <aside class="step-sidebar exam-side">
+          <a class="step" href="student-confirm.html"><b>1</b> Confirm Info</a>
+          <a class="step" href="student-survey-start.html"><b>2</b> Survey</a>
+          <a class="step active" href="student-exam.html"><b>3</b> Start Exam</a>
+        </aside>
+        <section class="workspace answer-sheet">
+          <table>
+            <tr><td>What will increase the risk of swabbing?</td><td><select><option>Spiral drill collars in the BHA</option></select></td></tr>
+            <tr><td>What term describes the pressure change felt at the bottom of the hole when pulling the drill string out of the hole?</td><td><select><option>Swab pressure</option></select></td></tr>
+            <tr><td>How can a kick be caused due to the Driller not following correct tripping practices?</td><td><select><option>Not keeping the hole full</option></select></td></tr>
+            <tr><td>You are ready to pull out of the hole dry and monitor the trip. How much mud should be pumped?</td><td><select><option>A volume of mud to replace the volume of metal removed</option></select></td></tr>
+          </table>
+        </section>
+      </div>
+    </main>
+
+    <div class="overlay exam-overlay"></div>
+    <section class="exam-modal">
+      <header class="exam-modal-head">
+        <img src="assets/iadcLoginLgo.png" alt="IADC WellSharp" />
+        <div class="exam-status"><strong>MOHAMED AHMED GAD ABOUREHAB</strong><br /><span>03:29:58</span><br /><span id="answerCount">0/95 questions answered</span><br /><a class="green-btn" href="student-report.html">Submit Exam</a></div>
+      </header>
+      <div class="exam-content">
+        <section class="exam-question">
+          <div class="question-line"><span class="question-number">1.</span><div><h2>What is an inflow/negative pressure test?</h2><small>GExo4</small></div></div>
+          <div class="answer-list">
+            <label><input type="radio" /> A test on a barrier where pressure on top of a barrier is reduced to a value lower than the pressure below the barrier</label>
+            <label><input type="radio" /> A test where the barrier is made to fail</label>
+            <label><input type="radio" /> A test where a barrier is tested until there is leak-off</label>
+            <label><input type="radio" /> A test on a barrier where pressure on top of a barrier is increased to a value higher than the pressure below the barrier</label>
+          </div>
+        </section>
+        <section class="exam-question">
+          <div class="question-line"><span class="question-number">2.</span><div><h2>A washout in the drill string develops during a kill, the choke is closed to maintain drill pipe pressure. What happens to bottom hole pressure?</h2><small>qbLn9</small></div></div>
+          <div class="answer-list compact">
+            <label><input type="radio" /> It stays the same</label>
+            <label><input type="radio" /> It increases</label>
+            <label><input type="radio" /> It decreases</label>
+          </div>
+        </section>
+
+        <section class="exam-question data-section">
+          <h2>Please use the following information for questions 3 through 10</h2>
+          <small>nQDHT</small>
+          <h3>Well Data</h3>
+          <table class="well-data-table">
+            <tr><th colspan="2">Hole Dimensions</th><th></th><th></th></tr>
+            <tr><td>Depth</td><td>MD 12,400 feet&nbsp;&nbsp;:</td><td>TVD 11,960</td><td>feet</td></tr>
+            <tr><td>9 <sup>5</sup>/<sub>8</sub>" Casing shoe</td><td></td><td>8850</td><td>feet</td></tr>
+            <tr><td>Hole size</td><td></td><td>8 &frac12;</td><td>inch</td></tr>
+            <tr><td>Current mud weight</td><td></td><td>10</td><td>ppg</td></tr>
+            <tr><th colspan="2">Internal Capacities</th><th></th><th></th></tr>
+            <tr><td>6 <sup>1</sup>/<sub>2</sub>" Drill collars (length 600 feet)</td><td></td><td>0.0077</td><td>bbl/foot</td></tr>
+            <tr><td>5" Drill pipe - capacity</td><td></td><td>0.01776</td><td>bbl/foot</td></tr>
+            <tr><td>5" Drill pipe - metal displacement</td><td></td><td>0.0065</td><td>bbl/foot</td></tr>
+            <tr><td>5" Drill pipe- closed end displacement</td><td></td><td>0.0246</td><td>bbl/foot</td></tr>
+            <tr><td>5" HWDP (length 650feet) - capacity</td><td></td><td>0.0086</td><td>bbl/foot</td></tr>
+            <tr><th colspan="2">Annular Capacities</th><th></th><th></th></tr>
+            <tr><td>Open hole / Drill collar</td><td></td><td>0.0292</td><td>bbl/foot</td></tr>
+            <tr><td>Open hole / Drill pipe</td><td></td><td>0.0459</td><td>bbl/foot</td></tr>
+            <tr><td>Casing / Drill pipe</td><td></td><td>0.0489</td><td>bbl/foot</td></tr>
+          </table>
+        </section>
+
+        <section class="exam-question calculate-section">
+          <h2>Calculate:</h2>
+          <div class="calc-question"><span class="question-number">3.</span><label><strong>Maximum allowable mud weight before kick</strong><small>gBfID</small><span><input type="text" /> ppg</span></label></div>
+          <div class="calc-question"><span class="question-number">4.</span><label><strong>MAASP before kick</strong><small>C2zay</small><span><input type="text" /> psi</span></label></div>
+          <div class="calc-question"><span class="question-number">5.</span><label><strong>Strokes from surface to bit</strong><small>iDPBR</small><span><input type="text" /> Strokes</span></label></div>
+          <div class="calc-question"><span class="question-number">6.</span><label><strong>Kill mud weight</strong><small>Mclj0</small><span><input type="text" /> ppg</span></label></div>
+          <div class="calc-question"><span class="question-number">7.</span><label><strong>Initial circulating pressure</strong><small>XUSMd</small><span><input type="text" /> psi</span></label></div>
+          <div class="calc-question"><span class="question-number">8.</span><label><strong>Final circulating pressure</strong><small>LVY2j</small><span><input type="text" /> psi</span></label></div>
+          <div class="calc-question"><span class="question-number">9.</span><label><strong>MAASP after well has been killed</strong><small>KVbfv</small><span><input type="text" /> psi</span></label></div>
+          <div class="calc-question"><span class="question-number">10.</span><label><strong>Pressure drop per 100 strokes from surface to bit</strong><small>SDEye</small><span><input type="text" /> psi/100 strokes</span></label></div>
+        </section>
+
+        <section class="exam-question">
+          <div class="question-line"><span class="question-number">51.</span><div><h2>A rig crew shut in on a 2.5 ppg kick with a 20 bbl gain. Would circulating the kick out exceed the kick tolerance window below?</h2></div></div>
+          <div class="kick-chart">
+            <h3>Kick Tolerance Windows</h3>
+            <div class="chart-legend"><span class="blue-line"></span> Initial Shut-In <span class="red-line"></span> Circulate To Shoe</div>
+            <div class="chart-grid">
+              <svg class="chart-svg" viewBox="0 0 414 332" aria-hidden="true">
+                <polyline class="curve curve-blue" points="0,18 10,25 56,38 104,54 147,76 162,90 178,111 192,131 207,152 221,172 236,196 251,220 266,244 281,268 296,292 311,319" />
+                <polyline class="curve curve-red" points="0,26 7,39 15,55 24,69 34,85 44,101 56,118 68,136 80,154 94,172 108,190 122,207 137,224 154,243 172,262 192,281 211,300 226,320" />
+                <g class="blue-points">
+                  <circle cx="0" cy="18" r="4" /><circle cx="56" cy="38" r="4" /><circle cx="104" cy="54" r="4" /><circle cx="147" cy="76" r="4" /><circle cx="162" cy="90" r="4" /><circle cx="178" cy="111" r="4" /><circle cx="192" cy="131" r="4" /><circle cx="207" cy="152" r="4" /><circle cx="221" cy="172" r="4" /><circle cx="236" cy="196" r="4" /><circle cx="251" cy="220" r="4" /><circle cx="266" cy="244" r="4" /><circle cx="281" cy="268" r="4" /><circle cx="296" cy="292" r="4" /><circle cx="311" cy="319" r="4" />
+                </g>
+                <g class="red-points">
+                  <rect x="-4" y="22" width="8" height="8" /><rect x="3" y="35" width="8" height="8" /><rect x="11" y="51" width="8" height="8" /><rect x="20" y="65" width="8" height="8" /><rect x="30" y="81" width="8" height="8" /><rect x="40" y="97" width="8" height="8" /><rect x="52" y="114" width="8" height="8" /><rect x="64" y="132" width="8" height="8" /><rect x="76" y="150" width="8" height="8" /><rect x="90" y="168" width="8" height="8" /><rect x="104" y="186" width="8" height="8" /><rect x="118" y="203" width="8" height="8" /><rect x="133" y="220" width="8" height="8" /><rect x="150" y="239" width="8" height="8" /><rect x="168" y="258" width="8" height="8" /><rect x="188" y="277" width="8" height="8" /><rect x="207" y="296" width="8" height="8" /><rect x="222" y="316" width="8" height="8" />
+                </g>
+              </svg>
+            </div>
+            <b class="chart-y">Kick Intensity (ppg)</b><b class="chart-x">Kick Volume (bbls)</b>
+          </div>
+          <small>fmw93</small>
+          <div class="answer-list compact">
+            <label><input type="radio" /> Yes</label>
+            <label><input type="radio" /> No</label>
+          </div>
+        </section>
+
+        <section class="exam-question horizontal-data">
+          <div class="question-line"><span class="question-number">67.</span><div><h2>When drilling a horizontal well a fault is crossed and a kick is taken. The well is shut in. Calculate the mud weight required to kill the well using the data below:</h2></div></div>
+          <table>
+            <tr><th>WELL DATA</th><th>MD</th><th>TVD</th></tr>
+            <tr><td>Depth at start of horizontal</td><td>7,690 feet</td><td>6,100 feet</td></tr>
+            <tr><td>Depth at time of kick</td><td>11,000 feet</td><td>6,140 feet</td></tr>
+            <tr><td>Length of horizontal section</td><td>3,310 feet</td><td></td></tr>
+            <tr><td>Mud weight</td><td>11 ppg</td><td></td></tr>
+            <tr><th>KICK DATA</th><th></th><th></th></tr>
+            <tr><td>Shut In Drillpipe Pressure</td><td>150 psi</td><td></td></tr>
+            <tr><td>Shut In Casing Pressure</td><td>170 psi</td><td></td></tr>
+          </table>
+          <small>xKllm</small>
+          <div class="answer-list compact">
+            <label><input type="radio" /> 11.5 ppg</label>
+            <label><input type="radio" /> 12 ppg</label>
+            <label><input type="radio" /> 11.6 ppg</label>
+            <label><input type="radio" /> 11.4 ppg</label>
+          </div>
+        </section>
+
+        <section class="exam-question end-questions">
+          <div class="question-line"><span class="question-number">92.</span><div><h2>What is the only function of a diverter?</h2><small>Zal9m</small></div></div>
+          <div class="answer-list compact">
+            <label><input type="radio" /> To act as a backup system if the annular preventer fails.</label>
+            <label><input type="radio" /> To shut in a shallow kick.</label>
+            <label><input type="radio" /> To direct formation fluids away from the rig floor</label>
+            <label><input type="radio" /> To create a back pressure sufficient to stop formation fluids entering the wellbore.</label>
+          </div>
+          <div class="question-line"><span class="question-number">93.</span><div><h2>What will happen to a heavy pill, in the vertical annulus, as pipe is tripped out of the well?</h2><small>myTGY</small></div></div>
+          <div class="answer-list compact">
+            <label><input type="radio" /> The pill will move up in the well and will get shorter as the pipe is pulled through it</label>
+            <label><input type="radio" /> The pill will move up in the well and will get longer.</label>
+            <label><input type="radio" /> The pill will move down in the well and will get shorter as the bit is pulled above it.</label>
+            <label><input type="radio" /> The pill will always stay in the same place in the well as we trip out or in the hole.</label>
+          </div>
+          <div class="question-line"><span class="question-number">94.</span><div><h2>Which of the following affect the Shut In Drill Pipe Pressure?</h2><small>MYjfZ</small></div></div>
+          <div class="answer-list compact">
+            <label><input type="radio" /> Mud weight in drillstring</label>
+            <label><input type="radio" /> Annular volume from Bit to Shoe</label>
+            <label><input type="radio" /> Influx gradient</label>
+            <label><input type="radio" /> Volume of influx in the annulus</label>
+          </div>
+          <div class="question-line"><span class="question-number">95.</span><div><h2>Which of the following is NOT a method of wellbore barrier verification?</h2><small>OZe7O</small></div></div>
+          <div class="answer-list compact">
+            <label><input type="radio" /> Monitoring fluid level</label>
+            <label><input type="radio" /> Inflow test (Negative test)</label>
+            <label><input type="radio" /> Positive pressure test</label>
+            <label><input type="radio" /> Leak off test</label>
+          </div>
+          <div class="bottom-submit"><a class="green-btn" href="student-report.html">Submit Exam</a></div>
+        </section>
+      </div>
+    </section>
+    <script>
+      const answerCount = document.getElementById("answerCount");
+      const groups = new Set();
+      document.querySelectorAll(".exam-content .answer-list").forEach((list, groupIndex) => {
+        const groupName = `exam-question-${groupIndex + 1}`;
+        groups.add(groupName);
+        list.querySelectorAll("input[type='radio']").forEach((input) => {
+          input.name = groupName;
+          input.addEventListener("change", () => {
+            const answered = [...groups].filter((name) => document.querySelector(`input[name="${name}"]:checked`)).length;
+            answerCount.textContent = `${answered}/95 questions answered`;
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

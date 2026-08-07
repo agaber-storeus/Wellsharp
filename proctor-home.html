@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WellSharp Proctor - Home</title>
+    <link rel="stylesheet" href="https://iadc.wellsharp.org/js/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="css/proctor.css" />
+  </head>
+  <body>
+    <main class="proctor-shell">
+      <header class="topbar">
+        <img class="brand-logo" src="assets/iadcLoginLgo.png" alt="IADC WellSharp" />
+        <div class="user-tools">
+          <div class="user-line"><strong>Abraham Kotb</strong><button class="signout">Sign Out</button></div>
+          <a href="https://intellidata.tech/wellsharp/support1/" class="support-link" target="_blank" rel="noopener">Database/Program Assistance?</a>
+          <a href="https://intellidata.tech/wellsharp/support2/" class="support-link" target="_blank" rel="noopener">Proctor Assistance?</a>
+        </div>
+      </header>
+
+      <div class="main-area">
+        <aside class="proctor-sidebar">
+          <a class="nav-item active" href="proctor-home.html"><span class="nav-icon">&#8962;</span>Home</a>
+          <a class="nav-item" href="proctor-profile.html"><span class="nav-icon">&#128100;</span>My Profile</a>
+          <a class="nav-item" href="proctor-analytics.html"><span class="nav-icon">&#9685;</span>Analytics</a>
+          <a class="nav-item" href="proctor-classes.html"><span class="nav-icon">&#127891;</span>Classes</a>
+          <a class="nav-item" href="proctor-browse.html"><span class="nav-icon">&#127963;</span>Browse Classes</a>
+          <a class="nav-item" href="proctor-certificate.html"><span class="nav-icon">&#128269;</span>Certificate Lookup</a>
+          <button class="collapse-btn">Collapse</button>
+        </aside>
+
+        <section class="workspace proctor-home-workspace">
+          <section class="panel home-map-panel">
+            <div class="panel-title">Class Map</div>
+            <div class="panel-body">
+              <div class="home-map-canvas">
+                <div id="homeLeafletMap" class="home-leaflet-map"></div>
+                <div class="map-filter home-map-filter">
+                  <select id="homeReportType" aria-label="Report type">
+                    <option value="scheduled" data-label="Next">Scheduled Classes</option>
+                    <option value="history" data-label="Previous">Class History</option>
+                    <option value="timeline" data-label="Timeline">Class Timeline</option>
+                    <option value="heatmapHist" data-label="HeatmapHistory">Exams (Past)</option>
+                    <option value="heatmapFuture" data-label="HeatmapFuture">Exams (Future)</option>
+                  </select>
+                  <span>Time Frame:</span>
+                  <select id="homeTimeFrame" aria-label="Time frame">
+                    <option value="1" selected>Next 1 Week</option>
+                    <option value="2">Next 2 Weeks</option>
+                    <option value="3">Next 3 Weeks</option>
+                    <option value="4">Next 1 Month</option>
+                    <option value="8">Next 2 Months</option>
+                    <option value="12">Next 3 Months</option>
+                    <option value="26">Next 6 Months</option>
+                    <option value="52">Next Year</option>
+                    <option value="all">All Time</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel data-panel">
+            <div class="panel-title">Ongoing Classes</div>
+            <div class="data-panel-body">
+              <div class="table-tools">
+                <label>Show <select><option>10</option></select> entries</label>
+                <label>Search: <input type="search" /></label>
+              </div>
+              <table class="home-data-table">
+                <thead>
+                  <tr>
+                    <th>Class Title</th>
+                    <th>Class Location</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Instructor</th>
+                    <th>Language</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><a href="#" data-class-modal="details" data-class-state="open">supervisor 212</a></td>
+                    <td>LIVE - Egypt</td>
+                    <td>2026-07-05</td>
+                    <td>2026-07-09</td>
+                    <td>Abraham Kotb</td>
+                    <td>English</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="table-foot"><span>Showing 1 to 1 of 1 entries</span><span>Previous <b>1</b> Next</span></div>
+            </div>
+          </section>
+
+          <section class="panel data-panel compact-panel">
+            <div class="panel-title">Upcoming Classes</div>
+            <div class="data-panel-body">
+              <div class="table-tools">
+                <label>Show <select><option>10</option></select> entries</label>
+                <label>Search: <input type="search" /></label>
+              </div>
+              <table class="home-data-table">
+                <thead>
+                  <tr>
+                    <th>Class Title</th>
+                    <th>Class Location</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Instructor</th>
+                    <th>Language</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><a href="#" data-class-modal="details" data-class-state="notstarted">supervisor 2506</a></td>
+                    <td>Cairo - Egypt</td>
+                    <td>2026-06-20</td>
+                    <td>2026-06-24</td>
+                    <td>Abraham Kotb</td>
+                    <td>English</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="table-foot"><span>Showing 1 to 1 of 1 entries</span><span>Previous <b>1</b> Next</span></div>
+            </div>
+          </section>
+
+          <section class="panel data-panel">
+            <div class="panel-title">Past Classes</div>
+            <div class="data-panel-body">
+              <div class="table-tools">
+                <label>Show <select><option>10</option></select> entries</label>
+                <label>Search: <input type="search" /></label>
+              </div>
+              <table class="home-data-table striped">
+                <thead>
+                  <tr>
+                    <th>Class Title</th>
+                    <th>Class Location</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Instructor</th>
+                    <th>Concluded</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Driller</td><td>Cairo - Egypt</td><td>2024-11-19</td><td>2024-11-21</td><td>Abraham Kotb</td><td>2 years ago</td></tr>
+                  <tr><td>Driller 12</td><td>Cairo - Egypt</td><td>2025-04-20</td><td>2025-04-23</td><td>Abraham Kotb</td><td>about a year ago</td></tr>
+                  <tr><td>Driller 3</td><td>CAIRO, EGYPT - Egypt</td><td>2024-12-15</td><td>2024-12-19</td><td>Abraham Kotb</td><td>2 years ago</td></tr>
+                  <tr><td>Driller10</td><td>cairo - Egypt</td><td>2025-07-13</td><td>2025-07-16</td><td>Abraham Kotb</td><td>12 months ago</td></tr>
+                  <tr><td>driller10</td><td>cairo - Egypt</td><td>2025-05-11</td><td>2025-05-14</td><td>Abraham Kotb</td><td>about a year ago</td></tr>
+                  <tr><td>driller10</td><td>cairo - Egypt</td><td>2025-04-06</td><td>2025-04-09</td><td>Abraham Kotb</td><td>about a year ago</td></tr>
+                  <tr><td>driller13</td><td>Bro training camp - Egypt</td><td>2025-04-26</td><td>2025-04-30</td><td>Abraham Kotb</td><td>about a year ago</td></tr>
+                  <tr><td>Driller13</td><td>CAIRO, EGYPT - Egypt</td><td>2025-05-25</td><td>2025-05-28</td><td>Abraham Kotb</td><td>about a year ago</td></tr>
+                  <tr><td>Driller14</td><td>Bro training camp - Egypt</td><td>2025-06-15</td><td>2025-06-18</td><td>Abraham Kotb</td><td>about a year ago</td></tr>
+                  <tr><td><a href="#" data-class-modal="details" data-class-state="ended">Driller15</a></td><td>Cairo - Egypt</td><td>2025-07-27</td><td>2025-07-30</td><td>Abraham Kotb</td><td>11 months ago</td></tr>
+                </tbody>
+              </table>
+              <div class="table-foot"><span>Showing 1 to 10 of 115 entries</span><span>Previous <b>1</b> 2 3 4 5 ... 12 Next</span></div>
+            </div>
+          </section>
+
+          <section class="panel data-panel compact-panel client-questions">
+            <div class="panel-title">Client Questions</div>
+            <div class="data-panel-body">
+              <ul>
+                <li>Confirm Release behavior in Scores &amp; Reports: it appears to close/finalize the selected trainee exam at its current state.</li>
+                <li>Confirm proctor certificate PDF source: should it be uploaded while adding a proctor, or generated by the system?</li>
+                <li>Clarify Browse Classes Retakes meaning and how the retake count should be calculated/displayed.</li>
+                <li>Clarify Proctor column survey labels: why some rows show Survey Complete or Survey Incomplete and others do not.</li>
+              </ul>
+            </div>
+          </section>
+        </section>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-copy"><a href="#">Technical Support</a><span>SkillGRID&reg; (online) | Version 3.0 | &copy; 2024 Indaptive Technologies Inc.</span></div>
+        <img class="footer-logo" src="assets/ws-login_SG-Logo.png" alt="SkillGRID" />
+      </footer>
+    </main>
+
+    <script src="js/proctor-menu.js"></script>
+    <script src="https://iadc.wellsharp.org/js/leaflet/leaflet.js"></script>
+    <script src="js/proctor-home.js"></script>
+    <script src="js/proctor-class-modal.js"></script>
+  </body>
+</html>

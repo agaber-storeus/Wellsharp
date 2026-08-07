@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WellSharp Proctor - Profile</title>
+    <link rel="stylesheet" href="css/proctor.css" />
+  </head>
+  <body>
+    <main class="proctor-shell">
+      <header class="topbar">
+        <img class="brand-logo" src="assets/iadcLoginLgo.png" alt="IADC WellSharp" />
+        <div class="user-tools">
+          <div class="user-line"><strong>Abraham Kotb</strong><button class="signout">Sign Out</button></div>
+          <a href="https://intellidata.tech/wellsharp/support1/" class="support-link" target="_blank" rel="noopener">Database/Program Assistance?</a>
+          <a href="https://intellidata.tech/wellsharp/support2/" class="support-link" target="_blank" rel="noopener">Proctor Assistance?</a>
+        </div>
+      </header>
+
+      <div class="main-area">
+        <aside class="proctor-sidebar">
+          <a class="nav-item" href="proctor-home.html"><span class="nav-icon">&#8962;</span>Home</a>
+          <a class="nav-item active" href="proctor-profile.html"><span class="nav-icon">&#128100;</span>My Profile</a>
+          <a class="nav-item" href="proctor-analytics.html"><span class="nav-icon">&#9685;</span>Analytics</a>
+          <a class="nav-item" href="proctor-classes.html"><span class="nav-icon">&#127891;</span>Classes</a>
+          <a class="nav-item" href="proctor-browse.html"><span class="nav-icon">&#127963;</span>Browse Classes</a>
+          <a class="nav-item" href="proctor-certificate.html"><span class="nav-icon">&#128269;</span>Certificate Lookup</a>
+          <button class="collapse-btn">Collapse</button>
+        </aside>
+
+        <section class="workspace">
+          <section class="panel profile-welcome">
+            <div class="panel-title">Welcome to Your Account</div>
+            <div class="panel-body">
+              <img src="assets/iadcLoginLgo.png" alt="IADC WellSharp" />
+              <div>
+                <h1>Welcome to your IADC WellSharp Testing Portal</h1>
+                <p>Please keep your name and contact information up to date so that we have accurate records for scheduling and reporting purposes.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">Update Your Profile</div>
+            <div class="profile-form">
+              <div class="profile-fields-left">
+                <div class="form-line"><label>Name:</label><div class="split-inputs"><input value="Abraham" /><input value="Kotb" /></div></div>
+                <div class="form-line"><label>Date of Birth:</label><div class="dob-inputs"><select><option>January</option></select><select><option>1</option></select></div></div>
+                <div class="form-line"><label>Email:</label><input value="kotbabrahim2@gmail.com" /></div>
+                <div class="form-line"><label>Phone Number:</label><input /></div>
+                <div class="form-line"><label>Address:</label><input /></div>
+                <div class="form-line"><label>Country:</label><select><option>Select an Option</option></select></div>
+                <div class="form-line"><label>State:</label><select class="state-select"><option>Select an Option</option></select></div>
+                <div class="form-line"><label>City:</label><input class="city-input" /></div>
+                <div class="form-line"><label>Postal Code:</label><input class="postal-input" /></div>
+              </div>
+
+              <div class="profile-fields-right">
+                <div class="form-line"><label>Company:</label><input /></div>
+                <div class="form-line"><label>Position:</label><select><option>Select a Position</option></select></div>
+                <div class="form-line"><label>Employee ID:</label><input value="9E31F49C6CD7482692555BB8C9F8A" /></div>
+                <div class="form-line password-line">
+                  <label>Password:</label>
+                  <button class="password-btn" type="button" id="changePasswordBtn">Change Password</button>
+                  <div class="password-change-box" id="passwordChangeBox" aria-hidden="true">
+                    <div class="password-row"><span>New Password:</span><input type="password" /></div>
+                    <div class="password-row"><span>Retype New Password:</span><input type="password" /></div>
+                    <div class="password-actions"><button class="update-password" type="button">Update Password</button><button class="cancel-password" type="button" id="cancelPasswordBtn">Cancel</button></div>
+                  </div>
+                </div>
+                <button class="profile-photo" type="button" id="profilePhotoBtn" aria-label="Select profile picture"><span class="photo-close">x</span></button>
+                <input class="profile-file-input" id="profilePhotoInput" type="file" accept="image/*" />
+                <a class="cyan-btn" href="assets/certificates/00001835.pdf" target="_blank" rel="noopener">Download Certificate</a>
+              </div>
+
+              <div class="save-profile"><a class="green-btn" href="#">Save Profile</a></div>
+            </div>
+          </section>
+        </section>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-copy"><a href="#">Technical Support</a><span>SkillGRID&reg; (online) | Version 3.0 | &copy; 2024 Indaptive Technologies Inc.</span></div>
+        <img class="footer-logo" src="assets/ws-login_SG-Logo.png" alt="SkillGRID" />
+      </footer>
+    </main>
+
+    <script src="js/proctor-menu.js"></script>
+    <script>
+      (function () {
+        var changeButton = document.getElementById("changePasswordBtn");
+        var cancelButton = document.getElementById("cancelPasswordBtn");
+        var box = document.getElementById("passwordChangeBox");
+        var photoButton = document.getElementById("profilePhotoBtn");
+        var photoInput = document.getElementById("profilePhotoInput");
+        var photoDialog = null;
+
+        if (!changeButton || !cancelButton || !box) {
+          return;
+        }
+
+        changeButton.addEventListener("click", function () {
+          changeButton.style.display = "none";
+          box.classList.add("is-visible");
+          box.setAttribute("aria-hidden", "false");
+        });
+
+        cancelButton.addEventListener("click", function () {
+          box.classList.remove("is-visible");
+          box.setAttribute("aria-hidden", "true");
+          changeButton.style.display = "";
+        });
+
+        function closePhotoDialog() {
+          var overlay = document.getElementById("profilePhotoOverlay");
+          var modal = document.getElementById("profilePhotoDialog");
+          if (overlay) overlay.remove();
+          if (modal) modal.remove();
+          photoDialog = null;
+        }
+
+        function openPhotoDialog() {
+          closePhotoDialog();
+
+          var overlay = document.createElement("div");
+          overlay.id = "profilePhotoOverlay";
+          overlay.className = "profile-photo-overlay";
+
+          photoDialog = document.createElement("section");
+          photoDialog.id = "profilePhotoDialog";
+          photoDialog.className = "profile-photo-dialog";
+          photoDialog.setAttribute("role", "dialog");
+          photoDialog.setAttribute("aria-modal", "true");
+          photoDialog.innerHTML = [
+            "<h2>Select profile picture</h2>",
+            '<div class="profile-photo-preview"></div>',
+            '<div class="profile-photo-actions">',
+            '<button type="button" class="photo-dialog-close">Close</button>',
+            '<button type="button" class="photo-dialog-select">Select photo</button>',
+            "</div>"
+          ].join("");
+
+          document.body.appendChild(overlay);
+          document.body.appendChild(photoDialog);
+        }
+
+        if (photoButton && photoInput) {
+          photoButton.addEventListener("click", openPhotoDialog);
+
+          photoInput.addEventListener("change", function () {
+            var file = photoInput.files && photoInput.files[0];
+            if (!file) {
+              return;
+            }
+
+            var reader = new FileReader();
+            reader.onload = function () {
+              photoButton.style.backgroundImage = "url('" + reader.result + "')";
+              closePhotoDialog();
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+
+        document.addEventListener("click", function (event) {
+          if (event.target.closest(".photo-dialog-close") || event.target.id === "profilePhotoOverlay") {
+            event.preventDefault();
+            closePhotoDialog();
+            return;
+          }
+
+          if (event.target.closest(".photo-dialog-select")) {
+            event.preventDefault();
+            if (photoInput) {
+              photoInput.click();
+            }
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

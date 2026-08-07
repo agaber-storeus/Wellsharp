@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WellSharp Proctor - Assessment Results</title>
+    <link rel="stylesheet" href="css/proctor.css" />
+  </head>
+  <body>
+    <main class="proctor-shell">
+      <header class="topbar"><img class="brand-logo" src="assets/iadcLoginLgo.png" alt="IADC WellSharp" /><div class="user-tools"><div class="user-line"><strong>Abraham Kotb</strong><button class="signout">Sign Out</button></div><a href="https://intellidata.tech/wellsharp/support1/" class="support-link" target="_blank" rel="noopener">Database/Program Assistance?</a><a href="https://intellidata.tech/wellsharp/support2/" class="support-link" target="_blank" rel="noopener">Proctor Assistance?</a></div></header>
+      <div class="main-area">
+        <aside class="proctor-sidebar">
+          <a class="nav-item" href="proctor-home.html"><span class="nav-icon">&#8962;</span>Home</a>
+          <a class="nav-item" href="proctor-profile.html"><span class="nav-icon">&#128100;</span>My Profile</a>
+          <a class="nav-item active" href="proctor-analytics.html"><span class="nav-icon">&#9685;</span>Analytics</a>
+          <a class="nav-item small active" href="proctor-analytics-search.html"><span class="nav-icon">&#9636;</span>Assessments</a>
+          <a class="nav-item small" href="proctor-analytics.html"><span class="nav-icon">&#127891;</span>Classes</a>
+          <a class="nav-item" href="proctor-classes.html"><span class="nav-icon">&#127891;</span>Classes</a>
+          <a class="nav-item" href="proctor-browse.html"><span class="nav-icon">&#127963;</span>Browse Classes</a>
+          <a class="nav-item" href="proctor-certificate.html"><span class="nav-icon">&#128269;</span>Certificate Lookup</a>
+          <button class="collapse-btn">Collapse</button>
+        </aside>
+        <section class="workspace assessment-results-workspace">
+          <section class="panel assessment-search-panel">
+            <div class="panel-title">Search Options</div>
+            <div class="panel-body">
+              <form class="search-form assessment-search-form">
+                <div class="form-line"><label><strong>Course(s):</strong></label><select><option></option><option>Drilling Operations, Driller, Subsea</option><option>Drilling Operations, Driller, Surface</option><option>Drilling Operations, Driller, Surface/Subsea</option><option>Drilling Operations, Introductory</option><option>Drilling Operations, Supervisor, Surface</option><option>Drilling Operations, Supervisory, Subsea</option><option>Drilling Operations, Supervisory, Surface/Subsea</option><option>Drilling Operations, Workover Completions, Driller</option><option>Drilling Operations, Workover Completions, Supervisor</option><option>Well Servicing Coiled Tubing</option><option>Well Servicing Introductory</option><option>Well Servicing Wireline</option><option>Well Servicing Workover</option></select></div>
+                <div class="form-line"><label><strong>Roles:</strong></label><select><option>Trainees</option><option>Instructors</option><option>Proctors</option></select></div>
+                <div class="form-line"><label><strong>Date Range:</strong></label><div class="assessment-date-range"><select><option>Custom Date Range</option><option>All Time</option><option>Previous 1 Month</option><option>Previous 6 Months</option><option>Previous 1 Year</option></select><input /><input /></div></div>
+                <div class="search-actions"><a class="blue-btn" href="proctor-assessment-results.html">Search</a></div>
+              </form>
+            </div>
+          </section>
+
+          <h2 class="assessment-title">Assessment Comparison</h2>
+          <div class="assessment-export"><a class="export-btn" href="#">Export Excel</a></div>
+          <div class="assessment-show">Show <select><option>100</option></select> entries</div>
+
+          <table class="assessment-table">
+            <thead>
+              <tr>
+                <th>Assessment</th><th>Trainees Assessed</th><th># Passed</th><th># Failed</th><th>Passing Rate</th><th>Average Score</th><th>Trainees Retaking Exam</th><th>Retake # Passed</th><th>Retake # Failed</th><th>Retake Passing Rate</th><th>Retake Average Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Drilling Operations, Driller, Surface</td><td>81</td><td>81</td><td>0</td><td>100%</td><td>90%</td><td>0</td><td>0</td><td>0</td><td>0%</td><td>0%</td></tr>
+              <tr><td>Drilling Operations, Driller, Surface (Live)</td><td>6</td><td>0</td><td>5</td><td>0%</td><td>37%</td><td>0</td><td>0</td><td>0</td><td>0%</td><td>0%</td></tr>
+              <tr><td>Drilling Operations, Introductory</td><td>110</td><td>100</td><td>3</td><td>91%</td><td>86%</td><td>6</td><td>6</td><td>0</td><td>100%</td><td>86%</td></tr>
+              <tr><td>Drilling Operations, Introductory (Live)</td><td>5</td><td>5</td><td>0</td><td>100%</td><td>90%</td><td>0</td><td>0</td><td>0</td><td>0%</td><td>0%</td></tr>
+              <tr><td>Drilling Operations, Supervisor, Surface</td><td>867</td><td>863</td><td>3</td><td>100%</td><td>90%</td><td>0</td><td>0</td><td>0</td><td>0%</td><td>0%</td></tr>
+              <tr><td>Drilling Operations, Supervisor, Surface (Live)</td><td>56</td><td>41</td><td>5</td><td>73%</td><td>81%</td><td>3</td><td>0</td><td>3</td><td>0%</td><td>63%</td></tr>
+            </tbody>
+            <tfoot>
+              <tr><td></td><td>1125</td><td>1090</td><td>16</td><td>77%</td><td>79%</td><td>9</td><td>6</td><td>3</td><td>17%</td><td>25%</td></tr>
+            </tfoot>
+          </table>
+          <div class="table-foot assessment-foot"><span>Showing 1 to 6 of 6 entries</span><span>Previous <b>1</b> Next</span></div>
+
+          <section class="assessment-chart-wrap">
+            <h3>Course Results</h3>
+            <div class="assessment-chart">
+              <div class="y-axis"><span>900</span><span>800</span><span>700</span><span>600</span><span>500</span><span>400</span><span>300</span><span>200</span><span>100</span><span>0</span></div>
+              <div class="chart-area">
+                <div class="bar-group"><div class="bar pass" style="height: 81px"></div><div class="bar fail" style="height: 2px"></div><span>Drilling Operations, Driller, Surface</span></div>
+                <div class="bar-group"><div class="bar pass" style="height: 6px"></div><div class="bar fail" style="height: 5px"></div><span>Drilling Operations, Driller, Surface (Live)</span></div>
+                <div class="bar-group"><div class="bar pass" style="height: 110px"></div><div class="bar retake-pass" style="height: 8px"></div><span>Drilling Operations, Introductory</span></div>
+                <div class="bar-group"><div class="bar pass" style="height: 5px"></div><span>Drilling Operations, Introductory (Live)</span></div>
+                <div class="bar-group"><div class="bar pass" style="height: 403px"></div><span>Drilling Operations, Supervisor, Surface</span></div>
+                <div class="bar-group"><div class="bar pass" style="height: 54px"></div><div class="bar fail" style="height: 7px"></div><span>Drilling Operations, Supervisor, Surface (Live)</span></div>
+              </div>
+            </div>
+            <div class="chart-legend">
+              <span><i class="legend-fail"></i># Failed</span>
+              <span><i class="legend-not-retake"></i>Trainees Not Retaking Exam</span>
+              <span><i class="legend-failed-retake"></i>Failed Retake</span>
+              <span><i class="legend-passed-retake"></i>Passed Retake</span>
+              <span><i class="legend-pass"></i>Trainees Passed</span>
+            </div>
+          </section>
+        </section>
+      </div>
+      <footer class="footer"><div class="footer-copy"><a href="#">Technical Support</a><span>SkillGRID&reg; (online) | Version 3.0 | &copy; 2024 Indaptive Technologies Inc.</span></div><img class="footer-logo" src="assets/ws-login_SG-Logo.png" alt="SkillGRID" /></footer>
+    </main>
+    <script src="js/proctor-menu.js"></script>
+  </body>
+</html>

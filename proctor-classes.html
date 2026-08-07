@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WellSharp Proctor - Classes</title>
+    <link rel="stylesheet" href="https://iadc.wellsharp.org/js/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="css/proctor.css" />
+  </head>
+  <body>
+    <main class="proctor-shell">
+      <header class="topbar">
+        <img class="brand-logo" src="assets/iadcLoginLgo.png" alt="IADC WellSharp" />
+        <div class="user-tools">
+          <div class="user-line"><strong>Abraham Kotb</strong><button class="signout">Sign Out</button></div>
+          <a href="https://intellidata.tech/wellsharp/support1/" class="support-link" target="_blank" rel="noopener">Database/Program Assistance?</a>
+          <a href="https://intellidata.tech/wellsharp/support2/" class="support-link" target="_blank" rel="noopener">Proctor Assistance?</a>
+        </div>
+      </header>
+
+      <div class="main-area">
+        <aside class="proctor-sidebar">
+          <a class="nav-item" href="proctor-home.html"><span class="nav-icon">&#8962;</span>Home</a>
+          <a class="nav-item" href="proctor-profile.html"><span class="nav-icon">&#128100;</span>My Profile</a>
+          <a class="nav-item" href="proctor-analytics.html"><span class="nav-icon">&#9685;</span>Analytics</a>
+          <a class="nav-item active" href="proctor-classes.html"><span class="nav-icon">&#127891;</span>Classes</a>
+          <a class="nav-item" href="proctor-browse.html"><span class="nav-icon">&#127963;</span>Browse Classes</a>
+          <a class="nav-item" href="proctor-certificate.html"><span class="nav-icon">&#128269;</span>Certificate Lookup</a>
+          <button class="collapse-btn">Collapse</button>
+        </aside>
+
+        <section class="workspace classes-workspace">
+          <section class="panel map-panel classes-map-panel">
+            <div class="panel-title">Class Map</div>
+            <div class="panel-body">
+              <div id="classesLeafletMap" class="classes-leaflet-map"></div>
+              <div class="classes-map-fallback">
+                <div class="map-controls"><button>+</button><button>-</button></div>
+                <span class="pin classes-pin-egypt"></span>
+                <span class="pin classes-pin-kuwait"></span>
+                <span class="pin classes-pin-nigeria"></span>
+              </div>
+              <div class="map-filter classes-map-filter">
+                <span>Report Type:</span>
+                <select><option>Class History</option><option>Scheduled Classes</option></select>
+                <span>Time Frame:</span>
+                <select><option>All Time</option><option>Previous 1 Month</option></select>
+              </div>
+            </div>
+          </section>
+
+          <div class="upcoming-grid">
+            <section class="mini-panel">
+              <div class="panel-title">Ongoing/ Upcoming Classes</div>
+              <div class="panel-body">
+                <table class="status-table">
+                  <tr><th>Test Status</th><th>Course Dates</th><th>Location</th></tr>
+                  <tr>
+                    <td><span class="state-green"></span><a href="#" data-class-modal="details" data-class-state="open">Test Open and Active</a></td>
+                    <td>August 25 - 29</td>
+                    <td>Virtual, EG</td>
+                  </tr>
+                  <tr>
+                    <td><span class="state-blue"></span><a href="#" data-class-modal="details" data-class-state="notstarted">Test Not Started</a></td>
+                    <td>July 5 - 9</td>
+                    <td>LIVE, EG</td>
+                  </tr>
+                </table>
+              </div>
+            </section>
+
+            <div>
+              <section class="mini-panel">
+                <div class="panel-title">Calendar Filters</div>
+                <div class="panel-body calendar-filter-body">
+                  <div class="calendar-filter-compact">All Courses <button id="calendarFilterToggle">Filter</button></div>
+                  <div class="calendar-filter-expanded">
+                    <select><option>All Courses</option></select>
+                    <button id="calendarFilterClose">Show All Courses</button>
+                  </div>
+                </div>
+              </section>
+              <section class="mini-panel">
+                <div class="panel-title">Calendar Schedule</div>
+                <div class="calendar">
+                  <div class="calendar-head"><span>July 2026</span><span><button>today</button> <button>&lt;</button> <button>&gt;</button></span></div>
+                  <div class="calendar-grid">
+                    <div class="calendar-cell">Sun</div><div class="calendar-cell">Mon</div><div class="calendar-cell">Tue</div><div class="calendar-cell">Wed</div><div class="calendar-cell">Thu</div><div class="calendar-cell">Fri</div><div class="calendar-cell">Sat</div>
+                    <div class="calendar-cell">5</div><div class="calendar-cell">6<a class="calendar-event" href="#" data-class-modal="details" data-class-state="open">Abraham Kotb</a></div><div class="calendar-cell">7</div><div class="calendar-cell">8</div><div class="calendar-cell active-day">9</div><div class="calendar-cell">10</div><div class="calendar-cell">11</div>
+                    <div class="calendar-cell">12</div><div class="calendar-cell">13</div><div class="calendar-cell">14</div><div class="calendar-cell">15</div><div class="calendar-cell">16</div><div class="calendar-cell">17</div><div class="calendar-cell">18</div>
+                    <div class="calendar-cell">19</div><div class="calendar-cell">20</div><div class="calendar-cell">21</div><div class="calendar-cell">22</div><div class="calendar-cell">23</div><div class="calendar-cell">24</div><div class="calendar-cell">25</div>
+                    <div class="calendar-cell">26</div><div class="calendar-cell">27</div><div class="calendar-cell">28</div><div class="calendar-cell">29</div><div class="calendar-cell">30</div><div class="calendar-cell">31</div><div class="calendar-cell">1</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-copy"><a href="#">Technical Support</a><span>SkillGRID&reg; (online) | Version 3.0 | &copy; 2024 Indaptive Technologies Inc.</span></div>
+        <img class="footer-logo" src="assets/ws-login_SG-Logo.png" alt="SkillGRID" />
+      </footer>
+    </main>
+
+    <script src="js/proctor-menu.js"></script>
+    <script src="https://iadc.wellsharp.org/js/leaflet/leaflet.js"></script>
+    <script src="js/proctor-classes.js"></script>
+    <script src="js/proctor-class-modal.js"></script>
+  </body>
+</html>

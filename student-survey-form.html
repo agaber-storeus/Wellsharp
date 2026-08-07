@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WellSharp - Survey Questions</title>
+    <link rel="stylesheet" href="css/student.css" />
+  </head>
+  <body>
+    <main class="app-shell flow-shell">
+      <header class="topbar">
+        <img class="brand-logo" src="assets/iadcLoginLgo.png" alt="IADC WellSharp" />
+        <div class="user-tools">
+          <div class="user-line"><strong>ZAINAB RAHEEM KAREEM</strong><button class="signout">Sign Out</button></div>
+          <a href="https://intellidata.tech/wellsharp/support1/" class="support-link" target="_blank" rel="noopener">Database/Program Assistance?</a>
+          <a href="https://intellidata.tech/wellsharp/support2/" class="support-link" target="_blank" rel="noopener">Proctor Assistance?</a>
+        </div>
+      </header>
+      <div class="main-area">
+        <aside class="step-sidebar">
+          <a class="step" href="student-confirm.html"><b>1</b> Confirm Info</a>
+          <a class="step active" href="student-survey-start.html"><b>2</b> Survey</a>
+          <a class="step" href="student-proctor.html"><b>3</b> Take Exam</a>
+          <button class="collapse-btn">&lsaquo; Collapse</button>
+        </aside>
+        <section class="workspace">
+          <section class="wide-panel survey-intro">
+            <div class="panel-title">Course Feedback</div>
+            <div class="survey-copy">
+              <h1>Trainee Course Feedback</h1>
+              <p>The following survey allows IADC and accredited training providers to continually improve the WellSharp training and assessment process.</p>
+              <p>Your responses to the survey are completely anonymous and in no way traceable back to you. Survey results are returned to IADC only and collected for review and analysis of exam questions, your instructor's course performance, and your training provider's management of the WellSharp training delivery.</p>
+              <p>Please complete each survey question with the choice that you think best answers the question. Some survey questions allow for comments to be made. Though comments are desirable, they are not required.</p>
+            </div>
+          </section>
+          <section class="wide-panel survey-form-panel">
+            <div class="panel-title">Survey Questions</div>
+            <form class="survey-form">
+              <div class="question-row"><label>What is your current job position?</label><select data-options="jobPositions"><option>Select an Option</option></select></div>
+              <div class="question-row shade"><label>Would you recommend this training provider to your work colleagues?</label><select data-options="yesNo"><option>Select an Option</option></select></div>
+              <div class="question-row"><label>Please rate the classroom facilities.</label><select data-options="rating"><option>Select an Option</option></select></div>
+              <div class="question-row shade"><label>What is the name of the person who taught your class?</label><input placeholder="Instructor Name" /></div>
+              <div class="question-row"><label>How do you rate the instructor overall?</label><select data-options="rating"><option>Select an Option</option></select></div>
+              <div class="question-row shade"><label>How do you rate the instructor's knowledge of the subject matter?</label><select data-options="rating"><option>Select an Option</option></select></div>
+              <div class="question-row"><label>How do you rate the instructor's effort to ensure all trainees learned the material?</label><select data-options="rating"><option>Select an Option</option></select></div>
+              <div class="question-row shade"><label>How do you rate the instructor's preparedness?</label><select data-options="rating"><option>Select an Option</option></select></div>
+              <div class="question-row"><label>How do you rate your instructor's openness to questions from trainees?</label><select data-options="rating"><option>Select an Option</option></select></div>
+              <div class="question-row shade"><label>How do you rate the course material (handouts, presentations, visual aids)?</label><select data-options="rating"><option>Select an Option</option></select></div>
+              <div class="question-row"><label>If applicable, how many simulators were there available for trainees to use during the course?</label><select data-options="simulators"><option>Select an Option</option></select></div>
+              <div class="question-row shade"><label>If applicable, how much total time did you get to spend controlling the simulator?</label><select data-options="simulatorTime"><option>Select an Option</option></select></div>
+              <div class="question-row"><label>Did you receive a practical assessment on either a simulator or live well?</label><select data-options="yesNoAssessed"><option>Select an Option</option></select></div>
+              <div class="question-row shade"><label>How many trainees were allowed to use each simulator at the same time (i.e. how many people were in your simulator group)?</label><select data-options="simulatorGroup"><option>Select an Option</option></select></div>
+              <div class="question-row"><label>Approximately how much time was devoted to your practical assessment?</label><select data-options="assessmentTime"><option>Select an Option</option></select></div>
+              <div class="question-row shade tall"><label>When you did your Supervisors practical assessment were you the only person being assessed on the simulator? (Please do not count a person assisting you on the mud pumps or other people being assessed on another simulator)</label><select data-options="yesNoAssessed"><option>Select an Option</option></select></div>
+              <div class="question-row"><label>Did you find your simulator adequate for all of the practical exercise?</label><select data-options="yesNoAssessed"><option>Select an Option</option></select></div>
+              <div class="question-row shade"><label>Is there a Proctor (Invigilator) present to administer the final test?</label><select data-options="yesNo"><option>Select an Option</option></select></div>
+              <textarea placeholder="Additional Comments:"></textarea>
+              <div class="center-actions"><a class="green-btn arrow" href="student-proctor.html">Proceed</a></div>
+            </form>
+          </section>
+        </section>
+      </div>
+      <footer class="app-footer">
+        <div class="footer-copy"><a href="#">Technical Support</a><span>SkillGRID&reg; (online) | Version 3.0 | &copy; 2024 Indaptive Technologies Inc.</span></div>
+        <img class="footer-logo" src="assets/ws-login_SG-Logo.png" alt="SkillGRID" />
+      </footer>
+    </main>
+    <script>
+      const surveyOptions = {
+        rating: ["1: Poor", "2: Fair", "3: Average", "4: Good", "5: Excellent"],
+        yesNo: ["Yes", "No"],
+        yesNoAssessed: ["Yes", "No", "Not yet assessed"],
+        simulators: ["No Available Simulators", "1 Available Simulator", "2 Available Simulators", "3 Available Simulators", "More than 3 Simulators", "Not yet assessed"],
+        simulatorTime: ["0 Hours", "1 Hour", "2 Hours", "3 Hours", "4 or More Hours", "Not yet assessed"],
+        simulatorGroup: ["Between 1-3 Trainees", "More than 4 Trainees", "Not yet assessed"],
+        assessmentTime: ["0 Minutes", "15 Minutes", "30 Minutes", "45 Minutes", "More than 45 Minutes"],
+        jobPositions: [
+          "Assistant Driller",
+          "Assistant Wellsite Supervisor / Wellsite Drilling Engineer",
+          "Barge Engineer",
+          "BOP/Subsea Engineer",
+          "Captain/Master",
+          "Casing Crew Supervisor",
+          "Casing running personnel",
+          "Casing-crew (non-supervisory)",
+          "Cementer",
+          "Coiled Tubing Driller",
+          "Company Representative (day & night)",
+          "Crane Operator",
+          "Deck Crew",
+          "Derrickman",
+          "Directional Driller",
+          "Downhole Equipment Specialists/Operators",
+          "Driller",
+          "Drilling Manager",
+          "Drilling/Intervention Wellsite Supervisor (day & night)",
+          "Dynamic Positioning Officer",
+          "Fishing Tool Operators (non-pressure operations)",
+          "Floorman",
+          "Intervention Manager",
+          "LMRP Engineer",
+          "Logistics supervisors",
+          "MPD/UBD wellsite service personnel",
+          "MPD/UBD Wellsite Supervisor",
+          "Mud Engineer",
+          "Mud Logger/Wellsite Drilling Data Engineer",
+          "MWD/LWD, Surveying Engineer or Operator",
+          "Office-based Drilling Engineer/Senior Drilling Engineer",
+          "Office-based Drilling Manager",
+          "Office-based Drilling Supervisor / Superintendent",
+          "Office-based Intervention",
+          "Office-based Intervention/Workover Engineer/Senior Engineer",
+          "Office-based logistics coordinator",
+          "Office-based Operations Geologist",
+          "Office-based Rig Manager",
+          "Office-based Wellsite Completions Engineer/Senior Completions Engineer",
+          "Office-based Workover Manager",
+          "Oilfield Equipment Tepair Personnel",
+          "OIM for mobile offshore drilling and intervention units",
+          "Onshore monitoring crew",
+          "Operator Offshore Installation Manager (OIM)",
+          "Other non-supervisory and non-critical drilling or intervention personnel",
+          "Pit Hand",
+          "Pump Hand",
+          "Rig Move Captain",
+          "Rig Move Offshore Installation Manager",
+          "Rig Superintendent Offshore",
+          "Roustabout",
+          "ROV personnel (non-supervisory)",
+          "ROV personnel (supervisory)",
+          "Subsea Engineer",
+          "Superintendent (day & night)",
+          "Supply and support vessel Watch Officers and Captains",
+          "Toolpusher",
+          "Tubular and rig inspection personnel",
+          "Well Control Engineers",
+          "Well Control Specialists",
+          "Well Control Trainers",
+          "Wellsite Engineer",
+          "Wellsite Geologist",
+          "Wireline/Slickline crews (non-Supervisory)"
+        ]
+      };
+
+      document.querySelectorAll("select[data-options]").forEach((select) => {
+        const options = surveyOptions[select.dataset.options] || [];
+        select.innerHTML = '<option value="">Select an Option</option>' + options.map((item) => `<option>${item}</option>`).join("");
+      });
+    </script>
+  </body>
+</html>

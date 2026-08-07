@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WellSharp Proctor - Browse Results</title>
+    <link rel="stylesheet" href="css/proctor.css" />
+  </head>
+  <body>
+    <main class="proctor-shell">
+      <header class="topbar"><img class="brand-logo" src="assets/iadcLoginLgo.png" alt="IADC WellSharp" /><div class="user-tools"><div class="user-line"><strong>Abraham Kotb</strong><button class="signout">Sign Out</button></div><a href="https://intellidata.tech/wellsharp/support1/" class="support-link" target="_blank" rel="noopener">Database/Program Assistance?</a><a href="https://intellidata.tech/wellsharp/support2/" class="support-link" target="_blank" rel="noopener">Proctor Assistance?</a></div></header>
+      <div class="main-area">
+                        <aside class="proctor-sidebar">
+          <a class="nav-item" href="proctor-home.html"><span class="nav-icon">&#8962;</span>Home</a>
+          <a class="nav-item" href="proctor-profile.html"><span class="nav-icon">&#128100;</span>My Profile</a>
+          <a class="nav-item" href="proctor-analytics.html"><span class="nav-icon">&#9685;</span>Analytics</a>
+          <a class="nav-item" href="proctor-classes.html"><span class="nav-icon">&#127891;</span>Classes</a>
+          <a class="nav-item active" href="proctor-browse.html"><span class="nav-icon">&#127963;</span>Browse Classes</a>
+          <a class="nav-item" href="proctor-certificate.html"><span class="nav-icon">&#128269;</span>Certificate Lookup</a>
+          <button class="collapse-btn">Collapse</button>
+        </aside>
+        <section class="workspace browse-results-workspace">
+          <section class="panel">
+            <div class="panel-title">Search Options</div>
+            <div class="panel-body">
+              <form class="search-form">
+                <div><div class="form-line"><label>Class Title or ID:</label><input /></div><div class="form-line"><label>Date Filter:</label><div class="date-inputs"><input value="07/01/2025" /><span>to</span><input value="07/31/2026" /></div></div><div class="form-line"><label>Exam Date:</label><input placeholder="Test Date" /></div><div class="form-line"><label>City:</label><input /></div><div class="form-line"><label>Country:</label><select><option>All Countries</option></select></div><div class="form-line"><label>State:</label><select><option>All States</option></select></div></div>
+                <div><div class="form-line"><label>Course:</label><select><option>All Courses</option></select></div><div class="form-line"><label>Instructor:</label><select><option>All Instructors</option></select></div><div class="form-line"><label>Retakes:</label><select><option>(All)</option></select></div><div class="form-line"><label>Deployment:</label><select><option>Select an Option</option></select></div></div>
+                <div class="search-actions"><a class="blue-btn" href="proctor-browse-results.html">Search Classes</a></div>
+              </form>
+            </div>
+          </section>
+          <a class="export-btn" href="#">Export Excel</a>
+          <table class="results-table browse-results-table">
+            <thead><tr><th>Class ID</th><th>Title</th><th>Class Status</th><th>Provider</th><th>Instructor</th><th>Location</th><th>Course</th><th>Exam Date</th><th>Course Dates</th><th>Users</th><th>Retakes</th><th>Duration</th><th>Deployment</th><th>Proctor</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="notstarted">004F3BED</a></td><td>Live-Driller-1</td><td><span class="status-dot status-scheduled"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>Cairo - Egypt</td><td>Drilling Operations Driller (Live)</td><td>2025-04-18 9:00:00 am</td><td>April 14 - 17</td><td>2</td><td>0</td><td>4:30</td><td>Online</td><td>Emergency Code</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="open">03555D38</a></td><td>IADC SUPER 11</td><td><span class="status-dot status-active"></span> Exam Active</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>Virtual - Egypt</td><td>Drilling Operations Supervisor (Live)</td><td>2025-08-29 10:00:00 am</td><td>August 25 - 29</td><td>12</td><td>0</td><td>In Progress</td><td>Online</td><td>Emergency Code</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">06535EA9</a></td><td>Driller 3</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>CAIRO, EGYPT - Egypt</td><td>Drilling Operations Driller</td><td>2024-12-19 10:00:00 am</td><td>December 15 - 19</td><td>6</td><td>0</td><td>4:42</td><td>Online</td><td>Ashraf Amin Abd El- Rahman Aly</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">072D4F54</a></td><td>Supervisor29</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>cairo - Egypt</td><td>Drilling Operations Supervisor</td><td>2025-09-04 9:00:00 am</td><td>August 31 - September 3</td><td>18</td><td>0</td><td>2 Days 12 Hours</td><td>Online</td><td>Ashraf Amin Abd El- Rahman Aly</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">075957DA</a></td><td>driller25</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>Bro training camp - Egypt</td><td>Drilling Operations Supervisor</td><td>2025-10-02 10:00:00 am</td><td>September 28 - October 1</td><td>18</td><td>0</td><td>3 Days 23 Hours</td><td>Online</td><td>Mohammed Mottaz Farghal</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">0989FE03</a></td><td>Supervisor</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>EGYPT - Egypt</td><td>Drilling Operations Supervisor</td><td>2025-04-24 9:00:00 am</td><td>April 20 - 23</td><td>18</td><td>0</td><td>3:57</td><td>Online</td><td>Mohammed Mottaz Farghal</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">0A482090</a></td><td>driller7</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>cairo - Egypt</td><td>Drilling Operations Driller</td><td>2025-02-27 10:00:00 am</td><td>February 23 - 26</td><td>8</td><td>0</td><td>4:38</td><td>Online</td><td>Ashraf Amin Abd El- Rahman Aly</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">0E199FC0</a></td><td>Instructor 1</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>CAIRO, EGYPT - Egypt</td><td>Instructor Well Servicing Coiled Tubing</td><td>2024-12-26 10:00:00 am</td><td>December 22 - 26</td><td>8</td><td>0</td><td>4:32</td><td>Online</td><td>Mohammed Mottaz Farghal</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">0F67B342</a></td><td>RESET INTRODUCTORY9</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>NEW MAADI - Egypt</td><td>Drilling Operations Introductory</td><td>2025-08-04 8:00:00 pm</td><td>August 4</td><td>1</td><td><span class="retake-badge">1</span></td><td>0:08</td><td>Online</td><td>n/a</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">1034EDFC</a></td><td>introductory8</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>cairo - Egypt</td><td>Drilling Operations Introductory</td><td>2025-07-22 10:00:00 am</td><td>July 21 - 22</td><td>3</td><td>0</td><td>1 Days 2 Hours</td><td>Online</td><td>n/a</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">1316DE85</a></td><td>Driller</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>Cairo - Egypt</td><td>Drilling Operations Supervisor</td><td>2024-11-21 10:00:00 am</td><td>November 19 - 21</td><td>12</td><td>0</td><td>5:22</td><td>Online</td><td>Mohammed Mottaz Farghal <a href="#">(Survey Complete)</a></td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">13B19267</a></td><td>Supervisor27</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>Cairo - Egypt</td><td>Drilling Operations Supervisor</td><td>2025-07-31 10:00:00 am</td><td>July 27 - 30</td><td>18</td><td>0</td><td>14 Days 8 Hours</td><td>Online</td><td>Ashraf Amin Abd El- Rahman Aly</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">146EB0F4</a></td><td>Supervisor11</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>cairo - Egypt</td><td>Drilling Operations Supervisor</td><td>2025-02-13 10:00:00 am</td><td>February 9 - 12</td><td>18</td><td>0</td><td>3:29</td><td>Online</td><td>Mohammed Mottaz Farghal</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">1C52A6B5</a></td><td>supervisor 2506</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>cairo - Egypt</td><td>Drilling Operations Supervisor</td><td>2026-06-24 9:00:00 am</td><td>June 20 - 24</td><td>3</td><td>0</td><td>1:15</td><td>Online</td><td>Mohammed Mottaz Farghal</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">2183EA98</a></td><td>Driller10</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>cairo - Egypt</td><td>Drilling Operations Driller</td><td>2025-07-17 9:00:00 am</td><td>July 13 - 16</td><td>18</td><td>0</td><td>60 Days 1 Hours</td><td>Online</td><td>Ashraf Amin Abd El- Rahman Aly</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">2A6D294D</a></td><td>driller17</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>CAIRO, EGYPT - Egypt</td><td>Drilling Operations Driller</td><td>2025-09-16 9:00:00 am</td><td>September 12 - 15</td><td>1</td><td>0</td><td>0:00</td><td>Online</td><td>Hussein Momen Ibrahim <span class="survey-incomplete">Survey Incomplete</span></td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">37D56CDD</a></td><td>supervisor</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>cairo - Egypt</td><td>Drilling Operations Supervisor</td><td>2025-10-14 11:00:00 am</td><td>October 10 - 14</td><td>18</td><td>0</td><td>5:05</td><td>Online</td><td>Mohammed Mottaz Farghal</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">4A543FB3</a></td><td>supervisor17</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>KHARTOOM - Sudan</td><td>Drilling Operations Supervisor</td><td>2025-04-17 9:00:00 am</td><td>April 13 - 16</td><td>11</td><td>0</td><td>1:43</td><td>Online</td><td>Abdellah Omer Ibrahim Mohammed</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">50F771C6</a></td><td>Introductory3</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>CAIRO, EGYPT - Egypt</td><td>Drilling Operations Introductory</td><td>2025-01-15 1:00:00 pm</td><td>January 14</td><td>7</td><td>0</td><td>8:20</td><td>Online</td><td>n/a</td></tr>
+              <tr><td><a href="#" data-class-modal="details" data-class-state="ended">6BC2F7FF</a></td><td>IADC Workover_2</td><td><span class="status-dot status-ended"></span> Class Ended</td><td>Bro Well Control School</td><td>Abraham Kotb</td><td>Bro training camp - Egypt</td><td>Instructor Well Servicing Workover</td><td>2025-05-29 9:00:00 am</td><td>May 29</td><td>1</td><td>0</td><td>2:08</td><td>Online</td><td>Ashraf Amin Abd El- Rahman Aly</td></tr>
+            </tbody>
+          </table>
+          <p class="results-caption">Showing 1 to 50 of 116 entries</p><div class="pagination"><span>Previous</span><span class="page-box">1</span><span>2</span><span>3</span><span>Next</span></div>
+        </section>
+      </div>
+      <footer class="footer"><div class="footer-copy"><a href="#">Technical Support</a><span>SkillGRID&reg; (online) | Version 3.0 | &copy; 2024 Indaptive Technologies Inc.</span></div><img class="footer-logo" src="assets/ws-login_SG-Logo.png" alt="SkillGRID" /></footer>
+    </main>
+    <script src="js/proctor-menu.js"></script>
+    <script src="js/proctor-class-modal.js"></script>
+  </body>
+</html>
+

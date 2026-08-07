@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WellSharp Proctor - Analytics</title>
+    <link rel="stylesheet" href="css/proctor.css" />
+  </head>
+  <body>
+    <main class="proctor-shell">
+      <header class="topbar"><img class="brand-logo" src="assets/iadcLoginLgo.png" alt="IADC WellSharp" /><div class="user-tools"><div class="user-line"><strong>Abraham Kotb</strong><button class="signout">Sign Out</button></div><a href="https://intellidata.tech/wellsharp/support1/" class="support-link" target="_blank" rel="noopener">Database/Program Assistance?</a><a href="https://intellidata.tech/wellsharp/support2/" class="support-link" target="_blank" rel="noopener">Proctor Assistance?</a></div></header>
+      <div class="main-area">
+                        <aside class="proctor-sidebar">
+          <a class="nav-item" href="proctor-home.html"><span class="nav-icon">&#8962;</span>Home</a>
+          <a class="nav-item" href="proctor-profile.html"><span class="nav-icon">&#128100;</span>My Profile</a>
+          <a class="nav-item active" href="proctor-analytics.html"><span class="nav-icon">&#9685;</span>Analytics</a>
+          <a class="nav-item small" href="proctor-analytics-search.html"><span class="nav-icon">&#9636;</span>Assessments</a>
+          <a class="nav-item small active" href="proctor-analytics.html"><span class="nav-icon">&#127891;</span>Classes</a>
+          <a class="nav-item" href="proctor-classes.html"><span class="nav-icon">&#127891;</span>Classes</a>
+          <a class="nav-item" href="proctor-browse.html"><span class="nav-icon">&#127963;</span>Browse Classes</a>
+          <a class="nav-item" href="proctor-certificate.html"><span class="nav-icon">&#128269;</span>Certificate Lookup</a>
+          <button class="collapse-btn">Collapse</button>
+        </aside>
+        <section class="workspace analytics-classes-workspace">
+          <div class="analytics-top"><strong>Date Range:</strong><select><option>All Time</option><option>Custom Date Range</option><option>Previous 1 Month</option><option>Previous 6 Months</option></select><strong>Roles:</strong><select><option>Trainees</option><option>Instructors</option><option>Proctors</option></select><a class="blue-btn" href="#">Search</a></div>
+          <span class="overview-tab">Overview</span>
+          <div class="overview-line"></div>
+          <div class="class-metrics">
+            <span><strong>99</strong> Total Classes</span>
+            <span><strong>11.8</strong> Average Class Size</span>
+            <span><strong>0.2</strong> Classes per Week</span>
+            <span><strong>0.7</strong> Classes per Month</span>
+          </div>
+          <h1 class="classes-over-time-title">Classes Over Time</h1>
+          <div class="classes-chart-controls">
+            <label><strong>Course Levels:</strong> <select><option>All selected</option><option>Drilling Operations Driller</option><option>Drilling Operations Supervisor</option><option>Instructor Well Servicing</option></select></label>
+            <label><strong>Time Periods:</strong> <select><option>By Week</option><option>By Month</option><option>By Quarter</option></select></label>
+            <label><strong>Graph Type:</strong> <select><option>Bar Chart</option><option>Line Chart</option></select></label>
+          </div>
+          <section class="classes-time-chart" aria-label="Classes over time chart">
+            <div class="classes-y-axis"><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span></div>
+            <div class="classes-bars">
+              <div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:96px"><b>3</b></div><div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar zero"><b>0</b></div>
+              <div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar" style="height:96px"><b>3</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:96px"><b>3</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar" style="height:96px"><b>3</b></div><div class="week-bar zero"><b>0</b></div>
+              <div class="week-bar zero"><b>0</b></div><div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:96px"><b>3</b></div><div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar" style="height:96px"><b>3</b></div><div class="week-bar" style="height:128px"><b>4</b></div><div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:96px"><b>3</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar" style="height:64px"><b>2</b></div>
+              <div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:128px"><b>4</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:96px"><b>3</b></div><div class="week-bar" style="height:64px"><b>2</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar" style="height:96px"><b>3</b></div><div class="week-bar" style="height:128px"><b>4</b></div><div class="week-bar" style="height:32px"><b>1</b></div>
+              <div class="week-bar" style="height:96px"><b>3</b></div><div class="week-bar" style="height:224px"><b>7</b></div><div class="week-bar" style="height:128px"><b>4</b></div><div class="week-bar" style="height:128px"><b>4</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div>
+              <div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div>
+              <div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar zero"><b>0</b></div><div class="week-bar" style="height:32px"><b>1</b></div><div class="week-bar" style="height:32px"><b>1</b></div>
+            </div>
+          </section>
+          <div class="classes-chart-dates"><span>10/2024[3]</span><span>11/2024[3]</span><span>12/2024[2]</span><span>1/2025[2]</span><span>2/2025[2]</span><span>3/2025[2]</span><span>4/2025[1]</span><span>5/2025[1]</span><span>6/2025[4]</span><span>7/2025[4]</span><span>8/2025[4]</span><span>9/2025[3]</span><span>10/2025[3]</span><span>11/2025[3]</span><span>12/2025[2]</span><span>1/2026[2]</span><span>2/2026[1]</span><span>3/2026[1]</span><span>4/2026[1]</span><span>5/2026[5]</span><span>6/2026[4]</span></div>
+          <div class="classes-chart-legend"><span></span>Classes</div>
+        </section>
+      </div>
+      <footer class="footer"><div class="footer-copy"><a href="#">Technical Support</a><span>SkillGRID&reg; (online) | Version 3.0 | &copy; 2024 Indaptive Technologies Inc.</span></div><img class="footer-logo" src="assets/ws-login_SG-Logo.png" alt="SkillGRID" /></footer>
+    </main>
+    <script src="js/proctor-menu.js"></script>
+  </body>
+</html>
+

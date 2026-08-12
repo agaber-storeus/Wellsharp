@@ -1,0 +1,324 @@
+openapi: 3.0.3
+info:
+  title: WellSharp Same-Origin JSON Contract
+  version: 1.0.0
+  description: |
+    JSON endpoints used by the authenticated Laravel Blade/Alpine.js interfaces.
+    This is not a bearer-token REST API: the application uses Laravel session
+    authentication and CSRF protection. There is no routes/api.php in the project.
+servers:
+  - url: '{baseUrl}'
+    variables:
+      baseUrl:
+        default: http://localhost
+tags:
+  - name: Authentication
+  - name: Admin data
+  - name: Admin configuration
+  - name: Operational control
+  - name: Student attempt
+paths:
+  /login:
+    get:
+      tags: [Authentication]
+      operationId: loginForm
+      summary: Render the login form
+      responses:
+        '200': { description: Login HTML form. }
+    post:
+      tags: [Authentication]
+      operationId: login
+      summary: Create a Laravel web session
+      description: Submit a CSRF-protected form. Success is an HTTP redirect; preserve the session cookie.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '302': { description: Redirect to the current role landing page. }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/users/data:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: adminUsersData
+      summary: List admin users
+      parameters:
+        - { $ref: '#/components/parameters/Search' }
+        - { name: role_id, in: query, schema: { type: integer } }
+        - { $ref: '#/components/parameters/Status' }
+        - { $ref: '#/components/parameters/Sort' }
+        - { $ref: '#/components/parameters/Direction' }
+        - { $ref: '#/components/parameters/Page' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedUserPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/students/data:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: adminStudentsData
+      summary: List Students
+      parameters:
+        - { $ref: '#/components/parameters/Search' }
+        - { name: gender, in: query, schema: { type: string, enum: [Male, Female] } }
+        - { name: group_id, in: query, schema: { type: integer } }
+        - { $ref: '#/components/parameters/Sort' }
+        - { $ref: '#/components/parameters/Direction' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PerPage' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/groups/data:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: adminGroupsData
+      summary: List Groups
+      parameters:
+        - { $ref: '#/components/parameters/Search' }
+        - { $ref: '#/components/parameters/Status' }
+        - { $ref: '#/components/parameters/Sort' }
+        - { $ref: '#/components/parameters/Direction' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PerPage' }
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/groups/search:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: searchGroups
+      summary: Search active Groups
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 2 } }
+      responses:
+        '200': { description: Matching Groups, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/GroupSearchItem' } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/providers/data:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: adminProvidersData
+      summary: List training providers
+      parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/subjects/data:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: adminSubjectsData
+      summary: 'List Subjects (technical model: Course)'
+      parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/questions/data:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: adminQuestionsData
+      summary: List question-bank records
+      parameters: [ { $ref: '#/components/parameters/Search' }, { name: course_id, in: query, schema: { type: integer } }, { name: difficulty, in: query, schema: { type: string, enum: [easy, medium, hard] } }, { name: type, in: query, schema: { type: string, enum: [true_false, mcq, input] } }, { name: status, in: query, schema: { type: string, enum: [active, archived] } }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/exams/data:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: adminExamsData
+      summary: List Exam definitions
+      parameters: [ { $ref: '#/components/parameters/Search' }, { name: course_id, in: query, schema: { type: integer } }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/exam-schedules/data:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: adminExamSchedulesData
+      summary: List Exam Schedules
+      parameters: [ { $ref: '#/components/parameters/Search' }, { name: exam_id, in: query, schema: { type: integer } }, { name: group_id, in: query, schema: { type: integer } }, { name: course_id, in: query, schema: { type: integer } }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/classes/data:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: adminClassesData
+      summary: List operational Classes
+      parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { name: course_id, in: query, schema: { type: integer } }, { name: provider_id, in: query, schema: { type: integer } }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/certificates/data:
+    get:
+      tags: [Admin data]
+      security: [{ laravelSession: [] }]
+      operationId: adminCertificatesData
+      summary: List certificate records
+      parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
+      responses:
+        '200': { $ref: '#/components/responses/PaginatedPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /{role}/proctor-id/verify:
+    post:
+      tags: [Operational control]
+      security: [{ laravelSession: [] }]
+      operationId: verifyOwnControlId
+      summary: Verify the authenticated Proctor/Instructor control ID
+      parameters: [ { $ref: '#/components/parameters/RolePath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ControlIdRequest' }
+      responses:
+        '200': { description: Verified, content: { application/json: { schema: { $ref: '#/components/schemas/VerifyControlResponse' } } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /{role}/classes/{trainingClass}/exam-control:
+    post:
+      tags: [Operational control]
+      security: [{ laravelSession: [] }]
+      operationId: controlClass
+      summary: Start or end a Class/Exam
+      parameters: [ { $ref: '#/components/parameters/RolePath' }, { name: trainingClass, in: path, required: true, schema: { type: string, example: 01KZMH1TX1B89J3BTTSPBW04VXJ } } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ControlExamRequest' }
+      responses:
+        '200': { description: Transition applied, content: { application/json: { schema: { $ref: '#/components/schemas/ControlExamResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /student/attempts/{attempt}/questions/{attemptQuestion}/answer:
+    patch:
+      tags: [Student attempt]
+      security: [{ laravelSession: [] }]
+      operationId: saveAttemptAnswer
+      summary: Autosave one student answer
+      parameters: [ { name: attempt, in: path, required: true, schema: { type: string } }, { name: attemptQuestion, in: path, required: true, schema: { type: integer } } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AnswerRequest' }
+      responses:
+        '200': { description: Answer saved, content: { application/json: { schema: { $ref: '#/components/schemas/AnswerResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /student/attempts/{attempt}/expire:
+    post:
+      tags: [Student attempt]
+      security: [{ laravelSession: [] }]
+      operationId: expireAttempt
+      summary: Persist expiration of an expired attempt
+      parameters: [ { name: attempt, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '200': { description: Expired state, content: { application/json: { schema: { $ref: '#/components/schemas/ExpireResponse' } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /logout:
+    post:
+      tags: [Authentication]
+      security: [{ laravelSession: [] }]
+      operationId: logout
+      summary: End the Laravel web session
+      responses:
+        '302': { description: Redirect to the login page. }
+        '419': { description: CSRF token mismatch. }
+components:
+  securitySchemes:
+    laravelSession:
+      type: apiKey
+      in: cookie
+      name: laravel_session
+      description: Laravel session cookie. State-changing browser calls also require the CSRF token.
+  parameters:
+    Search: { name: search, in: query, schema: { type: string } }
+    Status: { name: status, in: query, schema: { type: string } }
+    Sort: { name: sort, in: query, schema: { type: string } }
+    Direction: { name: direction, in: query, schema: { type: string, enum: [asc, desc], default: desc } }
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PerPage: { name: per_page, in: query, schema: { type: integer, enum: [15, 30, 50, 100], default: 15 } }
+    RolePath: { name: role, in: path, required: true, schema: { type: string, enum: [proctor, instructor] } }
+  schemas:
+    LoginRequest:
+      type: object
+      required: [wellsharp_id, password]
+      properties:
+        wellsharp_id: { type: string, maxLength: 64, example: DEMO-ADMIN-001 }
+        password: { type: string, format: password, example: 'use-a-local-demo-password' }
+    ControlIdRequest:
+      type: object
+      required: [proctor_id]
+      properties: { proctor_id: { type: string, maxLength: 32, example: PR-DEMO-PROCTOR-001 } }
+    ControlExamRequest:
+      allOf:
+        - $ref: '#/components/schemas/ControlIdRequest'
+        - type: object
+          required: [action]
+          properties: { action: { type: string, enum: [start, end] } }
+    AnswerRequest:
+      type: object
+      required: [answer]
+      properties: { answer: { type: string, nullable: true, maxLength: 5000, example: 'true' } }
+    PaginatedPayload:
+      type: object
+      properties:
+        data: { type: array, items: { type: object, additionalProperties: true } }
+        meta: { $ref: '#/components/schemas/PaginationMeta' }
+    PaginationMeta:
+      type: object
+      properties:
+        current_page: { type: integer }
+        last_page: { type: integer }
+        total: { type: integer }
+        from: { type: integer, nullable: true }
+        to: { type: integer, nullable: true }
+    GroupSearchItem:
+      type: object
+      properties: { id: { type: integer }, name: { type: string }, code: { type: string, nullable: true } }
+    VerifyControlResponse:
+      type: object
+      properties: { message: { type: string }, proctor_name: { type: string } }
+    ControlExamResponse:
+      type: object
+      properties:
+        message: { type: string }
+        class:
+          type: object
+          properties: { id: { type: string }, status: { type: string }, starts_at: { type: string, format: date-time, nullable: true }, ends_at: { type: string, format: date-time, nullable: true } }
+        proctor_name: { type: string, nullable: true }
+        schedules_controlled: { type: integer }
+    AnswerResponse:
+      type: object
+      properties: { saved: { type: boolean }, answered: { type: boolean }, answered_count: { type: integer } }
+    ExpireResponse:
+      type: object
+      properties: { expired: { type: boolean } }
+  responses:
+    Forbidden: { description: Authorization failed. }
+    NotFound: { description: Resource not found. }
+    RateLimited: { description: Too many login attempts. }
+    ValidationError:
+      description: Laravel validation or business-rule failure.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string }
+              errors: { type: object, additionalProperties: { type: array, items: { type: string } } }

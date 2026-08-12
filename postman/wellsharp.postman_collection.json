@@ -1,0 +1,168 @@
+{
+  "info": {
+    "_postman_id": "wellsharp-session-json-contract",
+    "name": "WellSharp - Session JSON Contract",
+    "description": "Examples for the implemented Laravel web and same-origin JSON endpoints. Authenticate with the Login request first, preserve the Laravel session cookie, and provide the CSRF token for state-changing requests. This collection does not use bearer tokens and does not contain real credentials.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost" },
+    { "key": "wellsharp_id", "value": "DEMO-ADMIN-001" },
+    { "key": "password", "value": "" },
+    { "key": "csrf_token", "value": "" },
+    { "key": "role", "value": "proctor" },
+    { "key": "training_class", "value": "01KZMH1TX1B89J3BTTSPBW04VXJ" },
+    { "key": "attempt", "value": "replace-with-attempt-id" },
+    { "key": "attempt_question", "value": "1" },
+    { "key": "control_id", "value": "replace-with-your-control-id" },
+    { "key": "certificate", "value": "replace-with-certificate-id" },
+    { "key": "document", "value": "replace-with-document-id" }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login form",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "text/html" },
+              { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "wellsharp_id", "value": "{{wellsharp_id}}", "type": "text" },
+                { "key": "password", "value": "{{password}}", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "url": { "raw": "{{base_url}}/logout", "host": ["{{base_url}}"], "path": ["logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin data requests",
+      "description": "These individual requests cover the admin table JSON endpoints.",
+      "item": [
+        { "name": "Users", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" }, { "key": "X-Requested-With", "value": "XMLHttpRequest" } ], "url": { "raw": "{{base_url}}/admin/users/data?search=&page=1", "host": ["{{base_url}}"], "path": ["admin", "users", "data"], "query": [ { "key": "search", "value": "" }, { "key": "page", "value": "1" } ] } } },
+        { "name": "Students", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" } ], "url": { "raw": "{{base_url}}/admin/students/data?page=1", "host": ["{{base_url}}"], "path": ["admin", "students", "data"], "query": [ { "key": "page", "value": "1" } ] } } },
+        { "name": "Groups", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" } ], "url": { "raw": "{{base_url}}/admin/groups/data?page=1", "host": ["{{base_url}}"], "path": ["admin", "groups", "data"], "query": [ { "key": "page", "value": "1" } ] } } },
+        { "name": "Group search", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" } ], "url": { "raw": "{{base_url}}/admin/groups/search?q=demo", "host": ["{{base_url}}"], "path": ["admin", "groups", "search"], "query": [ { "key": "q", "value": "demo" } ] } } },
+        { "name": "Providers", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" } ], "url": { "raw": "{{base_url}}/admin/providers/data?page=1", "host": ["{{base_url}}"], "path": ["admin", "providers", "data"], "query": [ { "key": "page", "value": "1" } ] } } },
+        { "name": "Subjects", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" } ], "url": { "raw": "{{base_url}}/admin/subjects/data?page=1", "host": ["{{base_url}}"], "path": ["admin", "subjects", "data"], "query": [ { "key": "page", "value": "1" } ] } } },
+        { "name": "Questions", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" } ], "url": { "raw": "{{base_url}}/admin/questions/data?page=1", "host": ["{{base_url}}"], "path": ["admin", "questions", "data"], "query": [ { "key": "page", "value": "1" } ] } } },
+        { "name": "Exams", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" } ], "url": { "raw": "{{base_url}}/admin/exams/data?page=1", "host": ["{{base_url}}"], "path": ["admin", "exams", "data"], "query": [ { "key": "page", "value": "1" } ] } } },
+        { "name": "Exam schedules", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" } ], "url": { "raw": "{{base_url}}/admin/exam-schedules/data?page=1", "host": ["{{base_url}}"], "path": ["admin", "exam-schedules", "data"], "query": [ { "key": "page", "value": "1" } ] } } },
+        { "name": "Classes", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" } ], "url": { "raw": "{{base_url}}/admin/classes/data?page=1", "host": ["{{base_url}}"], "path": ["admin", "classes", "data"], "query": [ { "key": "page", "value": "1" } ] } } },
+        { "name": "Certificates", "request": { "method": "GET", "header": [ { "key": "Accept", "value": "application/json" } ], "url": { "raw": "{{base_url}}/admin/certificates/data?page=1", "host": ["{{base_url}}"], "path": ["admin", "certificates", "data"], "query": [ { "key": "page", "value": "1" } ] } } }
+      ]
+    },
+    {
+      "name": "Admin configuration",
+      "item": [
+        {
+          "name": "Create reference value",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Managed Pressure\",\n  \"sort_order\": 0\n}" },
+            "url": { "raw": "{{base_url}}/admin/subject-configuration/levels", "host": ["{{base_url}}"], "path": ["admin", "subject-configuration", "levels"] }
+          }
+        },
+        {
+          "name": "Reorder reference values",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"order\": [3, 1, 2]\n}" },
+            "url": { "raw": "{{base_url}}/admin/subject-configuration/levels/reorder", "host": ["{{base_url}}"], "path": ["admin", "subject-configuration", "levels", "reorder"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Operational control",
+      "item": [
+        {
+          "name": "Verify own control ID",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"proctor_id\": \"{{control_id}}\"\n}" },
+            "url": { "raw": "{{base_url}}/{{role}}/proctor-id/verify", "host": ["{{base_url}}"], "path": ["{{role}}", "proctor-id", "verify"] }
+          }
+        },
+        {
+          "name": "Start or end Class/Exam",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"start\",\n  \"proctor_id\": \"{{control_id}}\"\n}" },
+            "url": { "raw": "{{base_url}}/{{role}}/classes/{{training_class}}/exam-control", "host": ["{{base_url}}"], "path": ["{{role}}", "classes", "{{training_class}}", "exam-control"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student attempt",
+      "item": [
+        {
+          "name": "Autosave answer",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"answer\": \"true\"\n}" },
+            "url": { "raw": "{{base_url}}/student/attempts/{{attempt}}/questions/{{attempt_question}}/answer", "host": ["{{base_url}}"], "path": ["student", "attempts", "{{attempt}}", "questions", "{{attempt_question}}", "answer"] }
+          }
+        },
+        {
+          "name": "Expire attempt",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "url": { "raw": "{{base_url}}/student/attempts/{{attempt}}/expire", "host": ["{{base_url}}"], "path": ["student", "attempts", "{{attempt}}", "expire"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Certificates and exports",
+      "item": [
+        {
+          "name": "Download certificate PDF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/certificates/{{certificate}}/documents/{{document}}/download", "host": ["{{base_url}}"], "path": ["certificates", "{{certificate}}", "documents", "{{document}}", "download"] }
+          }
+        },
+        {
+          "name": "Export operational certificates CSV",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Accept", "value": "text/csv" } ],
+            "url": { "raw": "{{base_url}}/{{role}}/certificate/export", "host": ["{{base_url}}"], "path": ["{{role}}", "certificate", "export"] }
+          }
+        }
+      ]
+    }
+  ]
+}

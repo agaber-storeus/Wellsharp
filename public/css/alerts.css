@@ -1,0 +1,192 @@
+:root {
+  --ws-alert-success: #0f9f78;
+  --ws-alert-error: #e04f61;
+  --ws-alert-text: #17364f;
+}
+
+.global-alert,
+.alert,
+.message-bar,
+.login-error {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .72);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .92), rgba(240, 248, 252, .72));
+  box-shadow: 0 14px 32px rgba(20, 54, 78, .16), inset 0 1px 0 rgba(255, 255, 255, .9);
+  color: var(--ws-alert-text);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+  animation: wellsharp-alert-in .45s cubic-bezier(.2, .8, .2, 1) both,
+    wellsharp-alert-float 3.8s ease-in-out .45s infinite;
+}
+
+.global-alert {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 1200;
+  width: min(430px, calc(100vw - 32px));
+  margin: 0;
+  padding: 16px 18px 18px 20px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.admin-content > .alert,
+.proctor-shell .workspace > .message-bar,
+.flow-shell .main-area > .message-bar {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 1200;
+  width: min(430px, calc(100vw - 32px));
+  margin: 0;
+}
+
+.alert,
+.message-bar,
+.login-error {
+  padding: 13px 16px 15px;
+}
+
+.global-alert::before,
+.alert::before,
+.message-bar::before,
+.login-error::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  width: 4px;
+  content: "";
+  background: linear-gradient(180deg, #49b9ef, #2777c8);
+}
+
+.global-alert::after,
+.alert::after,
+.message-bar::after,
+.login-error::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  content: "";
+  transform-origin: left center;
+  background: linear-gradient(90deg, #49b9ef, #2777c8, #7c5cff);
+  animation: wellsharp-alert-progress 5s linear forwards;
+}
+
+.global-alert.success,
+.alert.success,
+.message-bar.success {
+  background: linear-gradient(135deg, rgba(241, 255, 249, .94), rgba(218, 250, 239, .72));
+  color: #086b54;
+}
+
+.global-alert.success::before,
+.alert.success::before,
+.message-bar.success::before {
+  background: linear-gradient(180deg, #50d99e, var(--ws-alert-success));
+}
+
+.global-alert.success::after,
+.alert.success::after,
+.message-bar.success::after {
+  background: linear-gradient(90deg, #50d99e, var(--ws-alert-success), #4bb7e8);
+}
+
+.global-alert.error,
+.alert.error,
+.message-bar.error,
+.login-error {
+  background: linear-gradient(135deg, rgba(255, 247, 248, .95), rgba(255, 229, 232, .76));
+  color: #a62c42;
+}
+
+.global-alert.error::before,
+.alert.error::before,
+.message-bar.error::before,
+.login-error::before {
+  background: linear-gradient(180deg, #ff9b7d, var(--ws-alert-error));
+}
+
+.global-alert.error::after,
+.alert.error::after,
+.message-bar.error::after,
+.login-error::after {
+  background: linear-gradient(90deg, #ff9b7d, var(--ws-alert-error), #b84bd4);
+}
+
+.global-alert ul,
+.alert ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.global-alert.is-dismissing,
+.alert.is-dismissing,
+.message-bar.is-dismissing,
+.login-error.is-dismissing {
+  animation: wellsharp-alert-out .45s ease forwards;
+}
+
+.global-alert.is-dismissing::after,
+.alert.is-dismissing::after,
+.message-bar.is-dismissing::after,
+.login-error.is-dismissing::after {
+  animation: none;
+  transform: scaleX(0);
+}
+
+.message-bar.is-hidden {
+  display: none;
+}
+
+@keyframes wellsharp-alert-in {
+  from { opacity: 0; transform: translate3d(0, -14px, 0) scale(.97); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes wellsharp-alert-float {
+  0%, 100% { box-shadow: 0 14px 32px rgba(20, 54, 78, .16), inset 0 1px 0 rgba(255, 255, 255, .9); }
+  50% { box-shadow: 0 18px 38px rgba(20, 54, 78, .22), inset 0 1px 0 rgba(255, 255, 255, .95); }
+}
+
+@keyframes wellsharp-alert-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@keyframes wellsharp-alert-out {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(0, -10px, 0) scale(.98); }
+}
+
+@media (max-width: 640px) {
+  .global-alert,
+  .admin-content > .alert,
+  .proctor-shell .workspace > .message-bar,
+  .flow-shell .main-area > .message-bar {
+    top: 14px;
+    right: 16px;
+    width: calc(100vw - 32px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .global-alert,
+  .alert,
+  .message-bar,
+  .login-error {
+    animation: none;
+  }
+
+  .global-alert::after,
+  .alert::after,
+  .message-bar::after,
+  .login-error::after {
+    animation: none;
+  }
+}

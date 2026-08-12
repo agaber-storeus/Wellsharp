@@ -1,0 +1,207 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\ClassStatus;
+use App\Models\Certificate;
+use App\Models\TrainingClass;
+use Illuminate\Support\Collection;
+
+class OperationalClassMapPointBuilder
+{
+    /** @param Collection<int, TrainingClass> $classes */
+    public function build(Collection $classes): array
+    {
+        return $classes->map(function (TrainingClass $trainingClass): array {
+            $status = $trainingClass->status;
+
+            return [
+                'classNumber' => $trainingClass->class_number,
+                'title' => $trainingClass->course->code.' — '.$trainingClass->course->name,
+                'location' => $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Location not assigned',
+                'provider' => $trainingClass->provider?->name ?: 'Provider not assigned',
+                'status' => $status->value,
+                'group' => match ($status) {
+                    ClassStatus::Active => 'ongoing',
+                    ClassStatus::Planned => 'upcoming',
+                    ClassStatus::Completed, ClassStatus::Cancelled => 'past',
+                },
+                'statusLabel' => $status->label(),
+                'startsAt' => $trainingClass->starts_at?->toIso8601String(),
+                'endsAt' => $trainingClass->ends_at?->toIso8601String(),
+                'durationDays' => $this->durationDays($trainingClass),
+                'lat' => $trainingClass->provider?->latitude,
+                'lng' => $trainingClass->provider?->longitude,
+            ];
+        })->values()->all();
+    }
+
+    /** @param Collection<int, TrainingClass> $classes */
+    public function buildModalData(Collection $classes): array
+    {
+        $attempts = $classes->flatMap(fn (TrainingClass $trainingClass) => $trainingClass->examSchedules->flatMap(fn ($schedule) => $schedule->attempts));
+        $certificates = Certificate::query()->whereIn('exam_attempt_id', $attempts->pluck('id'))->get()->keyBy('exam_attempt_id');
+
+        return $classes->mapWithKeys(function (TrainingClass $trainingClass) use ($certificates): array {
+            $status = $trainingClass->status;
+            $statusClass = match ($status) {
+                ClassStatus::Active => 'state-green',
+                ClassStatus::Planned => 'state-blue',
+                ClassStatus::Completed, ClassStatus::Cancelled => 'state-ended',
+            };
+            $scoreRows = $trainingClass->examSchedules
+                ->flatMap(fn ($schedule) => $schedule->attempts)
+                ->sortBy(fn ($attempt) => [$attempt->student?->display_name ?: $attempt->student?->wellsharp_id, $attempt->attempt_number])
+                ->map(function ($attempt) use ($certificates): array {
+                    $certificate = $certificates->get($attempt->id);
+                    $state = match ($attempt->status->value) {
+                        'submitted' => 'complete',
+                        'expired' => 'noshow',
+                        default => 'inprogress',
+                    };
+
+                    return [
+                        'name' => $attempt->student?->display_name ?: $attempt->student?->wellsharp_id ?: 'Unknown trainee',
+                        'score' => $attempt->score !== null ? (string) $attempt->score : null,
+                        'state' => $state,
+                        'attemptNumber' => $attempt->attempt_number,
+                        'releasedAt' => $attempt->released_at?->format('Y-m-d H:i'),
+                        'reportUrl' => route(auth()->user()->hasRole('proctor') ? 'proctor.analytics.attempts.show' : 'instructor.analytics.attempts.show', $attempt),
+                        'releaseUrl' => route(auth()->user()->hasRole('proctor') ? 'proctor.analytics.attempts.release' : 'instructor.analytics.attempts.release', $attempt),
+                        'certificateUrl' => $certificate ? route(auth()->user()->hasRole('proctor') ? 'proctor.certificate' : 'instructor.certificate', ['certificate_id' => $certificate->certificate_number]) : null,
+                        'certificateNumber' => $certificate?->certificate_number,
+                    ];
+                })->values()->all();
+
+            return [$trainingClass->public_id => [
+                'details' => [
+                    ['Class ID:', $trainingClass->public_id],
+                    ['Class Title or ID:', $trainingClass->course->name ?: $trainingClass->class_number],
+                    ['Class Status:', $status->label(), $statusClass],
+                    ['Class Dates:', $this->dateRange($trainingClass)],
+                    ['Class Duration:', $this->durationLabel($trainingClass)],
+                    ['Exam Date/Time:', $this->examAvailability($trainingClass)],
+                    ['Started On:', $this->startedAt($trainingClass, $status)],
+                    ['Ended On:', $this->endedAt($trainingClass, $status)],
+                    ['Address:', $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Not assigned'],
+                    ['Course Level:', $trainingClass->course->level?->name ?: 'Not assigned'],
+                    ['Stacks Offered:', $trainingClass->course->stacks->pluck('name')->join(', ') ?: 'None'],
+                    ['Supplement Offered:', $trainingClass->course->supplements->pluck('name')->join(', ') ?: 'None'],
+                    ['Instructor:', 'Any eligible Instructor'],
+                    ['Class Language:', $trainingClass->course->languages->pluck('name')->join(', ') ?: 'Not assigned'],
+                ],
+                'showCodes' => false,
+                'codeRows' => $trainingClass->enrollments
+                    ->map(fn ($enrollment): array => [
+                        $enrollment->student?->display_name ?: $enrollment->student?->wellsharp_id ?: 'Unknown trainee',
+                        $enrollment->student?->wellsharp_id ?: '—',
+                        $enrollment->status?->label() ?: 'Enrolled',
+                        $enrollment->student?->profile?->company ?: '—',
+                    ])->values()->all(),
+                'scoreRows' => $scoreRows,
+                'examControl' => [
+                    'status' => $status->value,
+                    'controlUrl' => route(auth()->user()->hasRole('proctor') ? 'proctor.classes.exam-control' : 'instructor.classes.exam-control', $trainingClass),
+                    'verifyUrl' => route(auth()->user()->hasRole('proctor') ? 'proctor.proctor-id.verify' : 'instructor.proctor-id.verify'),
+                    'scheduledFor' => $trainingClass->examSchedules->map(fn ($schedule): array => [
+                        'name' => $schedule->exam?->name ?: 'Linked Exam',
+                        'start' => $schedule->start_date?->format('Y-m-d'),
+                        'end' => $schedule->end_date?->format('Y-m-d'),
+                        'status' => $schedule->status->value,
+                    ])->values()->all(),
+                ],
+            ]];
+        })->all();
+    }
+
+    private function dateRange(TrainingClass $trainingClass): string
+    {
+        if (! $trainingClass->starts_at && ! $trainingClass->ends_at) {
+            return 'Not scheduled';
+        }
+
+        if (! $trainingClass->starts_at) {
+            return $trainingClass->ends_at->format('F j, Y');
+        }
+
+        if (! $trainingClass->ends_at) {
+            return $trainingClass->starts_at->format('F j, Y');
+        }
+
+        return $trainingClass->starts_at->format('F j').' - '.$trainingClass->ends_at->format('j, Y');
+    }
+
+    private function durationDays(TrainingClass $trainingClass): ?int
+    {
+        if (! $trainingClass->starts_at || ! $trainingClass->ends_at) {
+            return null;
+        }
+
+        return max(1, $trainingClass->starts_at->copy()->startOfDay()->diffInDays($trainingClass->ends_at->copy()->startOfDay()) + 1);
+    }
+
+    private function durationLabel(TrainingClass $trainingClass): string
+    {
+        $days = $this->durationDays($trainingClass);
+
+        return $days ? $days.' '.($days === 1 ? 'day' : 'days') : 'Duration not configured';
+    }
+
+    public function examAvailability(TrainingClass $trainingClass): string
+    {
+        $ranges = $trainingClass->examSchedules
+            ->map(fn ($schedule): ?string => $this->scheduleDateRange($schedule->start_date, $schedule->end_date))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $ranges->isEmpty() ? 'n/a' : $ranges->join('; ');
+    }
+
+    private function scheduleDateRange($startDate, $endDate): ?string
+    {
+        if (! $startDate && ! $endDate) {
+            return null;
+        }
+
+        if (! $startDate) {
+            return $endDate->format('F j, Y');
+        }
+
+        if (! $endDate || $startDate->equalTo($endDate)) {
+            return $startDate->format('F j, Y');
+        }
+
+        return $startDate->format('F j').' - '.$endDate->format('j, Y');
+    }
+
+    private function startedAt(TrainingClass $trainingClass, ClassStatus $status): string
+    {
+        if ($status !== ClassStatus::Active) {
+            return 'n/a';
+        }
+
+        $override = $trainingClass->examSchedules
+            ->pluck('override_started_at')
+            ->filter()
+            ->sort()
+            ->first();
+
+        return ($trainingClass->actual_started_at ?: $override ?: $trainingClass->starts_at)?->format('F j, Y g:i A') ?: 'n/a';
+    }
+
+    private function endedAt(TrainingClass $trainingClass, ClassStatus $status): string
+    {
+        if (! in_array($status, [ClassStatus::Completed, ClassStatus::Cancelled], true)) {
+            return 'n/a';
+        }
+
+        $override = $trainingClass->examSchedules
+            ->pluck('override_ended_at')
+            ->filter()
+            ->sortDesc()
+            ->first();
+
+        return ($trainingClass->actual_ended_at ?: $override ?: $trainingClass->ends_at)?->format('F j, Y g:i A') ?: 'n/a';
+    }
+}

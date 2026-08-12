@@ -1,0 +1,2 @@
+@extends('layouts.admin')
+@section('admin-content')<div class="page-head"><div><span class="admin-kicker">{{ $course->name }}</span><h1>Edit exam</h1></div><a class="btn secondary" href="{{ route('admin.exams.show', $exam) }}">Back to exam</a></div><div class="card"><form method="POST" action="{{ route('admin.exams.update', $exam) }}">@csrf @method('PUT') @include('admin.exams._form')</form></div>@endsection

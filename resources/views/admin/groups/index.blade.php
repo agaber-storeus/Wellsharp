@@ -1,0 +1,39 @@
+@extends('layouts.admin')
+
+@section('admin-content')
+<style>[x-cloak]{display:none!important}.admin-table-loading{opacity:.55;pointer-events:none}.admin-sort{border:0;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;padding:0}.admin-sort:hover{color:var(--admin-blue)}.admin-sort-icon{font-size:11px;margin-left:3px}.admin-table-error{background:#fef3f2;color:#b42318;border-radius:5px;padding:10px 12px;margin-bottom:15px}.admin-table-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}.admin-table-tools .search{flex:1;margin:0}.admin-table-tools select{border:1px solid #b9c7d2;border-radius:5px;padding:9px;font:inherit;background:#fff}.admin-table-foot{display:flex;justify-content:space-between;gap:15px;align-items:center;margin-top:16px;color:var(--muted)}.admin-page-actions{display:flex;gap:7px;align-items:center}.admin-page-actions button{border:1px solid var(--line);border-radius:4px;background:#fff;padding:7px 10px;color:var(--ink);cursor:pointer}.admin-page-actions button:disabled{cursor:not-allowed;opacity:.45}</style>
+<div class="page-head"><div><span class="admin-kicker">Student Management</span><h1>Groups</h1><p>Search, filter, and sort groups without leaving this page.</p></div><a class="btn" href="{{ route('admin.groups.create') }}">Create group</a></div>
+
+<div class="card" x-data="groupTable(@js(route('admin.groups.data')), @js($initialGroups), @js($initialMeta))">
+  <div class="admin-table-tools">
+    <form class="search" x-on:submit.prevent="load(1)">
+      <input x-model="search" x-on:input.debounce.350ms="load(1)" placeholder="Search group name or code" autocomplete="off" aria-label="Search groups">
+      <select x-model="status" x-on:change="load(1)" aria-label="Filter groups by status"><option value="">All Statuses</option><option value="active">Active</option><option value="archived">Archived</option></select>
+      <select x-model="perPage" x-on:change="load(1)" aria-label="Groups per page"><option value="15">15</option><option value="30">30</option><option value="50">50</option><option value="100">100</option></select>
+      <button class="btn secondary" type="submit">Apply</button>
+      <button class="btn secondary" type="button" x-show="hasFilters()" x-on:click="clearFilters()" x-cloak>Clear</button>
+    </form>
+  </div>
+  <div class="admin-table-error" x-show="error" x-text="error" x-cloak></div>
+  <div class="table-wrap" x-bind:class="loading ? 'admin-table-loading' : ''">
+    <table class="table">
+      <thead><tr><th><button class="admin-sort" type="button" x-on:click="sortBy('name')">Group <span class="admin-sort-icon" x-text="sortIcon('name')"></span></button></th><th><button class="admin-sort" type="button" x-on:click="sortBy('code')">Code <span class="admin-sort-icon" x-text="sortIcon('code')"></span></button></th><th><button class="admin-sort" type="button" x-on:click="sortBy('students_count')">Students <span class="admin-sort-icon" x-text="sortIcon('students_count')"></span></button></th><th><button class="admin-sort" type="button" x-on:click="sortBy('exam_schedules_count')">Exam schedules <span class="admin-sort-icon" x-text="sortIcon('exam_schedules_count')"></span></button></th><th><button class="admin-sort" type="button" x-on:click="sortBy('status')">Status <span class="admin-sort-icon" x-text="sortIcon('status')"></span></button></th><th>Actions</th></tr></thead>
+      <tbody><template x-for="group in rows" :key="group.id"><tr><td><strong x-text="group.name"></strong></td><td x-text="group.code || '—'"></td><td x-text="group.students_count"></td><td x-text="group.exam_schedules_count"></td><td><span class="badge" x-bind:class="group.status" x-text="group.status_label"></span></td><td><a x-bind:href="group.view_url">View</a></td></tr></template><tr x-show="!loading && rows.length === 0" x-cloak><td colspan="6" class="muted">No groups found.</td></tr></tbody>
+    </table>
+  </div>
+  <div class="admin-table-foot"><span x-text="meta.total ? 'Showing ' + meta.from + ' to ' + meta.to + ' of ' + meta.total + ' groups' : 'No groups found'"></span><div class="admin-page-actions"><button type="button" x-on:click="load(meta.current_page - 1)" x-bind:disabled="loading || meta.current_page <= 1">Previous</button><span x-text="meta.current_page + ' / ' + meta.last_page"></span><button type="button" x-on:click="load(meta.current_page + 1)" x-bind:disabled="loading || meta.current_page >= meta.last_page">Next</button></div></div>
+</div>
+@endsection
+
+<script>
+window.groupTable = function (endpoint, initialRows, initialMeta) {
+  return {
+    endpoint, rows: initialRows || [], meta: initialMeta || { current_page: 1, last_page: 1, total: 0, from: null, to: null }, search: @js($search), status: @js($status), perPage: '15', sort: 'created_at', direction: 'desc', loading: false, error: '', request: null,
+    hasFilters() { return this.search || this.status; },
+    clearFilters() { this.search = ''; this.status = ''; this.load(1); },
+    sortIcon(field) { return this.sort === field ? (this.direction === 'asc' ? '▲' : '▼') : '↕'; },
+    sortBy(field) { if (this.sort === field) this.direction = this.direction === 'asc' ? 'desc' : 'asc'; else { this.sort = field; this.direction = 'asc'; } this.load(1); },
+    async load(page) { page = Math.max(1, page || 1); if (this.request) this.request.abort(); this.request = new AbortController(); const params = new URLSearchParams({ page, per_page: this.perPage, sort: this.sort, direction: this.direction }); if (this.search) params.set('search', this.search); if (this.status) params.set('status', this.status); this.loading = true; this.error = ''; try { const response = await fetch(this.endpoint + '?' + params.toString(), { headers: { Accept: 'application/json' }, signal: this.request.signal }); if (!response.ok) throw new Error('Group search failed'); const payload = await response.json(); this.rows = payload.data; this.meta = payload.meta; } catch (error) { if (error.name !== 'AbortError') this.error = 'Groups could not be loaded. Try again.'; } finally { this.loading = false; } }
+  };
+};
+</script>

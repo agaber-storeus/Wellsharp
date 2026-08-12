@@ -1,0 +1,2 @@
+@extends('layouts.admin')
+@section('admin-content')<div class="page-head"><div><span class="admin-kicker">Group management</span><h1>Edit group</h1></div><a class="btn secondary" href="{{ route('admin.groups.show', $group) }}">Back to group</a></div><div class="card"><form method="POST" action="{{ route('admin.groups.update', $group) }}">@csrf @method('PUT') @include('admin.groups._form')</form></div>@endsection

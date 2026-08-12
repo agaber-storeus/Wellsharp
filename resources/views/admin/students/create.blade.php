@@ -1,0 +1,2 @@
+@extends('layouts.admin')
+@section('admin-content')<div class="page-head"><div><span class="admin-kicker">Student management</span><h1>Create student</h1><p>Student accounts remain normal authenticated Users with the Student role.</p></div><a class="btn secondary" href="{{ route('admin.students.index') }}">Back to students</a></div><div class="card"><form method="POST" action="{{ route('admin.students.store') }}">@csrf @include('admin.users._form', ['studentOnly' => true, 'studentRoleId' => $studentRoleId])</form></div>@endsection

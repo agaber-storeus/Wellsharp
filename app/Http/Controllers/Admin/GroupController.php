@@ -118,11 +118,15 @@ class GroupController extends Controller
         return redirect()->route('admin.groups.show', $group)->with('status', 'Group updated.');
     }
 
-    public function archive(Group $group): RedirectResponse
+    public function archive(Request $request, Group $group): RedirectResponse|JsonResponse
     {
         $this->authorize('delete', $group);
         $group->update(['status' => GroupStatus::Archived, 'updated_by_user_id' => auth()->id()]);
         app(AuditRecorder::class)->record('group.updated', $group, ['status' => GroupStatus::Active->value], ['status' => GroupStatus::Archived->value]);
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Group archived.', 'status' => GroupStatus::Archived->value, 'status_label' => GroupStatus::Archived->label()]);
+        }
 
         return back()->with('status', 'Group archived.');
     }
@@ -177,6 +181,8 @@ class GroupController extends Controller
             'exam_schedules_count' => (int) $group->exam_schedules_count,
             'status' => $group->status->value,
             'status_label' => $group->status->label(),
+            'can_archive' => $group->status === GroupStatus::Active,
+            'archive_url' => route('admin.groups.archive', $group),
             'view_url' => route('admin.groups.show', $group),
         ];
     }

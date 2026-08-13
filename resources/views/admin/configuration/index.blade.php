@@ -39,21 +39,14 @@
                     <template x-for="row in section.rows" :key="row.id">
                         <tr x-bind:class="dragging && dragging.id === row.id ? 'configuration-row-dragging' : ''" x-on:dragover.prevent="dragOver(section, row, $event)" x-on:drop="drop(section, row, $event)">
                             <td class="configuration-order-cell"><span class="configuration-drag-handle" draggable="true" x-on:dragstart.stop="dragStart(section, row, $event)" title="Drag to reorder" aria-label="Drag to reorder">::</span></td>
-                            <td><input class="configuration-name-input" x-model="row.name" required x-on:keydown.enter.prevent="save(section, row)"></td>
+                            <td>
+                                <input class="configuration-name-input" x-model="row.name" required x-on:blur="queueSave(section, row)" x-on:keydown.enter.prevent="save(section, row)">
+                                <small class="configuration-save-state muted" x-show="row.saving" x-cloak>Saving...</small>
+                            </td>
                             <td><span class="badge" x-bind:class="row.active ? 'active' : 'archived'" x-text="row.active ? 'Active' : 'Inactive'"></span></td>
                             <td>
                                 <div class="actions configuration-actions">
-                                    <form method="POST" x-bind:action="row.update_url" x-on:submit.prevent="save(section, row)">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="name" x-bind:value="row.name">
-                                        <button class="btn secondary small" type="submit" x-on:click.stop.prevent="save(section, row)" x-bind:disabled="row.saving" x-text="row.saving ? 'Saving...' : 'Save'"></button>
-                                    </form>
-                                    <form method="POST" x-bind:action="row.toggle_url" x-on:submit.prevent="toggle(section, row)">
-                                        @csrf
-                                        @method('PATCH')
-                                        <button class="btn secondary small" type="submit" x-on:click.stop.prevent="toggle(section, row)" x-bind:disabled="row.toggling" x-text="row.toggling ? 'Updating...' : (row.active ? 'Deactivate' : 'Activate')"></button>
-                                    </form>
+                                    <button class="btn secondary small" type="button" x-on:click.prevent="toggle(section, row)" x-bind:aria-busy="row.toggling ? 'true' : 'false'" x-text="row.toggling ? 'Updating...' : (row.active ? 'Deactivate' : 'Activate')"></button>
                                 </div>
                             </td>
                         </tr>
@@ -66,42 +59,58 @@
 </div>
 
 <style>
-    .configuration-sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.configuration-section{margin-top:0;border:1px solid var(--admin-line);border-radius:7px;padding:18px;background:#fff}.configuration-create{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}.configuration-create input:first-of-type{flex:1;min-width:160px}.configuration-create input,.configuration-name-input{border:1px solid #b9c7d2;border-radius:5px;padding:9px 10px;background:#fff;color:var(--admin-ink);font:inherit}.configuration-order-heading{width:64px}.configuration-order-cell{text-align:center!important}.configuration-drag-handle{display:inline-grid;place-items:center;width:30px;height:30px;border:1px solid var(--admin-line);border-radius:5px;background:#f5f8fa;color:var(--admin-blue);font:700 16px/1 Arial,sans-serif;letter-spacing:-2px;cursor:grab;user-select:none}.configuration-drag-handle:active{cursor:grabbing}.configuration-name-input{width:100%;min-width:0}.configuration-section .table td{vertical-align:middle}.configuration-section .table td:last-child{white-space:nowrap}.configuration-actions{position:relative;z-index:2}.configuration-actions form{display:inline-flex;margin:0}.configuration-actions .btn{cursor:pointer!important;pointer-events:auto!important;touch-action:manipulation}.configuration-actions .btn:disabled{cursor:wait!important}.configuration-row-dragging{opacity:.45;background:#eef6fb!important}.configuration-section .btn:disabled{opacity:.6}@media(max-width:900px){.configuration-sections{grid-template-columns:1fr}}
+    .configuration-sections{display:grid;grid-template-columns:minmax(0,1fr);gap:24px}.configuration-section{margin-top:0;border:1px solid var(--admin-line);border-radius:7px;padding:18px;background:#fff}.configuration-create{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 16px}.configuration-create input:first-of-type{flex:1;min-width:160px}.configuration-create input,.configuration-name-input{border:1px solid #b9c7d2;border-radius:5px;padding:9px 10px;background:#fff;color:var(--admin-ink);font:inherit}.configuration-order-heading{width:64px}.configuration-order-cell{text-align:center!important}.configuration-drag-handle{display:inline-grid;place-items:center;width:30px;height:30px;border:1px solid var(--admin-line);border-radius:5px;background:#f5f8fa;color:var(--admin-blue);font:700 16px/1 Arial,sans-serif;letter-spacing:-2px;cursor:grab;user-select:none}.configuration-drag-handle:active{cursor:grabbing}.configuration-name-input{display:block;width:100%;min-width:0}.configuration-save-state{display:block;margin-top:4px;font-size:11px}.configuration-section .table td{vertical-align:middle}.configuration-section .table td:last-child{white-space:nowrap}.configuration-actions{position:relative;z-index:2;display:flex;align-items:center;gap:8px;pointer-events:auto}.configuration-actions .btn{position:relative;z-index:3;cursor:pointer!important;pointer-events:auto!important;touch-action:manipulation}.configuration-actions .btn:disabled{cursor:pointer!important}.configuration-row-dragging{opacity:.45;background:#eef6fb!important}.configuration-section .btn:disabled{opacity:.6}
 </style>
 
 <script>
     window.configurationTable = function (initialSections) {
         return {
-            sections: (initialSections || []).map((section) => ({ ...section, rows: section.rows || [], newName: '', saving: false, ordering: false })),
+            sections: (initialSections || []).map((section) => ({ ...section, rows: (section.rows || []).map((row) => ({ ...row, savedName: row.name })), newName: '', saving: false, ordering: false })),
             dragging: null,
             notice: '',
             noticeType: 'success',
             notify(message, type = 'success') { this.notice = message; this.noticeType = type; window.clearTimeout(this.noticeTimer); this.noticeTimer = window.setTimeout(() => { this.notice = ''; }, 10000); },
+            queueSave(section, row) {
+                window.clearTimeout(row.saveTimer);
+                if (row.name.trim() === row.savedName) return;
+                row.saveTimer = window.setTimeout(() => { row.saveTimer = null; this.save(section, row); }, 150);
+            },
             async request(url, method, body = {}) {
-                const response = await fetch(url, { method, headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': @js(csrf_token()), 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(body) });
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload.message || 'The configuration change could not be saved.');
-                return payload;
+                const controller = new AbortController();
+                const timeout = window.setTimeout(() => controller.abort(), 10000);
+                try {
+                    const response = await fetch(url, { method, credentials: 'same-origin', signal: controller.signal, headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': @js(csrf_token()), 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify(body) });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(payload.message || 'The configuration change could not be saved.');
+                    return payload;
+                } catch (error) {
+                    if (error.name === 'AbortError') throw new Error('The configuration request timed out. Please try again.');
+                    throw error;
+                } finally {
+                    window.clearTimeout(timeout);
+                }
             },
             async create(section) {
                 const name = section.newName.trim();
                 if (!name) return;
                 section.saving = true;
-                try { const payload = await this.request(section.store_url, 'POST', { name }); section.rows.unshift(payload.row); section.newName = ''; this.notify(payload.message); }
+                try { const payload = await this.request(section.store_url, 'POST', { name }); section.rows.unshift({ ...payload.row, savedName: payload.row.name }); section.newName = ''; this.notify(payload.message); }
                 catch (error) { this.notify(error.message, 'error'); }
                 finally { section.saving = false; }
             },
             async save(section, row) {
                 const name = row.name.trim();
                 if (!name) { this.notify('Name is required.', 'error'); return; }
+                if (name === row.savedName) return;
                 row.saving = true;
-                try { const payload = await this.request(row.update_url, 'PATCH', { name }); Object.assign(row, payload.row); this.notify(payload.message); }
+                try { const payload = await this.request(row.update_url, 'PATCH', { name }); Object.assign(row, payload.row); row.savedName = row.name; this.notify(payload.message); }
                 catch (error) { this.notify(error.message, 'error'); }
                 finally { row.saving = false; }
             },
             async toggle(section, row) {
+                if (row.toggling) return;
                 row.toggling = true;
-                try { const payload = await this.request(row.toggle_url, 'PATCH'); Object.assign(row, payload.row); this.notify(payload.message); }
+                try { const payload = await this.request(row.toggle_url, 'PATCH'); if (!payload.row) throw new Error('The configuration status response was invalid.'); Object.assign(row, payload.row); row.savedName = row.name; this.notify(payload.message); }
                 catch (error) { this.notify(error.message, 'error'); }
                 finally { row.toggling = false; }
             },
@@ -113,7 +122,7 @@
                 const from = section.rows.findIndex((item) => item.id === this.dragging.id); const to = section.rows.findIndex((item) => item.id === row.id);
                 if (from < 0 || to < 0) { this.dragging = null; return; }
                 const previousRows = [...section.rows]; const [moved] = section.rows.splice(from, 1); section.rows.splice(to, 0, moved); this.dragging = null; section.ordering = true;
-                try { const payload = await this.request(section.reorder_url, 'PATCH', { order: section.rows.map((item) => item.id) }); section.rows = payload.rows; this.notify(payload.message); }
+                try { const payload = await this.request(section.reorder_url, 'PATCH', { order: section.rows.map((item) => item.id) }); section.rows = payload.rows.map((item) => ({ ...item, savedName: item.name })); this.notify(payload.message); }
                 catch (error) { section.rows = previousRows; this.notify(error.message, 'error'); }
                 finally { section.ordering = false; }
             },

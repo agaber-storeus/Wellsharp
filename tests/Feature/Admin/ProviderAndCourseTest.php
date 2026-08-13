@@ -114,6 +114,14 @@ class ProviderAndCourseTest extends TestCase
             ->assertOk()
             ->assertSee('dragStart')
             ->assertSee('configuration-order-help')
+            ->assertSee('grid-template-columns:minmax(0,1fr)')
+            ->assertSee('x-on:blur="queueSave(section, row)"', false)
+            ->assertSee('queueSave(section, row)', false)
+            ->assertSee('x-on:click.prevent="toggle(section, row)"', false)
+            ->assertSee('x-bind:aria-busy="row.toggling ? \'true\' : \'false\'"', false)
+            ->assertDontSee('x-bind:disabled="row.toggling"', false)
+            ->assertDontSee('x-on:click="save(section, row)"', false)
+            ->assertDontSee('>Save</button>', false)
             ->assertDontSee('name="sort_order"');
 
         $created = $this->postJson(route('admin.configuration.store', 'supplements'), ['name' => 'AJAX Supplement'])
@@ -125,6 +133,10 @@ class ProviderAndCourseTest extends TestCase
         $this->patchJson(route('admin.configuration.update', ['supplements', $supplementId]), ['name' => 'Updated Supplement'])
             ->assertOk()
             ->assertJsonPath('row.name', 'Updated Supplement');
+        $this->assertDatabaseHas('supplements', [
+            'id' => $supplementId,
+            'name' => 'Updated Supplement',
+        ]);
         $this->patchJson(route('admin.configuration.toggle', ['supplements', $supplementId]))
             ->assertOk()
             ->assertJsonPath('row.active', false);

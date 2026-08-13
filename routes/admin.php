@@ -26,11 +26,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::get('users/data', [UserController::class, 'data'])->name('users.data');
     Route::resource('users', UserController::class)->except(['destroy']);
     Route::patch('users/{user}/disable', [UserController::class, 'disable'])->name('users.disable');
+    Route::patch('users/{user}/archive', [UserController::class, 'archive'])->name('users.archive');
+    Route::patch('users/{user}/status', [UserController::class, 'updateStatus'])->name('users.status');
     Route::patch('users/{user}/role', [UserController::class, 'changeRole'])->name('users.role');
 
     Route::get('providers/data', [TrainingProviderController::class, 'data'])->name('providers.data');
     Route::resource('providers', TrainingProviderController::class)->except(['destroy']);
     Route::patch('providers/{provider}/archive', [TrainingProviderController::class, 'archive'])->name('providers.archive');
+    Route::patch('providers/{provider}/status', [TrainingProviderController::class, 'updateStatus'])->name('providers.status');
 
     Route::get('subject-configuration', [CourseConfigurationController::class, 'index'])->name('configuration.index');
     Route::post('subject-configuration/{type}', [CourseConfigurationController::class, 'store'])->name('configuration.store');
@@ -77,6 +80,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::get('exams/{exam}', [ExamController::class, 'showGlobal'])->name('exams.show');
     Route::get('exams/{exam}/edit', [ExamController::class, 'editGlobal'])->name('exams.edit');
     Route::put('exams/{exam}', [ExamController::class, 'updateGlobal'])->name('exams.update');
+    Route::patch('exams/{exam}/archive', [ExamController::class, 'archive'])->name('exams.archive');
     Route::get('exam-schedules', [ExamScheduleController::class, 'index'])->name('exam-schedules.index');
     Route::get('exam-schedules/data', [ExamScheduleController::class, 'data'])->name('exam-schedules.data');
     Route::get('exam-schedules/create', [ExamScheduleController::class, 'create'])->name('exam-schedules.create');

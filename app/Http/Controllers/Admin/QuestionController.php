@@ -162,11 +162,15 @@ class QuestionController extends Controller
         return redirect()->route('admin.courses.questions.index', $course)->with('status', 'Question updated.');
     }
 
-    public function destroy(Course $course, Question $question, ArchiveQuestionAction $action): RedirectResponse
+    public function destroy(Request $request, Course $course, Question $question, ArchiveQuestionAction $action): RedirectResponse|JsonResponse
     {
         $this->ensureCourseQuestion($course, $question);
         $this->authorize('delete', $question);
         $action->execute($question);
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Question archived.', 'active' => false, 'status_label' => 'Archived']);
+        }
 
         return back()->with('status', 'Question archived.');
     }

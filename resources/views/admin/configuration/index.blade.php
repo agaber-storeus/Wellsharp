@@ -43,9 +43,9 @@
                                 <input class="configuration-name-input" x-model="row.name" required x-on:blur="queueSave(section, row)" x-on:keydown.enter.prevent="save(section, row)">
                                 <small class="configuration-save-state muted" x-show="row.saving" x-cloak>Saving...</small>
                             </td>
-                            <td><span class="badge" x-bind:class="row.active ? 'active' : 'archived'" x-text="row.active ? 'Active' : 'Inactive'"></span></td>
+                            <td><div class="admin-status-cell"><span class="badge" x-bind:class="row.active ? 'active' : 'archived'" x-text="row.active ? 'Active' : 'Inactive'"></span></div></td>
                             <td>
-                                <div class="actions configuration-actions">
+                                <div class="actions configuration-actions admin-actions-cell">
                                     <button class="btn secondary small" type="button" x-on:click.prevent="toggle(section, row)" x-bind:aria-busy="row.toggling ? 'true' : 'false'" x-text="row.toggling ? 'Updating...' : (row.active ? 'Deactivate' : 'Activate')"></button>
                                 </div>
                             </td>

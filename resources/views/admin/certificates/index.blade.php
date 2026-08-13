@@ -20,7 +20,7 @@
             <th><button class="certificate-sort" type="button" x-on:click="sortBy('provider_name')">Provider <span class="certificate-sort-icon" x-text="sortIcon('provider_name')"></span></button></th>
             <th><button class="certificate-sort" type="button" x-on:click="sortBy('score')">Score <span class="certificate-sort-icon" x-text="sortIcon('score')"></span></button></th>
             <th><button class="certificate-sort" type="button" x-on:click="sortBy('issued_at')">Issued <span class="certificate-sort-icon" x-text="sortIcon('issued_at')"></span></button></th>
-            <th><button class="certificate-sort" type="button" x-on:click="sortBy('status')">Status <span class="certificate-sort-icon" x-text="sortIcon('status')"></span></button></th><th></th>
+            <th><button class="certificate-sort" type="button" x-on:click="sortBy('status')">Status <span class="certificate-sort-icon" x-text="sortIcon('status')"></span></button></th><th>Actions</th>
         </tr></thead><tbody>
             <template x-for="certificate in rows" :key="certificate.id"><tr>
                 <td><a x-bind:href="certificate.certificate_url" x-text="certificate.certificate_number"></a></td>
@@ -30,8 +30,8 @@
                 <td x-text="certificate.provider_name || '-' "></td>
                 <td x-text="Number(certificate.score).toFixed(2) + '%' "></td>
                 <td><span x-text="certificate.issued_at || '-' "></span><br><small class="muted" x-text="certificate.document_count + ' documents' "></small></td>
-                <td><span class="badge" x-bind:class="certificate.status" x-text="certificate.status_label"></span></td>
-                <td><a x-bind:href="certificate.certificate_url">Details</a></td>
+                <td><div class="admin-status-cell"><span class="badge" x-bind:class="certificate.status" x-text="certificate.status_label"></span></div></td>
+                <td><div class="admin-actions-cell"><a x-bind:href="certificate.certificate_url">View</a></div></td>
             </tr></template>
             <tr x-show="!loading && rows.length === 0" x-cloak><td colspan="9" class="muted">No certificates found.</td></tr>
         </tbody></table>

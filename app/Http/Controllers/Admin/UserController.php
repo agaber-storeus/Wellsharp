@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Users\ArchiveUserAction;
 use App\Actions\Users\ChangeUserRoleAction;
 use App\Actions\Users\CreateUserAction;
 use App\Actions\Users\DisableUserAction;
 use App\Actions\Users\UpdateUserAction;
+use App\Actions\Users\UpdateUserStatusAction;
+use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ChangeUserRoleRequest;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
+use App\Http\Requests\Admin\UpdateUserStatusRequest;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -126,13 +130,54 @@ class UserController extends Controller
         return back()->with('status', 'Role changed. Existing sessions for this user have been revoked.');
     }
 
-    public function disable(User $user, DisableUserAction $action): RedirectResponse
+    public function disable(Request $request, User $user, DisableUserAction $action): RedirectResponse|JsonResponse
     {
         $this->authorize('delete', $user);
         abort_if($user->is(auth()->user()), 422, 'You cannot disable your own account.');
         $action->execute($user);
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'User disabled and existing sessions revoked.',
+                'status' => 'disabled',
+                'status_label' => 'Disabled',
+            ]);
+        }
+
         return back()->with('status', 'User disabled and existing sessions revoked.');
+    }
+
+    public function updateStatus(UpdateUserStatusRequest $request, User $user, UpdateUserStatusAction $action): JsonResponse
+    {
+        $this->authorize('update', $user);
+        abort_if($user->is(auth()->user()), 422, 'You cannot change your own account status.');
+        abort_if($user->status === UserStatus::Archived, 422, 'Archived users cannot be reactivated or deactivated.');
+
+        $status = UserStatus::from($request->validated('status'));
+        $updated = $action->execute($user, $status);
+
+        return response()->json([
+            'message' => 'User status updated.',
+            'status' => $updated->status->value,
+            'status_label' => $updated->status->label(),
+        ]);
+    }
+
+    public function archive(Request $request, User $user, ArchiveUserAction $action): RedirectResponse|JsonResponse
+    {
+        $this->authorize('delete', $user);
+        abort_if($user->is(auth()->user()), 422, 'You cannot archive your own account.');
+        $action->execute($user);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'User archived and existing sessions revoked.',
+                'status' => 'archived',
+                'status_label' => 'Archived',
+            ]);
+        }
+
+        return back()->with('status', 'User archived and existing sessions revoked.');
     }
 
     private function filteredQuery(Request $request)
@@ -168,6 +213,12 @@ class UserController extends Controller
             'role' => $user->currentRole?->name ?: 'Unassigned',
             'status' => $user->status->value,
             'status_label' => $user->status->label(),
+            'can_disable' => $user->isActive() && ! $user->is(auth()->user()),
+            'disable_url' => route('admin.users.disable', $user),
+            'can_toggle_status' => in_array($user->status, [UserStatus::Active, UserStatus::Disabled], true) && ! $user->is(auth()->user()),
+            'status_url' => route('admin.users.status', $user),
+            'can_archive' => in_array($user->status, [UserStatus::Active, UserStatus::Disabled], true) && ! $user->is(auth()->user()),
+            'archive_url' => route('admin.users.archive', $user),
             'view_url' => route('admin.users.show', $user),
         ];
     }

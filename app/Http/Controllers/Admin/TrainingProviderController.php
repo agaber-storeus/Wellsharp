@@ -6,6 +6,7 @@ use App\Enums\ProviderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreProviderRequest;
 use App\Http\Requests\Admin\UpdateProviderRequest;
+use App\Http\Requests\Admin\UpdateProviderStatusRequest;
 use App\Models\TrainingProvider;
 use App\Services\AuditRecorder;
 use Illuminate\Http\JsonResponse;
@@ -87,12 +88,43 @@ class TrainingProviderController extends Controller
         return redirect()->route('admin.providers.show', $provider)->with('status', 'Training provider updated.');
     }
 
-    public function archive(TrainingProvider $provider, AuditRecorder $audit): RedirectResponse
+    public function updateStatus(UpdateProviderStatusRequest $request, TrainingProvider $provider, AuditRecorder $audit): JsonResponse
+    {
+        $this->authorize('update', $provider);
+
+        if ($provider->archived_at !== null || $provider->status === ProviderStatus::Archived) {
+            return response()->json(['message' => 'Archived providers cannot be reactivated or deactivated.'], 422);
+        }
+
+        $status = ProviderStatus::from($request->validated('status'));
+        $before = $provider->toArray();
+
+        if ($provider->status !== $status) {
+            $provider->forceFill(['status' => $status])->save();
+            $audit->record('training_provider.status_updated', $provider, $before, $provider->fresh()->toArray());
+        }
+
+        return response()->json([
+            'message' => 'Training provider status updated.',
+            'status' => $provider->status->value,
+            'status_label' => $provider->status->label(),
+        ]);
+    }
+
+    public function archive(Request $request, TrainingProvider $provider, AuditRecorder $audit): RedirectResponse|JsonResponse
     {
         $this->authorize('delete', $provider);
         $before = $provider->toArray();
         $provider->forceFill(['status' => ProviderStatus::Archived, 'archived_at' => now()])->save();
         $audit->record('training_provider.archived', $provider, $before, $provider->fresh()->toArray());
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Training provider archived.',
+                'status' => ProviderStatus::Archived->value,
+                'status_label' => ProviderStatus::Archived->label(),
+            ]);
+        }
 
         return back()->with('status', 'Training provider archived.');
     }
@@ -120,6 +152,9 @@ class TrainingProviderController extends Controller
             'email' => $provider->email ?: 'No email',
             'status' => $provider->status->value,
             'status_label' => $provider->status->label(),
+            'saved_status' => $provider->status->value,
+            'status_url' => route('admin.providers.status', $provider),
+            'archive_url' => route('admin.providers.archive', $provider),
             'view_url' => route('admin.providers.show', $provider),
         ];
     }

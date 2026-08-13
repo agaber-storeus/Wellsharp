@@ -40,7 +40,15 @@
     </div>
     <form class="start-exam-form" method="POST" action="{{ route('student.exams.start', $schedule) }}">
       @csrf
-      <button class="green-btn start-exam-btn" type="submit">Start Exam</button>
+      @if($hasFinishedExam)
+        <button class="green-btn start-exam-btn" type="button" disabled aria-disabled="true">Exam Completed</button>
+        <p class="muted exam-availability-message">{{ $finishedExamMessage }}</p>
+      @elseif($canStartExam)
+        <button class="green-btn start-exam-btn" type="submit">Start Exam</button>
+      @else
+        <button class="green-btn start-exam-btn" type="button" disabled aria-disabled="true">Start Exam</button>
+        <p class="muted exam-availability-message">{{ $startAvailabilityMessage }}</p>
+      @endif
     </form>
   </section>
 </section>

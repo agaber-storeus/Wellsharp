@@ -10,6 +10,7 @@ use App\Http\Requests\Admin\StoreExamRequest;
 use App\Http\Requests\Admin\UpdateExamRequest;
 use App\Models\Course;
 use App\Models\Exam;
+use App\Services\AuditRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -157,6 +158,22 @@ class ExamController extends Controller
         return redirect()->route('admin.exams.show', $exam)->with('status', 'Exam updated.');
     }
 
+    public function archive(Request $request, Exam $exam, AuditRecorder $audit): RedirectResponse|JsonResponse
+    {
+        $this->authorize('delete', $exam);
+        abort_if($exam->status === ExamStatus::Archived, 422, 'This exam is already archived.');
+
+        $before = ['status' => $exam->status->value];
+        $exam->forceFill(['status' => ExamStatus::Archived, 'updated_by_user_id' => auth()->id()])->save();
+        $audit->record('exam.archived', $exam, $before, ['status' => ExamStatus::Archived->value]);
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Exam archived.', 'status' => ExamStatus::Archived->value, 'status_label' => ExamStatus::Archived->label()]);
+        }
+
+        return back()->with('status', 'Exam archived.');
+    }
+
     private function ensureCourseExam(Course $course, Exam $exam): void
     {
         abort_unless($exam->course_id === $course->getKey(), 404);
@@ -191,8 +208,10 @@ class ExamController extends Controller
             'schedules_count' => $exam->schedules_count,
             'status' => $exam->status->value,
             'status_label' => $exam->status->label(),
+            'can_archive' => $exam->status !== ExamStatus::Archived,
             'exam_url' => route('admin.exams.show', $exam),
             'edit_url' => route('admin.exams.edit', $exam),
+            'archive_url' => route('admin.exams.archive', $exam),
             'schedule_url' => route('admin.exam-schedules.create', ['exam_id' => $exam->getKey()]),
         ];
     }

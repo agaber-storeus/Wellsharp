@@ -102,12 +102,16 @@ class CourseController extends Controller
         return redirect()->route('admin.courses.show', $course)->with('status', 'Subject updated.');
     }
 
-    public function archive(Course $course, AuditRecorder $audit): RedirectResponse
+    public function archive(Request $request, Course $course, AuditRecorder $audit): RedirectResponse|JsonResponse
     {
         $this->authorize('delete', $course);
         $before = $course->toArray();
         $course->forceFill(['status' => CourseStatus::Retired, 'archived_at' => now()])->save();
         $audit->record('course.archived', $course, $before, $course->fresh()->toArray());
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Subject archived.', 'status' => CourseStatus::Retired->value, 'status_label' => 'Archived']);
+        }
 
         return back()->with('status', 'Subject retired.');
     }
@@ -147,6 +151,9 @@ class CourseController extends Controller
             'level' => $course->level?->name ?: 'Not assigned',
             'status' => $course->status->value,
             'status_label' => $course->status->label(),
+            'archived' => $course->archived_at !== null,
+            'can_archive' => $course->status === CourseStatus::Active && $course->archived_at === null,
+            'archive_url' => route('admin.courses.archive', $course),
             'view_url' => route('admin.courses.show', $course),
         ];
     }

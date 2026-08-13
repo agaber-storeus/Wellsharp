@@ -173,6 +173,43 @@ class UserManagementTest extends TestCase
         $this->assertDatabaseHas('audit_events', ['action' => 'user.disabled']);
     }
 
+    public function test_user_table_uses_alpine_action_for_active_users_and_keeps_archived_users_visible(): void
+    {
+        $active = User::factory()->student()->create();
+        $archived = User::factory()->instructor()->create(['status' => UserStatus::Archived, 'archived_at' => now()]);
+
+        $this->get(route('admin.users.index'))
+            ->assertOk()
+            ->assertSee('disableUser(user)', false)
+            ->assertSee('toggleStatus(user)', false)
+            ->assertSee('user-status-toggle', false)
+            ->assertSee('archiveUser(user)', false)
+            ->assertSee('archive_url', false);
+
+        $this->patchJson(route('admin.users.status', $active), ['status' => 'disabled'])
+            ->assertOk()
+            ->assertJsonPath('status', 'disabled');
+        $this->patchJson(route('admin.users.status', $active), ['status' => 'active'])
+            ->assertOk()
+            ->assertJsonPath('status', 'active');
+        $this->assertDatabaseHas('audit_events', ['action' => 'user.status_updated']);
+
+        $this->patchJson(route('admin.users.disable', $active))
+            ->assertOk()
+            ->assertJsonPath('status', 'disabled');
+
+        $this->assertDatabaseHas('users', ['id' => $active->id, 'status' => 'disabled']);
+        $this->assertNotNull($active->fresh()->archived_at);
+        $this->assertDatabaseHas('users', ['id' => $archived->id, 'status' => 'archived']);
+
+        $anotherActive = User::factory()->student()->create();
+        $this->patchJson(route('admin.users.archive', $anotherActive))
+            ->assertOk()
+            ->assertJsonPath('status', 'archived');
+        $this->assertDatabaseHas('users', ['id' => $anotherActive->id, 'status' => 'archived']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'user.archived']);
+    }
+
     public function test_non_admin_is_denied_user_management(): void
     {
         $this->actingAs(User::factory()->student()->create())->get(route('admin.users.index'))->assertForbidden();

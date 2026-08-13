@@ -143,6 +143,14 @@ class QuestionBankTest extends TestCase
     public function test_admin_can_archive_a_question_and_audit_it(): void
     {
         $question = Question::create(['course_id' => $this->course->id, 'question_text' => 'Archive me', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'answer']);
+        $this->get(route('admin.questions.index'))
+            ->assertOk()
+            ->assertSee('archiveQuestion(question)', false)
+            ->assertSee('question-status-toggle', false);
+        $this->get(route('admin.courses.questions.index', $this->course))
+            ->assertOk()
+            ->assertSee('questionRow(', false)
+            ->assertSee('question-status-toggle', false);
         $this->delete(route('admin.courses.questions.destroy', [$this->course, $question]))->assertRedirect();
         $this->assertDatabaseHas('questions', ['id' => $question->id, 'is_active' => 0]);
         $this->assertDatabaseHas('audit_events', ['action' => 'question.archived']);

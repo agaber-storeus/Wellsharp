@@ -13,6 +13,7 @@ use App\Models\Language;
 use App\Models\Question;
 use App\Models\Stack;
 use App\Models\StudentSurvey;
+use App\Models\StudentSurveyAnswer;
 use App\Models\TrainingClass;
 use App\Models\User;
 use App\Services\StudentSurveyDefinition;
@@ -199,6 +200,202 @@ class StudentFlowTest extends TestCase
             ->where('exam_schedule_id', $latestSchedule->id)
             ->firstOrFail()
             ->contact_confirmed_at);
+    }
+
+    public function test_student_dashboard_prefers_an_available_class_over_a_newer_future_class(): void
+    {
+        $this->seedRoles();
+        $student = User::factory()->student()->create();
+        $group = Group::create(['name' => 'Available First Group', 'status' => 'active']);
+        GroupMembership::create([
+            'group_id' => $group->id,
+            'student_user_id' => $student->id,
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $availableCourse = Course::factory()->create(['name' => 'Available Subject']);
+        $futureCourse = Course::factory()->create(['name' => 'Future Subject']);
+        $availableExam = Exam::create([
+            'course_id' => $availableCourse->id,
+            'name' => 'Available Exam',
+            'question_order_mode' => 'static',
+            'status' => 'published',
+        ]);
+        $futureExam = Exam::create([
+            'course_id' => $futureCourse->id,
+            'name' => 'Future Exam',
+            'question_order_mode' => 'static',
+            'status' => 'published',
+        ]);
+        $availableSchedule = ExamSchedule::create([
+            'exam_id' => $availableExam->id,
+            'group_id' => $group->id,
+            'start_date' => now()->subDay()->toDateString(),
+            'end_date' => now()->addDay()->toDateString(),
+            'duration_minutes' => 60,
+            'status' => 'scheduled',
+        ]);
+        $futureSchedule = ExamSchedule::create([
+            'exam_id' => $futureExam->id,
+            'group_id' => $group->id,
+            'start_date' => now()->addDays(10)->toDateString(),
+            'end_date' => now()->addDays(11)->toDateString(),
+            'duration_minutes' => 60,
+            'status' => 'scheduled',
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+        $this->get(route('student.dashboard'))
+            ->assertOk()
+            ->assertSee(route('student.confirm.store', $availableSchedule), false)
+            ->assertDontSee(route('student.confirm.store', $futureSchedule), false);
+    }
+
+    public function test_future_exam_cannot_be_started_from_the_proctor_page(): void
+    {
+        $this->seedRoles();
+        $student = User::factory()->student()->create();
+        $group = Group::create(['name' => 'Future Exam Group', 'status' => 'active']);
+        GroupMembership::create([
+            'group_id' => $group->id,
+            'student_user_id' => $student->id,
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        $course = Course::factory()->create(['name' => 'Future Subject']);
+        $exam = Exam::create([
+            'course_id' => $course->id,
+            'name' => 'Future Exam',
+            'question_order_mode' => 'static',
+            'status' => 'published',
+        ]);
+        $schedule = ExamSchedule::create([
+            'exam_id' => $exam->id,
+            'group_id' => $group->id,
+            'start_date' => now()->addDay()->toDateString(),
+            'end_date' => now()->addDays(2)->toDateString(),
+            'duration_minutes' => 60,
+            'status' => 'scheduled',
+        ]);
+        StudentSurvey::create([
+            'student_user_id' => $student->id,
+            'exam_schedule_id' => $schedule->id,
+            'status' => 'completed',
+            'contact_confirmed_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+        $this->get(route('student.proctor', $schedule))
+            ->assertOk()
+            ->assertSee('available starting', false)
+            ->assertSee('disabled', false);
+        $this->post(route('student.exams.start', $schedule))
+            ->assertStatus(422)
+            ->assertSee('available starting', false);
+    }
+
+    public function test_survey_form_does_not_prefill_answers_stored_for_the_student(): void
+    {
+        $this->seedRoles();
+        $student = User::factory()->student()->create();
+        $group = Group::create(['name' => 'Survey Form Group', 'status' => 'active']);
+        GroupMembership::create([
+            'group_id' => $group->id,
+            'student_user_id' => $student->id,
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        $course = Course::factory()->create(['name' => 'Survey Subject']);
+        $exam = Exam::create([
+            'course_id' => $course->id,
+            'name' => 'Survey Exam',
+            'question_order_mode' => 'static',
+            'status' => 'published',
+        ]);
+        $schedule = ExamSchedule::create([
+            'exam_id' => $exam->id,
+            'group_id' => $group->id,
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addDay()->toDateString(),
+            'duration_minutes' => 60,
+            'status' => 'scheduled',
+        ]);
+        $survey = StudentSurvey::create([
+            'student_user_id' => $student->id,
+            'exam_schedule_id' => $schedule->id,
+            'status' => 'started',
+            'contact_confirmed_at' => now(),
+        ]);
+        StudentSurveyAnswer::create([
+            'student_survey_id' => $survey->id,
+            'question_key' => 'instructor_name',
+            'answer' => 'Previously stored answer',
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+        $this->get(route('student.survey.form', $schedule))
+            ->assertOk()
+            ->assertSee('What is the name of the person who taught your class?', false)
+            ->assertDontSee('Previously stored answer', false);
+    }
+
+    public function test_student_cannot_start_a_second_attempt_after_finishing_an_exam(): void
+    {
+        $this->seedRoles();
+        $student = User::factory()->student()->create();
+        $group = Group::create(['name' => 'Single Attempt Group', 'status' => 'active']);
+        GroupMembership::create([
+            'group_id' => $group->id,
+            'student_user_id' => $student->id,
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        $course = Course::factory()->create(['name' => 'Single Attempt Subject']);
+        $exam = Exam::create([
+            'course_id' => $course->id,
+            'name' => 'Single Attempt Exam',
+            'question_order_mode' => 'static',
+            'status' => 'published',
+        ]);
+        $question = Question::create([
+            'course_id' => $course->id,
+            'question_text' => 'Single attempt question',
+            'type' => 'input',
+            'difficulty' => 'easy',
+            'correct_answer_text' => 'Answer',
+        ]);
+        ExamQuestion::create(['exam_id' => $exam->id, 'question_id' => $question->id, 'display_order' => 1, 'points' => 1]);
+        $schedule = ExamSchedule::create([
+            'exam_id' => $exam->id,
+            'group_id' => $group->id,
+            'start_date' => now()->subDay()->toDateString(),
+            'end_date' => now()->addDay()->toDateString(),
+            'duration_minutes' => 60,
+            'status' => 'scheduled',
+        ]);
+        StudentSurvey::create([
+            'student_user_id' => $student->id,
+            'exam_schedule_id' => $schedule->id,
+            'status' => 'completed',
+            'contact_confirmed_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+        $this->post(route('student.exams.start', $schedule))->assertRedirect();
+        $attempt = $schedule->attempts()->firstOrFail();
+        $this->post(route('student.attempts.submit', $attempt))->assertRedirect(route('student.attempts.report', $attempt));
+
+        $this->get(route('student.proctor', $schedule))
+            ->assertOk()
+            ->assertSee('Exam Completed')
+            ->assertSee('A second attempt is not available.', false);
+        $this->post(route('student.exams.start', $schedule))
+            ->assertStatus(422)
+            ->assertSee('A second attempt is not available.', false);
+        $this->assertDatabaseCount('exam_attempts', 1);
     }
 
     public function test_student_cannot_continue_a_cancelled_or_ended_schedule(): void

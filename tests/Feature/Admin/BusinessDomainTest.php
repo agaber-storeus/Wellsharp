@@ -126,6 +126,47 @@ class BusinessDomainTest extends TestCase
             ->assertJsonPath('data.0.status', 'archived');
     }
 
+    public function test_admin_archival_tables_use_alpine_controls_and_persist_archive_state(): void
+    {
+        $group = Group::create(['name' => 'Archive Group', 'code' => 'ARCHIVE-GROUP', 'status' => 'active']);
+        $this->get(route('admin.groups.index'))
+            ->assertOk()
+            ->assertSee('archiveGroup(group)', false)
+            ->assertSee('archive_url', false);
+        $this->patchJson(route('admin.groups.archive', $group))
+            ->assertOk()
+            ->assertJsonPath('status', 'archived');
+        $this->assertDatabaseHas('student_groups', ['id' => $group->id, 'status' => 'archived']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'group.updated']);
+
+        $subject = Course::factory()->create(['name' => 'Archive Subject', 'status' => 'active']);
+        $this->get(route('admin.courses.index'))
+            ->assertOk()
+            ->assertSee('archiveSubject(subject)', false)
+            ->assertSee('Archived');
+        $this->patchJson(route('admin.courses.archive', $subject))
+            ->assertOk()
+            ->assertJsonPath('status', 'retired')
+            ->assertJsonPath('status_label', 'Archived');
+        $this->assertDatabaseHas('courses', ['id' => $subject->id, 'status' => 'retired']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'course.archived']);
+
+        $this->get(route('admin.students.index'))
+            ->assertOk()
+            ->assertSee('toggleStatus(student)', false)
+            ->assertSee('archiveStudent(student)', false)
+            ->assertSee('archive_url', false);
+        $this->patchJson(route('admin.users.archive', $this->studentOne))
+            ->assertOk()
+            ->assertJsonPath('status', 'archived');
+        $this->assertDatabaseHas('users', ['id' => $this->studentOne->id, 'status' => 'archived']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'user.archived']);
+        $this->getJson(route('admin.students.data', ['status' => 'archived']))
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.status', 'archived');
+    }
+
     public function test_shared_user_form_renders_for_normal_and_student_users(): void
     {
         $this->get(route('admin.users.create'))->assertOk();
@@ -178,6 +219,12 @@ class BusinessDomainTest extends TestCase
         $this->getJson(route('admin.exams.data', ['search' => 'Final Exam', 'sort' => 'name', 'direction' => 'asc']))
             ->assertOk()
             ->assertJsonPath('data.0.name', 'Final Exam');
+        $this->get(route('admin.exams.index'))->assertSee('archiveExam(exam)', false);
+        $this->patchJson(route('admin.exams.archive', $exam))
+            ->assertOk()
+            ->assertJsonPath('status', 'archived');
+        $this->assertDatabaseHas('exams', ['id' => $exam->id, 'status' => 'archived']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'exam.archived']);
 
         $this->post(route('admin.courses.exams.store', $this->subject), [
             'name' => 'Invalid Exam', 'question_order_mode' => 'shuffle', 'status' => 'draft',

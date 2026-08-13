@@ -36,6 +36,44 @@ class ProviderAndCourseTest extends TestCase
         $this->assertDatabaseHas('audit_events', ['action' => 'training_provider.archived']);
     }
 
+    public function test_admin_can_change_provider_status_from_the_provider_details_page(): void
+    {
+        $provider = TrainingProvider::factory()->create(['status' => 'active']);
+
+        $this->get(route('admin.providers.index'))
+            ->assertOk()
+            ->assertSee('toggleStatus(provider)', false)
+            ->assertSee('provider-status-toggle', false)
+            ->assertSee('archiveProvider(provider)', false)
+            ->assertSee('status_url', false);
+
+        $this->get(route('admin.providers.show', $provider))
+            ->assertOk()
+            ->assertSee('Status')
+            ->assertDontSee('providerStatusControl');
+
+        $this->patchJson(route('admin.providers.status', $provider), ['status' => 'inactive'])
+            ->assertOk()
+            ->assertJsonPath('status', 'inactive')
+            ->assertJsonPath('status_label', 'Inactive');
+
+        $this->assertDatabaseHas('training_providers', ['id' => $provider->id, 'status' => 'inactive']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'training_provider.status_updated', 'subject_id' => (string) $provider->id]);
+
+        $this->patchJson(route('admin.providers.status', $provider), ['status' => 'active'])
+            ->assertOk()
+            ->assertJsonPath('status', 'active');
+
+        $this->assertDatabaseHas('training_providers', ['id' => $provider->id, 'status' => 'active']);
+        $this->patchJson(route('admin.providers.status', $provider), ['status' => 'archived'])
+            ->assertUnprocessable();
+
+        $this->patchJson(route('admin.providers.archive', $provider))
+            ->assertOk()
+            ->assertJsonPath('status', 'archived');
+        $this->assertDatabaseHas('training_providers', ['id' => $provider->id, 'status' => 'archived']);
+    }
+
     public function test_provider_form_uses_map_picker_and_stores_selected_location(): void
     {
         $this->get(route('admin.providers.create'))

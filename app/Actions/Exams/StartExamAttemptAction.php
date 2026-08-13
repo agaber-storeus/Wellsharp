@@ -103,7 +103,9 @@ class StartExamAttemptAction
         }
 
         if (! $schedule->override_started_at && $schedule->start_date?->isFuture()) {
-            throw ValidationException::withMessages(['exam' => 'This exam has not started yet.']);
+            throw ValidationException::withMessages([
+                'exam' => 'This exam is available starting '.$schedule->start_date->format('F j, Y').'.',
+            ]);
         }
 
         if (! $schedule->override_started_at && $schedule->end_date?->endOfDay()->isPast()) {

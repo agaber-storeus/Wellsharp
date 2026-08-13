@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\Users\CreateUserAction;
 use App\Enums\GroupStatus;
+use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Models\Group;
@@ -31,6 +32,7 @@ class StudentController extends Controller
             'search' => trim((string) $request->query('search')),
             'gender' => (string) $request->query('gender', ''),
             'groupId' => (string) $request->query('group_id', ''),
+            'status' => (string) $request->query('status', ''),
             'groups' => Group::query()->where('status', GroupStatus::Active)->orderBy('name')->get(['id', 'name', 'code']),
         ]);
     }
@@ -90,7 +92,8 @@ class StudentController extends Controller
                 });
             })
             ->when($request->filled('gender'), fn ($query) => $query->whereHas('profile', fn ($profile) => $profile->where('gender', $request->query('gender'))))
-            ->when($request->filled('group_id'), fn ($query) => $query->whereHas('groups', fn ($group) => $group->whereKey($request->query('group_id'))));
+            ->when($request->filled('group_id'), fn ($query) => $query->whereHas('groups', fn ($group) => $group->whereKey($request->query('group_id'))))
+            ->when(in_array($request->query('status'), ['active', 'disabled', 'archived'], true), fn ($query) => $query->where('users.status', $request->query('status')));
 
         $sortColumn = $sorts[$sort] ?? $sorts['created_at'];
 
@@ -109,6 +112,10 @@ class StudentController extends Controller
             'groups_count' => (int) $student->groups_count,
             'status' => $student->status->value,
             'status_label' => $student->status->label(),
+            'can_toggle_status' => in_array($student->status, [UserStatus::Active, UserStatus::Disabled], true) && ! $student->is(auth()->user()),
+            'status_url' => route('admin.users.status', $student),
+            'can_archive' => in_array($student->status, [UserStatus::Active, UserStatus::Disabled], true) && ! $student->is(auth()->user()),
+            'archive_url' => route('admin.users.archive', $student),
             'view_url' => route('admin.users.show', $student),
         ];
     }

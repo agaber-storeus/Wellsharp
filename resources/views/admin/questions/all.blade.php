@@ -1,18 +1,73 @@
 @extends('layouts.admin')
+
 @section('admin-content')
-<style>[x-cloak]{display:none!important}.question-table-loading{opacity:.55;pointer-events:none}.question-sort{border:0;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;padding:0}.question-sort:hover{color:var(--admin-blue)}.question-sort-icon{font-size:11px;margin-left:3px}.question-error{background:#fef3f2;color:#b42318;border-radius:5px;padding:10px 12px;margin-bottom:15px}.link-button{border:0;background:none;padding:0;color:var(--admin-blue);font:inherit;cursor:pointer}.link-button:hover{text-decoration:underline}</style>
-<div class="page-head"><div><span class="admin-kicker">Exam Management</span><h1>Questions</h1><p>Search, filter, and sort question-bank content across all Subjects. Manage every Question Bank with live controls.</p></div><div class="actions"><a class="btn secondary" href="{{ route('admin.questions.import') }}">Import Excel</a><a class="btn" href="{{ route('admin.questions.create') }}">Create question</a></div></div>
+<style>
+    [x-cloak] { display: none !important; }
+    .question-table-loading { opacity: .55; pointer-events: none; }
+    .question-sort { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; padding: 0; }
+    .question-sort:hover { color: var(--admin-blue); }
+    .question-sort-icon { font-size: 11px; margin-left: 3px; }
+    .question-error { background: #fef3f2; color: #b42318; border-radius: 5px; padding: 10px 12px; margin-bottom: 15px; }
+    .link-button { border: 0; background: none; padding: 0; color: var(--admin-blue); font: inherit; cursor: pointer; }
+    .link-button:hover { text-decoration: underline; }
+    .question-status-toggle { cursor: pointer !important; pointer-events: auto !important; touch-action: manipulation; }
+</style>
+
+<div class="page-head">
+    <div>
+        <span class="admin-kicker">Exam Management</span>
+        <h1>Questions</h1>
+        <p>Search, filter, and sort question-bank content across all Subjects. Manage every Question Bank with live controls.</p>
+    </div>
+    <div class="actions">
+        <a class="btn secondary" href="{{ route('admin.questions.import') }}">Import Excel</a>
+        <a class="btn" href="{{ route('admin.questions.create') }}">Create question</a>
+    </div>
+</div>
+
 <div class="card" x-data="questionTable(@js(route('admin.questions.data')), @js($initialQuestions), @js(['current_page' => $questions->currentPage(), 'last_page' => $questions->lastPage(), 'total' => $questions->total(), 'from' => $questions->firstItem(), 'to' => $questions->lastItem()]))">
-    <form class="search" x-on:submit.prevent="load(1)"><input x-model="search" x-on:input.debounce.350ms="load(1)" name="search" placeholder="Search question" autocomplete="off"><select x-model="courseId" x-on:change="load(1)" name="course_id"><option value="">All Subjects</option>@foreach($subjects as $subject)<option value="{{ $subject->id }}">{{ $subject->name }}</option>@endforeach</select><select x-model="type" x-on:change="load(1)" name="type"><option value="">All Types</option>@foreach($types as $item)<option value="{{ $item->value }}">{{ $item->label() }}</option>@endforeach</select><select x-model="difficulty" x-on:change="load(1)" name="difficulty"><option value="">All Difficulties</option>@foreach($difficulties as $item)<option value="{{ $item->value }}">{{ $item->label() }}</option>@endforeach</select><select x-model="status" x-on:change="load(1)" name="status"><option value="">All Statuses</option><option value="active">Active</option><option value="archived">Archived</option></select><button class="btn secondary" type="submit">Apply</button><button class="btn secondary" type="button" x-show="hasFilters()" x-on:click="clearFilters()" x-cloak>Clear</button></form>
+    <form class="search" x-on:submit.prevent="load(1)">
+        <input x-model="search" x-on:input.debounce.350ms="load(1)" name="search" placeholder="Search question" autocomplete="off">
+        <select x-model="courseId" x-on:change="load(1)" name="course_id"><option value="">All Subjects</option>@foreach($subjects as $subject)<option value="{{ $subject->id }}">{{ $subject->name }}</option>@endforeach</select>
+        <select x-model="type" x-on:change="load(1)" name="type"><option value="">All Types</option>@foreach($types as $item)<option value="{{ $item->value }}">{{ $item->label() }}</option>@endforeach</select>
+        <select x-model="difficulty" x-on:change="load(1)" name="difficulty"><option value="">All Difficulties</option>@foreach($difficulties as $item)<option value="{{ $item->value }}">{{ $item->label() }}</option>@endforeach</select>
+        <select x-model="status" x-on:change="load(1)" name="status"><option value="">All Statuses</option><option value="active">Active</option><option value="archived">Archived</option></select>
+        <button class="btn secondary" type="submit">Apply</button>
+        <button class="btn secondary" type="button" x-show="hasFilters()" x-on:click="clearFilters()" x-cloak>Clear</button>
+    </form>
     <div class="question-error" x-show="error" x-text="error" x-cloak></div>
-    <div class="table-wrap" x-bind:class="loading ? 'question-table-loading' : ''"><table class="table"><thead><tr><th><button class="question-sort" type="button" x-on:click="sortBy('question_text')">Question <span class="question-sort-icon" x-text="sortIcon('question_text')"></span></button></th><th>Images</th><th><button class="question-sort" type="button" x-on:click="sortBy('course_id')">Subject <span class="question-sort-icon" x-text="sortIcon('course_id')"></span></button></th><th><button class="question-sort" type="button" x-on:click="sortBy('type')">Type <span class="question-sort-icon" x-text="sortIcon('type')"></span></button></th><th><button class="question-sort" type="button" x-on:click="sortBy('difficulty')">Difficulty <span class="question-sort-icon" x-text="sortIcon('difficulty')"></span></button></th><th><button class="question-sort" type="button" x-on:click="sortBy('is_active')">Status <span class="question-sort-icon" x-text="sortIcon('is_active')"></span></button></th><th>Actions</th></tr></thead><tbody><template x-for="question in rows" :key="question.id"><tr><td x-text="question.question_text"></td><td><template x-if="question.question_image_url"><img class="admin-question-thumb" x-bind:src="question.question_image_url" alt="Question image"></template><span class="image-count" x-show="question.answer_images_count" x-text="question.answer_images_count + ' answer image' + (question.answer_images_count === 1 ? '' : 's')"></span><span class="muted" x-show="!question.question_image_url && !question.answer_images_count">—</span></td><td x-text="question.subject || '—'"></td><td x-text="question.type_label"></td><td x-text="question.difficulty_label"></td><td><span class="badge" x-bind:class="question.active ? 'active' : 'archived'" x-text="question.active ? 'Active' : 'Archived'"></span></td><td><a x-bind:href="question.edit_url">Edit</a><template x-if="question.active"><span> · </span><form style="display:inline" method="POST" x-bind:action="question.archive_url">@csrf @method('DELETE')<button class="link-button" type="submit">Archive</button></form></template></td></tr></template><tr x-show="!loading && rows.length === 0" x-cloak><td colspan="7" class="muted">No questions found.</td></tr></tbody></table></div>
+    <div class="table-wrap" x-bind:class="loading ? 'question-table-loading' : ''">
+        <table class="table">
+            <thead><tr><th><button class="question-sort" type="button" x-on:click="sortBy('question_text')">Question <span class="question-sort-icon" x-text="sortIcon('question_text')"></span></button></th><th>Images</th><th><button class="question-sort" type="button" x-on:click="sortBy('course_id')">Subject <span class="question-sort-icon" x-text="sortIcon('course_id')"></span></button></th><th><button class="question-sort" type="button" x-on:click="sortBy('type')">Type <span class="question-sort-icon" x-text="sortIcon('type')"></span></button></th><th><button class="question-sort" type="button" x-on:click="sortBy('difficulty')">Difficulty <span class="question-sort-icon" x-text="sortIcon('difficulty')"></span></button></th><th><button class="question-sort" type="button" x-on:click="sortBy('is_active')">Status <span class="question-sort-icon" x-text="sortIcon('is_active')"></span></button></th><th>Actions</th></tr></thead>
+            <tbody>
+                <template x-for="question in rows" :key="question.id">
+                    <tr>
+                        <td x-text="question.question_text"></td>
+                        <td><template x-if="question.question_image_url"><img class="admin-question-thumb" x-bind:src="question.question_image_url" alt="Question image"></template><span class="image-count" x-show="question.answer_images_count" x-text="question.answer_images_count + ' answer image' + (question.answer_images_count === 1 ? '' : 's')"></span><span class="muted" x-show="!question.question_image_url && !question.answer_images_count">&mdash;</span></td>
+                        <td x-text="question.subject || '&mdash;'"></td>
+                        <td x-text="question.type_label"></td>
+                        <td x-text="question.difficulty_label"></td>
+                        <td><div class="admin-status-cell"><span class="badge" x-bind:class="question.active ? 'active' : 'archived'" x-text="question.active ? 'Active' : 'Archived'"></span></div></td>
+                        <td><div class="admin-actions-cell"><a x-bind:href="question.edit_url">Edit</a><template x-if="question.active"><button class="btn secondary small question-status-toggle" type="button" x-on:click.prevent="archiveQuestion(question)" x-bind:disabled="question.archiving" x-bind:aria-busy="question.archiving ? 'true' : 'false'" x-text="question.archiving ? 'Updating...' : 'Archive'"></button></template></div></td>
+                    </tr>
+                </template>
+                <tr x-show="!loading && rows.length === 0" x-cloak><td colspan="7" class="muted">No questions found.</td></tr>
+            </tbody>
+        </table>
+    </div>
     <div class="actions" style="justify-content:space-between;margin-top:18px"><span class="muted"><span x-text="meta.total ? 'Showing '+meta.from+' to '+meta.to+' of '+meta.total+' questions' : 'No questions found'"></span></span><div class="actions"><button class="btn secondary" type="button" x-on:click="load(meta.current_page - 1)" x-bind:disabled="loading || meta.current_page <= 1">Previous</button><span class="muted" x-text="meta.current_page+' / '+meta.last_page"></span><button class="btn secondary" type="button" x-on:click="load(meta.current_page + 1)" x-bind:disabled="loading || meta.current_page >= meta.last_page">Next</button></div></div>
 </div>
+
 <script>
     window.questionTable = function (endpoint, initialRows, initialMeta) {
-        return { endpoint, rows: initialRows || [], meta: initialMeta || { current_page: 1, last_page: 1, total: 0, from: null, to: null }, search: @js($search), courseId: @js((string) $courseId), type: @js($type), difficulty: @js($difficulty), status: @js($status), sort: 'created_at', direction: 'desc', loading: false, error: '', request: null,
-            hasFilters() { return this.search || this.courseId || this.type || this.difficulty || this.status; }, clearFilters() { this.search = ''; this.courseId = ''; this.type = ''; this.difficulty = ''; this.status = ''; this.load(1); }, sortIcon(field) { return this.sort === field ? (this.direction === 'asc' ? '▲' : '▼') : '↕'; }, sortBy(field) { if (this.sort === field) this.direction = this.direction === 'asc' ? 'desc' : 'asc'; else { this.sort = field; this.direction = 'asc'; } this.load(1); },
-            async load(page) { page = Math.max(1, page || 1); if (this.request) this.request.abort(); this.request = new AbortController(); const params = new URLSearchParams({ page, sort: this.sort, direction: this.direction }); if (this.search) params.set('search', this.search); if (this.courseId) params.set('course_id', this.courseId); if (this.type) params.set('type', this.type); if (this.difficulty) params.set('difficulty', this.difficulty); if (this.status) params.set('status', this.status); this.loading = true; this.error = ''; try { const response = await fetch(this.endpoint + '?' + params.toString(), { headers: { Accept: 'application/json' }, signal: this.request.signal }); if (!response.ok) throw new Error('Question search failed'); const payload = await response.json(); this.rows = payload.data; this.meta = payload.meta; } catch (error) { if (error.name !== 'AbortError') this.error = 'Questions could not be loaded. Try again.'; } finally { this.loading = false; } }
+        return {
+            endpoint, rows: initialRows || [], meta: initialMeta || { current_page: 1, last_page: 1, total: 0, from: null, to: null }, search: @js($search), courseId: @js((string) $courseId), type: @js($type), difficulty: @js($difficulty), status: @js($status), sort: 'created_at', direction: 'desc', loading: false, error: '', request: null,
+            hasFilters() { return this.search || this.courseId || this.type || this.difficulty || this.status; },
+            clearFilters() { this.search = ''; this.courseId = ''; this.type = ''; this.difficulty = ''; this.status = ''; this.load(1); },
+            sortIcon(field) { return this.sort === field ? (this.direction === 'asc' ? '▲' : '▼') : '↕'; },
+            sortBy(field) { if (this.sort === field) this.direction = this.direction === 'asc' ? 'desc' : 'asc'; else { this.sort = field; this.direction = 'asc'; } this.load(1); },
+            async load(page) { page = Math.max(1, page || 1); if (this.request) this.request.abort(); this.request = new AbortController(); const params = new URLSearchParams({ page, sort: this.sort, direction: this.direction }); if (this.search) params.set('search', this.search); if (this.courseId) params.set('course_id', this.courseId); if (this.type) params.set('type', this.type); if (this.difficulty) params.set('difficulty', this.difficulty); if (this.status) params.set('status', this.status); this.loading = true; this.error = ''; try { const response = await fetch(this.endpoint + '?' + params.toString(), { headers: { Accept: 'application/json' }, signal: this.request.signal }); if (!response.ok) throw new Error('Question search failed'); const payload = await response.json(); this.rows = payload.data; this.meta = payload.meta; } catch (error) { if (error.name !== 'AbortError') this.error = 'Questions could not be loaded. Try again.'; } finally { this.loading = false; } },
+            async archiveQuestion(question) { if (!question.active || question.archiving) return; question.archiving = true; this.error = ''; try { const response = await fetch(question.archive_url, { method: 'DELETE', credentials: 'same-origin', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '', 'X-Requested-With': 'XMLHttpRequest' } }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.message || 'Question could not be archived.'); question.active = false; question.status_label = payload.status_label || 'Archived'; } catch (exception) { this.error = exception.message || 'Question could not be archived.'; } finally { question.archiving = false; } }
         };
     };
 </script>

@@ -22,6 +22,13 @@ class DashboardController extends Controller
                     ->orWhereNotNull('override_started_at');
             })
             ->whereHas('group.students', fn ($query) => $query->where('users.id', auth()->id()))
+            // An available class must win over a newer class that has not opened yet.
+            // This keeps the student's single Continue action aligned with the class
+            // they can actually enter today.
+            ->orderByRaw(
+                'CASE WHEN override_started_at IS NOT NULL OR (start_date <= ? AND (end_date IS NULL OR end_date >= ?)) THEN 0 ELSE 1 END',
+                [today()->toDateString(), today()->toDateString()]
+            )
             ->orderByDesc('start_date')
             ->orderByDesc('end_date')
             ->orderByDesc('id')

@@ -48,13 +48,11 @@ class FlowController extends Controller
     {
         $survey = $flow->assertContactConfirmed($schedule, auth()->user());
         $schedule->load(['exam.subject', 'group']);
-        $answers = $survey->answers()->pluck('answer', 'question_key');
 
         return view('student.survey-form', [
             'schedule' => $schedule,
             'survey' => $survey,
             'questions' => $definition->questions(),
-            'answers' => $answers,
             'studentFlowSchedule' => $schedule,
             'flowStep' => 'survey',
         ]);
@@ -93,6 +91,10 @@ class FlowController extends Controller
 
         return view('student.proctor', [
             'schedule' => $schedule,
+            'canStartExam' => $flow->canStartExam($schedule),
+            'startAvailabilityMessage' => $flow->startAvailabilityMessage($schedule),
+            'hasFinishedExam' => $flow->hasFinishedExam($schedule, auth()->user()),
+            'finishedExamMessage' => $flow->finishedExamMessage($schedule, auth()->user()),
             'studentFlowSchedule' => $schedule,
             'flowStep' => 'exam',
         ]);

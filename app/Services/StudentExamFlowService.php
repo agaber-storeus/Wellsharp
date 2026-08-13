@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Enums\ExamScheduleStatus;
 use App\Enums\GroupMembershipStatus;
+use App\Enums\ExamAttemptStatus;
+use App\Models\ExamAttempt;
 use App\Models\ExamSchedule;
 use App\Models\StudentSurvey;
 use App\Models\User;
@@ -57,8 +59,54 @@ class StudentExamFlowService
         }
     }
 
+    public function canStartExam(ExamSchedule $schedule): bool
+    {
+        if ($schedule->override_started_at) {
+            return ! $schedule->override_ended_at;
+        }
+
+        return ! $schedule->start_date?->isFuture()
+            && ! $schedule->end_date?->endOfDay()->isPast();
+    }
+
+    public function hasFinishedExam(ExamSchedule $schedule, User $student): bool
+    {
+        return $schedule->attempts()
+            ->where('student_user_id', $student->getKey())
+            ->where('status', ExamAttemptStatus::Submitted->value)
+            ->exists();
+    }
+
+    public function finishedExamMessage(ExamSchedule $schedule, User $student): ?string
+    {
+        return $this->hasFinishedExam($schedule, $student)
+            ? 'You have already finished this exam. A second attempt is not available.'
+            : null;
+    }
+
+    public function startAvailabilityMessage(ExamSchedule $schedule): ?string
+    {
+        if ($this->canStartExam($schedule)) {
+            return null;
+        }
+
+        if (! $schedule->override_started_at && $schedule->start_date?->isFuture()) {
+            return 'This exam is available starting '.$schedule->start_date->format('F j, Y').'.';
+        }
+
+        return 'This exam schedule has ended.';
+    }
+
     public function assertReadyForExam(ExamSchedule $schedule, User $student): void
     {
         $this->assertSurveyCompleted($schedule, $student);
+
+        if ($message = $this->finishedExamMessage($schedule, $student)) {
+            abort(422, $message);
+        }
+
+        if ($message = $this->startAvailabilityMessage($schedule)) {
+            abort(422, $message);
+        }
     }
 }

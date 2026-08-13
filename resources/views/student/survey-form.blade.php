@@ -20,12 +20,12 @@
           @if($question['type'] === 'select')
             <select id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]" {{ $question['required'] ? 'required' : '' }}>
               <option value="">Select an Option</option>
-              @foreach($question['options'] as $option)<option value="{{ $option }}" @selected(($answers[$question['key']] ?? '') === $option)>{{ $option }}</option>@endforeach
+              @foreach($question['options'] as $option)<option value="{{ $option }}" @selected(old('answers.'.$question['key']) === $option)>{{ $option }}</option>@endforeach
             </select>
           @elseif($question['type'] === 'textarea')
-            <textarea id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]" placeholder="Additional Comments:">{{ $answers[$question['key']] ?? '' }}</textarea>
+            <textarea id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]" placeholder="Additional Comments:">{{ old('answers.'.$question['key']) }}</textarea>
           @else
-            <input id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]" value="{{ $answers[$question['key']] ?? '' }}" {{ $question['required'] ? 'required' : '' }} />
+            <input id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]" value="{{ old('answers.'.$question['key']) }}" {{ $question['required'] ? 'required' : '' }} />
           @endif
         </div>
         @error('answers.'.$question['key'])<div class="message-bar error">{{ $message }}</div>@enderror

@@ -24,6 +24,19 @@ class StartExamAttemptAction
             $schedule = ExamSchedule::query()->with('exam')->lockForUpdate()->findOrFail($schedule->getKey());
             $this->assertStudentCanStart($schedule, $student);
 
+            $finished = ExamAttempt::query()
+                ->where('exam_schedule_id', $schedule->getKey())
+                ->where('student_user_id', $student->getKey())
+                ->where('status', ExamAttemptStatus::Submitted->value)
+                ->lockForUpdate()
+                ->exists();
+
+            if ($finished) {
+                throw ValidationException::withMessages([
+                    'exam' => 'You have already finished this exam. A second attempt is not available.',
+                ]);
+            }
+
             $existing = ExamAttempt::query()
                 ->where('exam_schedule_id', $schedule->getKey())
                 ->where('student_user_id', $student->getKey())

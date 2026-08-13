@@ -2,7 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex, nofollow, noarchive">
+    <meta name="robots" content="noindex, nofollow, noarchive"><meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="referrer" content="same-origin">
     <meta name="theme-color" content="#0b1728">
     <title>{{ $title ?? 'Administration | WellSharp' }}</title>
@@ -61,4 +61,5 @@
 @if(request()->routeIs('admin.providers.show'))<script src="{{ asset('js/provider-location-map.js') }}"></script>@endif
 @if(request()->routeIs('admin.questions.create', 'admin.courses.questions.create', 'admin.courses.questions.edit'))<script src="{{ asset('js/admin-question-wizard.js') }}"></script>@endif
 <script src="{{ asset('js/file-upload-inputs.js') }}"></script>
+@stack('scripts')
 </body></html>

@@ -138,7 +138,7 @@ class CertificateManagementTest extends TestCase
             ->assertSee('Knowledge Assessment Report')
             ->assertSee('your result submitted to the instructor')
             ->assertSee('Exit Exam')
-            ->assertSee(route('student.dashboard'), false);
+            ->assertSee(route('logout'), false);
 
         $this->assertDatabaseHas('exam_attempts', ['id' => $data['attempt']->id, 'status' => 'submitted', 'passed' => 1]);
         $this->assertDatabaseHas('certificates', ['exam_attempt_id' => $data['attempt']->id, 'status' => 'issued']);

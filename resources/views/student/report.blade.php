@@ -12,14 +12,20 @@
       <div class="report-timer">Time Remaining: 00:00<br />User: {{ auth()->user()->display_name }}</div>
     </div>
     <section class="report-modal" aria-labelledby="report-title">
-      <a class="report-close" href="{{ route('student.dashboard') }}" aria-label="Exit exam">x</a>
+      <form method="POST" action="{{ route('logout') }}" class="report-close-form">
+        @csrf
+        <button class="report-close" type="submit" aria-label="Exit exam">x</button>
+      </form>
       <header>
         <img src="{{ asset('images/iadcLoginLgo.png') }}" alt="IADC WellSharp" width="151" height="50" />
         <h1 id="report-title">Knowledge Assessment Report</h1>
       </header>
       <div class="report-line"><strong>Assessment Date :</strong><span>{{ $attempt->submitted_at?->format('Y-m-d') ?: now()->format('Y-m-d') }}</span></div>
       <h2>You have finished the exam, your result submitted to the instructor.</h2>
-      <a class="green-btn" href="{{ route('student.dashboard') }}">Exit Exam</a>
+      <form method="POST" action="{{ route('logout') }}">
+        @csrf
+        <button class="green-btn" type="submit">Exit Exam</button>
+      </form>
     </section>
   </body>
 </html>

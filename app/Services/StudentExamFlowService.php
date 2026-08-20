@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\ExamAttemptStatus;
 use App\Enums\ExamScheduleStatus;
 use App\Enums\GroupMembershipStatus;
-use App\Enums\ExamAttemptStatus;
-use App\Models\ExamAttempt;
 use App\Models\ExamSchedule;
 use App\Models\StudentSurvey;
 use App\Models\User;

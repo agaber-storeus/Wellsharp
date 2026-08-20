@@ -84,4 +84,7 @@ For local testing data:
 php artisan wellsharp:seed-demo
 ```
 
-For automatic Class transitions, configure the Laravel scheduler to run every minute. The application registers `wellsharp:process-exam-schedules` in `routes/console.php`.
+For automatic Class transitions, configure the Laravel scheduler to run every minute. The application registers `wellsharp:process-exam-schedules` in `routes/console.php` with `->everyMinute()->withoutOverlapping()`; that registration only tells Laravel *when* to run the command, so something must still invoke the scheduler continuously:
+
+- Local development: run `php artisan schedule:work` in a dedicated terminal (already included in `composer run dev`).
+- Production: invoke `php artisan schedule:run` once a minute via the host's process manager — a cron entry (`* * * * * cd /path/to/wellsharp && php artisan schedule:run >> /dev/null 2>&1`) on a traditional server, or the platform's native scheduler integration if Supervisor, systemd, or a PaaS is used instead. See the [README's Scheduled tasks section](../README.md#scheduled-tasks-laravel-scheduler) for details. Never run more than one scheduler-invoking process per environment.

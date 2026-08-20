@@ -89,6 +89,36 @@ php artisan serve
 
 The application uses Blade views and Vite assets. Run `npm install` and `npm run build` when frontend assets are required.
 
+`composer run dev` starts the dev server, queue listener, log tail, Vite, and the Laravel Scheduler together (see [Scheduled tasks](#scheduled-tasks-laravel-scheduler) below) using `npx concurrently`.
+
+## Scheduled tasks (Laravel Scheduler)
+
+`routes/console.php` registers `wellsharp:process-exam-schedules` on Laravel's Scheduler (`->everyMinute()->withoutOverlapping()`). Registering a scheduled task only defines *when* it should run; something still has to invoke the scheduler itself every minute, in every environment. `php artisan schedule:list` shows what is registered, but it does not run anything on its own.
+
+Symptom if nothing invokes the scheduler: Classes created by Exam scheduling stay `planned` forever, even after `starts_at` has passed, because `wellsharp:process-exam-schedules` never executes.
+
+### Local development
+
+Run the scheduler continuously in its own terminal:
+
+```bash
+php artisan schedule:work
+```
+
+This is already included when you run `composer run dev`. Do not manually run `php artisan wellsharp:process-exam-schedules` as a substitute — `schedule:work` reproduces production's once-a-minute cadence and exercises the same code path Class start/end transitions rely on.
+
+### Production
+
+Production must invoke `php artisan schedule:run` every minute via the deployment environment's process manager. This repository does not currently ship a Docker/Supervisor/systemd configuration, so the standard approach is a single cron entry on the deployment host:
+
+```cron
+* * * * * cd /path/to/wellsharp && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Replace `/path/to/wellsharp` with the deployed application path, and run it as the same OS user that owns the application files/PHP-FPM pool. If the deployment target instead uses Supervisor, systemd, or a PaaS (Forge, Envoyer, Vapor, a container orchestrator, etc.), use that platform's native scheduler/cron integration instead of installing a second, competing cron entry — only one process should be invoking `schedule:run`/`schedule:work` per environment.
+
+`withoutOverlapping()` prevents a slow run from overlapping the next tick; its lock is stored in the configured cache store (`CACHE_STORE`, `database` by default here), so it works correctly across the separate PHP processes that cron spawns each minute.
+
 ## Tests and quality checks
 
 ```bash

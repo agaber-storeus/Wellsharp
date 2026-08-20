@@ -143,13 +143,34 @@ Create/update body:
 
 The IDs must be distinct existing IDs for that configuration type. Success returns `{ message, rows }`; invalid IDs return `422`.
 
+### `POST /admin/users/{user}/reveal-password`
+
+Reveals a Student's recoverable password (see [Student password recovery](#student-password-recovery) below for the shared behavior and business rules). Admin may reveal any Student's password regardless of Admin's own active status.
+
+## Student password recovery
+
+Student accounts (only) keep a separately encrypted, reversible copy of their current login password so staff can hand it to a Student who cannot self-reset. Both endpoints below share identical behavior:
+
+```text
+POST /admin/users/{user}/reveal-password
+POST /{role}/students/{student}/reveal-password
+```
+
+Requires policy `viewPassword`: the target account's current role must be Student, and the actor must be Admin, or an **active** Proctor/Instructor. No request body. Success returns `200` with `Cache-Control: no-store` (the response must never be cached or replayed from a shared/proxy cache):
+
+```json
+{ "password": "Ab3kq" }
+```
+
+A target that isn't a Student (policy denial) returns `403`; a Student with no recoverable password (legacy account created before this feature) returns `404`. Every successful reveal is written to the audit log as `student.password_viewed` (actor, actor role, and target Student — never the plaintext password, its hash, or its ciphertext), regardless of which role performed it. The password is never embedded in any page's HTML/JSON by default (including the Proctor/Instructor Class Dashboard roster, which carries only a `revealUrl` per Student) — only this endpoint, called on an explicit staff "Reveal" action, ever returns the plaintext value, and only to that one request; the client keeps it in transient UI state only (no localStorage/sessionStorage/cookie/URL persistence) until the staff member clicks "Hide" or navigates away.
+
 ## Operational JSON endpoints
 
 These routes are available under both `/proctor` and `/instructor`. They require an active authenticated user with the corresponding current role.
 
 ### `POST /{role}/proctor-id/verify`
 
-Verifies the authenticated user's own exam-control ID. Body:
+Verifies a Proctor's ID: it must belong to a currently active, eligible Proctor. Used by the Instructor oversight flow (a Proctor never needs to verify their own ID to control a Class). Body:
 
 ```json
 { "proctor_id": "PR-DEMO-PROCTOR-001" }
@@ -174,7 +195,37 @@ Starts or ends the shared operational Class/Exam. The route-model identifier is 
 }
 ```
 
-`action` is required and must be `start` or `end`; `proctor_id` is required, string, max 32. The authenticated staff member must be active and must own that control ID. A planned Class can be started; an active Class can be ended; invalid transitions return `422`. Success returns `200` with the Class status and number of schedules controlled.
+`action` is required and must be `start` or `end`. `proctor_id` is required only when the authenticated user's current role is Instructor, and must resolve to a currently active, eligible Proctor (never the Instructor's own or another Instructor's credential — Instructors don't own one). A Proctor omits `proctor_id` entirely. A planned Class can be started; an active Class can be ended; invalid transitions return `422`. Success returns `200` with the Class status and number of schedules controlled.
+
+### `POST /{role}/students/{student}/reveal-password`
+
+See [Student password recovery](#student-password-recovery) above.
+
+### `POST /{role}/enrollments/{enrollment}/skills-score`
+
+Records a trainee's hands-on Skills Score for one Enrollment (separate from the Knowledge Exam score, which comes from `exam_attempts`). Body:
+
+```json
+{ "skills_score": 85 }
+```
+
+`skills_score` is required, integer, 0-100. Requires policy `updateSkillsScore`: an active Proctor/Instructor (Admin also via policy `before()`). Writes audit action `enrollment.skills_score_updated`. Success returns `200`:
+
+```json
+{ "skills_score": 85 }
+```
+
+### `GET /{role}/analytics/results/export`
+
+Streams `wellsharp-assessment-comparison.xlsx`: the same aggregated assessment/retake comparison rows shown on the Analytics → Results page, honoring the same server-side filters as the page itself. Not a JSON endpoint.
+
+### `GET /{role}/analytics/attempts/{attempt}/summary`
+
+Short, trainee-facing JSON summary of one scored attempt (name, assessment, stack, score, pass/fail, and up to a few missed-topic notes) — powers the Score Report popup on the Class Dashboard's Scores & Reports tab. Requires the same visibility check as `GET /{role}/analytics/attempts/{attempt}` (`OperationalReportingService::canViewAttempt`). An attempt with no score yet returns an empty `topics` array and `null` score.
+
+### `GET /{role}/certificate/data`
+
+JSON-backed variant of the `/{role}/certificate` lookup page (search/filter certificates without a full page reload). Same filters as the CSV export below.
 
 ## Student JSON endpoints
 
@@ -210,10 +261,12 @@ Expires the authenticated student's attempt after its stored expiration time. Su
 
 ```text
 GET /certificates/{certificate}/documents/{document}
+GET /certificates/{certificate}/documents/{document}/view
 GET /certificates/{certificate}/documents/{document}/download
+GET /certificates/{certificate}/documents/{document}/preview
 ```
 
-These are authenticated web routes, not JSON endpoints. The first renders a certificate document page; the second renders a PDF and returns `200` with `Content-Type: application/pdf` and an attachment disposition. The document must belong to the certificate. Admins may view all certificates; students may view their own; active Proctors/Instructors may view certificates.
+These are authenticated web routes, not JSON endpoints. `documents/{document}` renders a certificate document page with the surrounding app chrome; `documents/{document}/view` (`standalone`) renders the same completion-card document with no app chrome, for the Class Dashboard's Front/Back buttons to open in a new tab; `download` renders the real branded PDF (`CertificatePdfService`) and returns `200` with `Content-Type: application/pdf` and an `attachment` disposition; `preview` renders the identical PDF `inline` instead, for the Options column's "Preview Certificate" action. `preview`/`download` are only meaningful for the two Completion Card document types. The document must belong to the certificate (`404` otherwise). Admins may view all certificates; students may view their own; active Proctors/Instructors may view certificates.
 
 ### Operational certificate CSV
 
@@ -239,5 +292,5 @@ State-changing browser forms use Laravel's CSRF token and return redirects with 
 - Schedule availability is date-based; per-student duration starts when the attempt starts.
 - Static Exam order is shared; shuffle order is persisted per student attempt.
 - Students must confirm contact information and complete the survey before starting.
-- Only active Proctor/Instructor users may use their own exam-control credential.
+- Only the Proctor role owns a Proctor's ID; a Proctor controls a Class directly, an Instructor must supply an active Proctor's ID belonging to someone else.
 - Passing submitted attempts are scored and receive three certificate documents; failed attempts do not receive certificates.

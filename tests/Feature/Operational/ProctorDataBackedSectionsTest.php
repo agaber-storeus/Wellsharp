@@ -32,12 +32,10 @@ class ProctorDataBackedSectionsTest extends TestCase
             ->get(route('proctor.profile'))
             ->assertOk()
             ->assertSee($proctor->profile->first_name)
-            ->assertSee('Personal information')
-            ->assertSee('Contact and address')
-            ->assertSee('Work information')
-            ->assertSee('Account security')
-            ->assertSee('New password')
-            ->assertDontSee('Change Password');
+            ->assertSee('Update Your Profile')
+            ->assertSee('Company')
+            ->assertSee('Change Password')
+            ->assertSee('New Password');
 
         $response = $this->patch(route('proctor.profile.update'), [
             'first_name' => 'Updated',
@@ -53,8 +51,8 @@ class ProctorDataBackedSectionsTest extends TestCase
             'company' => 'WellSharp Testing',
             'position' => 'Senior Proctor',
             'employee_id' => 'EMP-100',
-            'password' => 'updated-password-123',
-            'password_confirmation' => 'updated-password-123',
+            'password' => 'Updatd12',
+            'password_confirmation' => 'Updatd12',
             'profile_photo' => UploadedFile::fake()->image('proctor.png'),
         ])->assertRedirect();
 
@@ -62,7 +60,7 @@ class ProctorDataBackedSectionsTest extends TestCase
         $response->assertSessionHas('auth.session_version', $proctor->session_version);
         $this->get(route('proctor.profile'))->assertOk();
         $this->assertSame('updated-proctor@example.test', $proctor->email);
-        $this->assertTrue(Hash::check('updated-password-123', $proctor->password));
+        $this->assertTrue(Hash::check('Updatd12', $proctor->password));
         $profile = $proctor->profile()->firstOrFail();
         $this->assertSame('Cairo', $profile->city);
         $this->assertSame('Senior Proctor', $profile->position);

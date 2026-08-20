@@ -44,6 +44,7 @@ use App\Models\TrainingProvider;
 use App\Models\User;
 use App\Services\ProctorIdGenerator;
 use App\Services\StudentSurveyDefinition;
+use App\Services\UserIdentityGenerator;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -79,7 +80,7 @@ class DemoDataSeeder extends Seeder
 
         $this->command?->info('Repeatable WellSharp demo data seeded.');
         $this->command?->info('Demo password for DEMO-* accounts: '.self::DEMO_PASSWORD);
-        $this->command?->info('Proctor / Instructor control IDs are PR-DEMO-PROCTOR-001..008 and PR-DEMO-INSTRUCTOR-001..008.');
+        $this->command?->info("Proctor's IDs are PR-DEMO-PROCTOR-001..008. Instructors do not receive one.");
     }
 
     /** @return array<string, array<int, object>> */
@@ -233,7 +234,6 @@ class DemoDataSeeder extends Seeder
                 Role::INSTRUCTOR,
                 $roles[Role::INSTRUCTOR],
                 sprintf('demo.instructor%02d@wellsharp.test', $number),
-                sprintf('PR-DEMO-INSTRUCTOR-%03d', $number),
             );
         }
 
@@ -271,9 +271,6 @@ class DemoDataSeeder extends Seeder
 
         $archivedInstructor = $this->user('DEMO-INSTRUCTOR-ARCHIVED', 'Archived', 'Instructor', Role::INSTRUCTOR, $roles[Role::INSTRUCTOR], 'demo.instructor.archived@wellsharp.test');
         $archivedInstructor->forceFill(['status' => UserStatus::Archived, 'archived_at' => now()->subDays(10), 'session_version' => 2])->save();
-        // Archived staff must not retain a credential that could be used to
-        // start or end an operational class.
-        $archivedInstructor->examControlCredential()->delete();
 
         return compact('admin', 'proctors', 'instructors', 'students');
     }
@@ -281,15 +278,23 @@ class DemoDataSeeder extends Seeder
     private function user(string $wellsharpId, string $firstName, string $lastName, string $roleKey, int $roleId, ?string $email, ?string $controlId = null): User
     {
         $user = User::query()->firstOrNew(['wellsharp_id' => $wellsharpId]);
+        $user->setPasswordAndCiphertext(self::DEMO_PASSWORD, $roleKey);
         $user->forceFill([
             'email' => $email,
-            'password' => self::DEMO_PASSWORD,
             'status' => UserStatus::Active,
             'current_role_id' => $roleId,
             'archived_at' => null,
-        ])->save();
-        if (in_array($roleKey, [Role::PROCTOR, Role::INSTRUCTOR], true)) {
-            $user->examControlCredential()->updateOrCreate([], ['control_id' => $controlId ?: app(ProctorIdGenerator::class)->generate()]);
+        ]);
+        // Demo accounts keep their fixed, documented WellSharp IDs (DEMO-*) so
+        // login credentials in README/docs stay valid across reseeds; only the
+        // display-only username is generated, and only once, from the name.
+        if (blank($user->username)) {
+            $user->username = app(UserIdentityGenerator::class)->generateUsername($firstName, $lastName);
+        }
+        $user->save();
+        $generator = app(ProctorIdGenerator::class);
+        if ($generator->eligibleForRole($roleKey)) {
+            $user->examControlCredential()->updateOrCreate([], ['control_id' => $controlId ?: $generator->generate()]);
         } else {
             $user->examControlCredential()->delete();
         }
@@ -656,10 +661,48 @@ class DemoDataSeeder extends Seeder
                 $student = $students[($index * 2 + $offset) % count($students)];
                 Enrollment::query()->updateOrCreate(
                     ['class_id' => $trainingClass->getKey(), 'student_user_id' => $student->getKey()],
-                    ['status' => $status, 'enrolled_at' => $trainingClass->starts_at?->copy()->subDays(21) ?: now(), 'withdrawn_at' => $status === EnrollmentStatus::Withdrawn ? $trainingClass->starts_at : null],
+                    [
+                        'status' => $status,
+                        'enrolled_at' => $trainingClass->starts_at?->copy()->subDays(21) ?: now(),
+                        'withdrawn_at' => $status === EnrollmentStatus::Withdrawn ? $trainingClass->starts_at : null,
+                        'skills_score' => $this->skillsScoreFor($trainingClass->status, $offset),
+                    ],
                 );
             }
         }
+    }
+
+    /**
+     * A Proctor records the Skills Score by hand once a trainee's hands-on
+     * assessment is observed, so only Active/Completed Classes carry one —
+     * and even there, a trainee or two is left blank so the demo still
+     * exercises the not-yet-graded input state on the Scores & Reports tab.
+     */
+    private function skillsScoreFor(ClassStatus $status, int $offset): ?int
+    {
+        if (! in_array($status, [ClassStatus::Active, ClassStatus::Completed], true)) {
+            return null;
+        }
+
+        if ($status === ClassStatus::Active && $offset >= 3) {
+            return null;
+        }
+
+        if ($status === ClassStatus::Completed && $offset === 5) {
+            return null;
+        }
+
+        // Covers the full 0-100 validation range (NavigationController's
+        // min:0/max:100 rule) instead of only ever generating high scores:
+        // a low score, a couple of mid-range scores, and the max boundary.
+        return match ($offset % 6) {
+            0 => 45,
+            1 => 68,
+            2 => 82,
+            3 => 91,
+            4 => 100,
+            default => 76,
+        };
     }
 
     /** @param array<int, ExamSchedule> $schedules

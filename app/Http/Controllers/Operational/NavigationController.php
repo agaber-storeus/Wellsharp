@@ -3,14 +3,20 @@
 namespace App\Http\Controllers\Operational;
 
 use App\Actions\Users\UpdateOwnProfileAction;
+use App\Enums\CertificateDocumentType;
+use App\Enums\StaffAssignmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Operational\UpdateProfileRequest;
 use App\Models\Certificate;
+use App\Models\CourseLevel;
+use App\Models\Enrollment;
 use App\Models\Role;
 use App\Models\TrainingClass;
 use App\Models\User;
+use App\Services\AuditRecorder;
 use App\Services\OperationalClassMapPointBuilder;
 use App\Services\OperationalReportingService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -48,27 +54,92 @@ class NavigationController extends Controller
         return back()->with('status', 'Your profile was updated successfully.');
     }
 
-    public function analytics(OperationalReportingService $reports): View
+    public function revealStudentPassword(User $student, AuditRecorder $audit): JsonResponse
+    {
+        $this->authorize('viewPassword', $student);
+        $password = $student->revealPassword();
+        abort_if($password === null, 404, 'No recoverable password is stored for this account.');
+
+        $audit->record('student.password_viewed', $student, null, ['viewed_by_role' => auth()->user()->currentRole?->key]);
+
+        return response()->json(['password' => $password])->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * Batch Student-password lookup for the Class Dashboard roster, so the
+     * Password column can display plaintext directly (per current business
+     * requirement) without embedding it in the page's initial HTML/JSON and
+     * without one HTTP request per Student. Scoped strictly to the requested
+     * Class's own Enrollments - never a global Student query - and audited
+     * as a single roster-level event (see BUSINESS_RULES.md BR-043) rather
+     * than one event per Student, since that would flood the audit log on
+     * every dashboard open for a large roster without adding traceability
+     * (actor, role, Class, and count are already enough to reconstruct what
+     * happened).
+     */
+    public function classStudentPasswords(TrainingClass $trainingClass, AuditRecorder $audit): JsonResponse
+    {
+        $this->authorize('viewStudentPasswords', $trainingClass);
+
+        $students = $trainingClass->enrollments()
+            ->with('student.currentRole')
+            ->get()
+            ->pluck('student')
+            ->filter()
+            ->unique('id')
+            ->values();
+
+        $payload = $students->map(fn (User $student): array => [
+            'student_id' => $student->public_id,
+            'password' => $student->currentRole?->key === Role::STUDENT ? $student->revealPassword() : null,
+        ])->values();
+
+        $audit->record('student_passwords.class_roster_viewed', $trainingClass, null, [
+            'class_id' => $trainingClass->getKey(),
+            'actor_role' => auth()->user()->currentRole?->key,
+            'student_count' => $payload->count(),
+        ]);
+
+        return response()->json(['students' => $payload])->header('Cache-Control', 'no-store');
+    }
+
+    public function updateSkillsScore(Request $request, Enrollment $enrollment, AuditRecorder $audit): JsonResponse
+    {
+        $this->authorize('updateSkillsScore', $enrollment);
+        $validated = $request->validate(['skills_score' => ['required', 'integer', 'min:0', 'max:100']]);
+
+        $before = ['skills_score' => $enrollment->skills_score];
+        $enrollment->update(['skills_score' => $validated['skills_score']]);
+        $audit->record('enrollment.skills_score_updated', $enrollment, $before, ['skills_score' => $enrollment->skills_score]);
+
+        return response()->json(['skills_score' => $enrollment->skills_score]);
+    }
+
+    public function analytics(Request $request, OperationalReportingService $reports): View
     {
         $classes = $reports->accessibleClasses(auth()->user());
-        $attempts = $reports->filteredAttempts($classes, request());
-        $scoredAttempts = $attempts->filter(fn ($attempt): bool => $attempt->score !== null);
-        $monthCounts = $classes->filter(fn ($trainingClass) => $trainingClass->starts_at)
-            ->groupBy(fn ($trainingClass) => $trainingClass->starts_at->format('Y-m'))
-            ->map->count()
-            ->sortKeys();
+
+        $classesJson = $classes->map(function (TrainingClass $trainingClass): array {
+            return [
+                'course_id' => $trainingClass->course_id,
+                'course_level_id' => $trainingClass->course?->course_level_id,
+                'starts_at' => $trainingClass->starts_at?->toDateString(),
+                'enrollments_count' => (int) $trainingClass->enrollments_count,
+                'staff_roles' => $trainingClass->staffAssignments
+                    ->where('status', StaffAssignmentStatus::Active)
+                    ->pluck('assignment_role')
+                    ->map(fn ($role) => $role->value)
+                    ->unique()
+                    ->values()
+                    ->all(),
+            ];
+        })->values();
 
         return view('operational.analytics', [
             'workspaceClass' => 'analytics-classes-workspace',
-            'totalClasses' => $classes->count(),
-            'averageClassSize' => round($classes->avg(fn ($trainingClass) => $trainingClass->enrollments_count), 1),
-            'monthCounts' => $monthCounts,
-            'scoredAttempts' => $scoredAttempts->count(),
-            'passedAttempts' => $scoredAttempts->where('passed', true)->count(),
-            'failedAttempts' => $scoredAttempts->where('passed', false)->count(),
-            'averageScore' => $scoredAttempts->isEmpty() ? 0 : round((float) $scoredAttempts->avg('score'), 2),
-            'classesPerWeek' => $classes->filter(fn ($class) => $class->starts_at?->greaterThanOrEqualTo(now()->subWeek()))->count(),
-            'classesPerMonth' => $classes->filter(fn ($class) => $class->starts_at?->greaterThanOrEqualTo(now()->subMonth()))->count(),
+            'classesJson' => $classesJson,
+            'courseLevels' => CourseLevel::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'initialFilters' => $request->only(['role', 'date_range', 'course_level_id', 'period', 'graph_type']),
         ]);
     }
 
@@ -229,9 +300,12 @@ class NavigationController extends Controller
             ->paginate((int) $request->query('per_page', 200) === 25 ? 25 : 200)
             ->withQueryString();
 
+        $initialCertificates = $certificates->getCollection()->map(fn (Certificate $certificate): array => $this->certificatePayload($certificate))->values();
+
         return view('operational.certificate', [
             'workspaceClass' => 'certificate-workspace',
             'certificates' => $certificates,
+            'initialCertificates' => $initialCertificates,
             'providers' => $classes->pluck('provider')->filter()->unique('id')->sortBy('name'),
             'instructors' => User::query()
                 ->whereHas('currentRole', fn ($query) => $query->where('key', Role::INSTRUCTOR))
@@ -242,6 +316,53 @@ class NavigationController extends Controller
             'supplements' => $classes->flatMap(fn ($class) => $class->course->supplements)->filter()->unique('id')->sortBy('name'),
             'filters' => $request->only(['first_name', 'last_name', 'email', 'certificate_id', 'start_date', 'end_date', 'class_id', 'provider_id', 'instructor_id', 'level_id', 'supplement_id', 'per_page']),
         ]);
+    }
+
+    public function certificateData(Request $request): JsonResponse
+    {
+        $classes = $this->accessibleClasses();
+        $sort = (string) $request->input('sort', 'issued_at');
+        $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
+        $allowedSorts = ['student_name', 'issued_at', 'provider_name', 'instructor_name', 'subject_name'];
+        $sort = in_array($sort, $allowedSorts, true) ? $sort : 'issued_at';
+
+        $certificates = $this->certificateQuery($request, $classes)
+            ->reorder($sort, $direction)
+            ->paginate((int) $request->query('per_page', 200) === 25 ? 25 : 200, ['*'], 'page', max(1, (int) $request->input('page', 1)));
+
+        return response()->json([
+            'data' => $certificates->getCollection()->map(fn (Certificate $certificate): array => $this->certificatePayload($certificate))->values(),
+            'meta' => [
+                'current_page' => $certificates->currentPage(),
+                'last_page' => $certificates->lastPage(),
+                'total' => $certificates->total(),
+                'from' => $certificates->firstItem(),
+                'to' => $certificates->lastItem(),
+            ],
+        ]);
+    }
+
+    private function certificatePayload(Certificate $certificate): array
+    {
+        $frontDocument = $certificate->documents->firstWhere('type', CertificateDocumentType::CompletionCardFront);
+        $courseLabel = collect([
+            $certificate->subject_name ?: $certificate->exam?->subject?->name,
+            $certificate->exam?->subject?->level?->name,
+            $certificate->exam?->subject?->stacks?->pluck('name')->join(', '),
+        ])->filter()->join(', ');
+
+        return [
+            'id' => $certificate->getKey(),
+            'student_name' => $certificate->student_name,
+            'student_email' => $certificate->student_email ?: null,
+            'issued_at' => $certificate->issued_at?->format('Y-m-d g:i A'),
+            'provider' => $certificate->provider_name ?: $certificate->provider?->name ?: null,
+            'instructor' => $certificate->instructor_name ?: $certificate->instructor?->display_name ?: null,
+            'course' => $courseLabel ?: $certificate->exam_name,
+            'certificate_number' => $certificate->certificate_number,
+            'preview_url' => $frontDocument ? route('certificates.documents.preview', [$certificate, $frontDocument]) : null,
+            'download_url' => $frontDocument ? route('certificates.documents.download', [$certificate, $frontDocument]) : null,
+        ];
     }
 
     public function certificateExport(Request $request): StreamedResponse

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 * {
   box-sizing: border-box;
@@ -12,8 +12,10 @@ body {
 body {
   margin: 0;
   padding: 8px 22px 20px;
-  font-family: "Open Sans", Arial, sans-serif;
-  font-size: 13px;
+  font-family: Inter, "Open Sans", Arial, sans-serif;
+  font-size: 12.5px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
   background: #3a3a3a url("../assets/bkg.jpg") center center / cover fixed;
   color: #000;
 }
@@ -100,7 +102,7 @@ body {
   background: linear-gradient(#5d5d5d, #3f3f3f);
   color: #fff;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 21px;
   text-align: center;
   text-shadow: 0 1px 1px #000;
@@ -138,7 +140,7 @@ body {
 .icon.info {
   border: 2px solid #001dbc;
   color: #001dbc;
-  font: 700 10px/10px Arial, sans-serif;
+  font: 700 10px/10px Inter, Arial, sans-serif;
   text-align: center;
 }
 
@@ -191,7 +193,7 @@ body {
   border-radius: 2px;
   background: #f9f9f9;
   color: #000;
-  font: 13px Arial, sans-serif;
+  font: 12.5px Inter, Arial, sans-serif;
   cursor: pointer;
 }
 
@@ -313,7 +315,7 @@ body {
 .step.active {
   background: #990b20;
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .step.muted {
@@ -404,7 +406,7 @@ body {
 }
 
 .contact-grid dt {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .contact-grid dd {
@@ -457,7 +459,7 @@ body {
   border-radius: 5px;
   background: #00880a;
   color: #fff;
-  font: 700 16px Arial, sans-serif;
+  font: 700 15px Inter, Arial, sans-serif;
     text-decoration: none;
   }
 
@@ -535,6 +537,16 @@ body {
   min-height: 70px;
 }
 
+.question-row.comment-row {
+  grid-template-columns: 1fr;
+  min-height: auto;
+  padding-bottom: 10px;
+}
+
+.question-row.comment-row textarea {
+  height: 110px;
+}
+
 .question-row label {
   padding: 2px 8px 2px 0;
   line-height: 1.45;
@@ -554,7 +566,7 @@ body {
   margin-top: 14px;
   padding: 4px;
   resize: none;
-  font: 16px "Open Sans", Arial, sans-serif;
+  font: 14px/1.4 Inter, Arial, sans-serif;
 }
 
 .survey-form .center-actions {
@@ -583,7 +595,7 @@ body {
   border-bottom: 1px solid #777;
   background: linear-gradient(#d0d0d0, #eeeeee);
   color: #111;
-  font: 700 20px/44px Arial, sans-serif;
+  font: 600 20px/44px Inter, Arial, sans-serif;
 }
 
 .test-card {
@@ -601,7 +613,7 @@ body {
   height: 19px;
   background: #666;
   color: #fff;
-  font: 700 14px/19px Arial, sans-serif;
+  font: 600 14px/19px Inter, Arial, sans-serif;
 }
 
 .test-card p {
@@ -661,6 +673,10 @@ body {
   text-align: center;
 }
 
+.report-close-form {
+  display: contents;
+}
+
 .modal-close,
 .report-close {
   position: absolute;
@@ -668,12 +684,14 @@ body {
   right: -10px;
   width: 34px;
   height: 34px;
+  border: 0;
   border-radius: 50%;
   background: #3f474d;
   color: #fff;
-  font: 700 24px/31px Arial, sans-serif;
+  font: 600 24px/31px Inter, Arial, sans-serif;
   text-align: center;
   text-decoration: none;
+  cursor: pointer;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);
 }
 
@@ -702,7 +720,7 @@ body {
   border-top: 1px solid #ddd;
   border-bottom: 1px solid #ddd;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25;
 }
 
@@ -804,7 +822,7 @@ body {
   overflow-y: scroll;
   padding: 49px 52px 22px;
   color: #111;
-  font: 14px "Open Sans", Arial, sans-serif;
+  font: 14px Inter, Arial, sans-serif;
 }
 
 .exam-question {
@@ -814,7 +832,7 @@ body {
 .exam-question h2 {
   margin: 0;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -835,7 +853,7 @@ body {
 
 .question-number {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .exam-question-image,
@@ -1097,7 +1115,7 @@ body {
 .horizontal-data td {
   padding: 0 14px 2px 0;
   text-align: left;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .end-questions {

@@ -9,7 +9,7 @@
           @php
             $instructor = 'Any eligible Instructor';
             $languages = $trainingClass->course->languages->pluck('name')->join(', ') ?: 'Not assigned';
-            $searchText = strtolower(implode(' ', [$trainingClass->course->code, $trainingClass->course->name, $trainingClass->provider?->name, $trainingClass->starts_at?->format('Y-m-d'), $trainingClass->ends_at?->format('Y-m-d'), $instructor, $languages]));
+            $searchText = strtolower(implode(' ', [$trainingClass->displayTitle(), $trainingClass->course->code, $trainingClass->course->name, $trainingClass->provider?->name, $trainingClass->starts_at?->format('Y-m-d'), $trainingClass->ends_at?->format('Y-m-d'), $instructor, $languages]));
             $modalState = match ($trainingClass->status->value) {
                 'active' => 'open',
                 'planned' => 'notstarted',
@@ -17,7 +17,7 @@
             };
           @endphp
           <tr data-class-row data-search="{{ $searchText }}" x-show="visible($el)">
-            <td><a href="#" data-class-modal="details" data-class-state="{{ $modalState }}" data-class-id="{{ $trainingClass->public_id }}">{{ $trainingClass->course->code }} &mdash; {{ $trainingClass->course->name }}</a></td>
+            <td><a href="#" data-class-modal="details" data-class-state="{{ $modalState }}" data-class-id="{{ $trainingClass->public_id }}">{{ $trainingClass->displayTitle() }}</a></td>
             <td>{{ $trainingClass->provider?->name ?: 'Not assigned' }}</td>
             <td>{{ $trainingClass->starts_at?->format('Y-m-d') ?: 'Not scheduled' }}</td>
             <td>{{ $trainingClass->ends_at?->format('Y-m-d') ?: 'Not scheduled' }}</td>

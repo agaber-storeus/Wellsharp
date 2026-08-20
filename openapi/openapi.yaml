@@ -175,7 +175,7 @@ paths:
       tags: [Operational control]
       security: [{ laravelSession: [] }]
       operationId: verifyOwnControlId
-      summary: Verify the authenticated Proctor/Instructor control ID
+      summary: Verify a Proctor's ID belongs to a currently active, eligible Proctor
       parameters: [ { $ref: '#/components/parameters/RolePath' } ]
       requestBody:
         required: true
@@ -264,13 +264,13 @@ components:
     ControlIdRequest:
       type: object
       required: [proctor_id]
-      properties: { proctor_id: { type: string, maxLength: 32, example: PR-DEMO-PROCTOR-001 } }
+      properties: { proctor_id: { type: string, maxLength: 32, example: PR-DEMO-PROCTOR-001, description: "The Proctor's ID, belonging to a currently active, eligible Proctor." } }
     ControlExamRequest:
-      allOf:
-        - $ref: '#/components/schemas/ControlIdRequest'
-        - type: object
-          required: [action]
-          properties: { action: { type: string, enum: [start, end] } }
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [start, end] }
+        proctor_id: { type: string, maxLength: 32, example: PR-DEMO-PROCTOR-001, description: "Required only when the authenticated user's role is Instructor; must belong to a currently active, eligible Proctor (never the Instructor's own credential). Omitted by a Proctor, who controls the Class directly." }
     AnswerRequest:
       type: object
       required: [answer]
@@ -293,7 +293,7 @@ components:
       properties: { id: { type: integer }, name: { type: string }, code: { type: string, nullable: true } }
     VerifyControlResponse:
       type: object
-      properties: { message: { type: string }, proctor_name: { type: string } }
+      properties: { message: { type: string, example: "Proctor's ID verified." }, proctor_name: { type: string } }
     ControlExamResponse:
       type: object
       properties:

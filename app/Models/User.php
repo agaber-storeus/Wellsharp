@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\UserStatus;
 use App\Models\Concerns\HasPublicUlid;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Crypt;
 
 class User extends Authenticatable
 {
@@ -32,6 +34,7 @@ class User extends Authenticatable
      */
     protected $hidden = [
         'password',
+        'password_ciphertext',
         'remember_token',
     ];
 
@@ -110,6 +113,31 @@ class User extends Authenticatable
     public function hasRole(string $role): bool
     {
         return $this->currentRole?->key === $role;
+    }
+
+    /**
+     * Sets the login password (hashed via the model cast) and, for Students only, a
+     * separately encrypted copy so Admin/Proctor/Instructor can look it up later.
+     * Reason: Student accounts are shared by staff at check-in; students frequently
+     * cannot recover a forgotten password themselves. Not applied to staff roles.
+     */
+    public function setPasswordAndCiphertext(string $plainPassword, string $roleKey): void
+    {
+        $this->password = $plainPassword;
+        $this->password_ciphertext = $roleKey === Role::STUDENT ? Crypt::encryptString($plainPassword) : null;
+    }
+
+    public function revealPassword(): ?string
+    {
+        if (blank($this->password_ciphertext)) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($this->password_ciphertext);
+        } catch (DecryptException) {
+            return null;
+        }
     }
 
     public function getDisplayNameAttribute(): string

@@ -12,11 +12,11 @@ class Enrollment extends Model
 {
     use HasFactory, HasPublicUlid;
 
-    protected $fillable = ['class_id', 'student_user_id', 'status', 'enrolled_at', 'withdrawn_at'];
+    protected $fillable = ['class_id', 'student_user_id', 'status', 'enrolled_at', 'withdrawn_at', 'skills_score'];
 
     protected function casts(): array
     {
-        return ['status' => EnrollmentStatus::class, 'enrolled_at' => 'datetime', 'withdrawn_at' => 'datetime'];
+        return ['status' => EnrollmentStatus::class, 'enrolled_at' => 'datetime', 'withdrawn_at' => 'datetime', 'skills_score' => 'integer'];
     }
 
     public function trainingClass(): BelongsTo

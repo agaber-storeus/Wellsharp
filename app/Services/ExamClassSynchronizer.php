@@ -2,15 +2,18 @@
 
 namespace App\Services;
 
+use App\Actions\Classes\SyncGroupEnrollmentsAction;
 use App\Enums\ClassStatus;
 use App\Models\ExamSchedule;
 use App\Models\TrainingClass;
 
 class ExamClassSynchronizer
 {
+    public function __construct(private readonly SyncGroupEnrollmentsAction $syncEnrollments) {}
+
     public function sync(ExamSchedule $schedule): TrainingClass
     {
-        $schedule->loadMissing(['exam', 'trainingClass']);
+        $schedule->loadMissing(['exam', 'trainingClass', 'group']);
         $class = $schedule->trainingClass;
 
         if (! $class) {
@@ -34,6 +37,10 @@ class ExamClassSynchronizer
 
         if ((int) $schedule->training_class_id !== (int) $class->getKey()) {
             $schedule->forceFill(['training_class_id' => $class->getKey()])->saveQuietly();
+        }
+
+        if ($schedule->group) {
+            $this->syncEnrollments->execute($class, $schedule->group);
         }
 
         return $class->fresh(['course', 'provider']);

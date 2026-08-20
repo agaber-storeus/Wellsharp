@@ -36,10 +36,13 @@ class ChangeUserRoleAction
             $locked->forceFill([
                 'current_role_id' => $role->getKey(),
                 'session_version' => $locked->session_version + 1,
+                'password_ciphertext' => $willBeStudent ? $locked->password_ciphertext : null,
             ])->save();
-            if (in_array($role->key, [Role::PROCTOR, Role::INSTRUCTOR], true)) {
+            if ($this->controlIds->eligibleForRole($role->key)) {
                 $locked->examControlCredential()->firstOrCreate([], ['control_id' => $this->controlIds->generate()]);
             } else {
+                // Leaving the Proctor role (including moving to Instructor) revokes the
+                // credential outright: a Proctor's ID is never owned by a non-Proctor.
                 $locked->examControlCredential()->delete();
             }
             $locked->profile()->update([

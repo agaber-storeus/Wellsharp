@@ -5,6 +5,7 @@ namespace App\Actions\Users;
 use App\Actions\Groups\SyncStudentGroupsAction;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserProfile;
 use App\Services\AuditRecorder;
 use Illuminate\Support\Facades\DB;
 
@@ -23,7 +24,7 @@ class UpdateUserAction
                 'email' => $data['email'] ?? null,
             ]);
             if ($passwordChanged) {
-                $locked->password = $data['password'];
+                $locked->setPasswordAndCiphertext($data['password'], $locked->currentRole?->key ?? '');
                 $locked->session_version++;
             }
             $locked->save();
@@ -41,7 +42,7 @@ class UpdateUserAction
                 'position' => $data['position'] ?? null,
                 'company_contact' => $locked->currentRole?->key === Role::STUDENT ? ($data['company_contact'] ?? null) : null,
                 'employee_id' => $data['employee_id'] ?? null,
-                'age' => $locked->currentRole?->key === Role::STUDENT ? ($data['age'] ?? null) : null,
+                'age' => $locked->currentRole?->key === Role::STUDENT ? UserProfile::calculateAge($data['birthday'] ?? null) : null,
                 'gender' => $locked->currentRole?->key === Role::STUDENT ? ($data['gender'] ?? null) : null,
             ]);
             if ($locked->currentRole?->key === Role::STUDENT) {

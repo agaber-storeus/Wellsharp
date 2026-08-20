@@ -9,6 +9,7 @@
   var classPoints = window.wellsharpClassPoints || [];
 
   function validPoint(point) {
+    if (point.lat === null || point.lat === undefined || point.lng === null || point.lng === undefined) return false;
     var lat = Number(point.lat);
     var lng = Number(point.lng);
 

@@ -12,6 +12,15 @@ class UpdateProfileRequest extends FormRequest
         return $this->user()?->hasRole('proctor') || $this->user()?->hasRole('instructor');
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'birthday' => $this->filled('birthday_month') && $this->filled('birthday_day') && $this->filled('birthday_year')
+                ? sprintf('%04d-%02d-%02d', $this->input('birthday_year'), $this->input('birthday_month'), $this->input('birthday_day'))
+                : null,
+        ]);
+    }
+
     public function rules(): array
     {
         return [
@@ -29,7 +38,7 @@ class UpdateProfileRequest extends FormRequest
             'position' => ['nullable', 'string', 'max:180'],
             'employee_id' => ['nullable', 'string', 'max:64'],
             'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'password' => ['nullable', 'string', 'min:12', 'confirmed'],
+            'password' => ['nullable', 'string', 'min:5', 'max:8', 'confirmed'],
         ];
     }
 }

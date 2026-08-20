@@ -47,6 +47,25 @@ class TrainingClass extends Model
         return $this->hasMany(ExamSchedule::class, 'training_class_id');
     }
 
+    /**
+     * Exam and Class are the same operational record; Proctor/Instructor/Student
+     * screens should show the Exam's own name as the Class title, not the Subject
+     * (Course) it belongs to. Falls back to the Course/class number only for a
+     * Class that has no linked Exam schedule yet, which shouldn't normally happen
+     * once created through the unified Exam/Class admin workflow.
+     */
+    public function displayTitle(): string
+    {
+        $examName = $this->examSchedules->first()?->exam?->name;
+        if (filled($examName)) {
+            return $examName;
+        }
+
+        $course = $this->course;
+
+        return $course ? trim($course->code.' — '.$course->name, ' —') : $this->class_number;
+    }
+
     public function getRouteKeyName(): string
     {
         return 'public_id';

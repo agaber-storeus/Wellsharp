@@ -77,7 +77,7 @@ class ClassEnrollmentAssignmentTest extends TestCase
         $trainingClass = TrainingClass::factory()->create();
         $this->get(route('admin.classes.show', $trainingClass))
             ->assertOk()
-            ->assertSee('Any active Proctor or Instructor may control this Class')
+            ->assertSee('Any active Proctor may start or end this Class directly')
             ->assertDontSee('Class staff');
     }
 

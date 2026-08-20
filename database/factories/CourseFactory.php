@@ -11,7 +11,15 @@ class CourseFactory extends Factory
         return [
             'code' => 'CRS-'.fake()->unique()->numerify('#####'),
             'name' => fake()->sentence(3),
+            'description' => fake()->sentence(),
+            'training_provider_id' => null,
+            'course_level_id' => null,
             'status' => 'active',
         ];
+    }
+
+    public function retired(): static
+    {
+        return $this->state(fn (): array => ['status' => 'retired']);
     }
 }

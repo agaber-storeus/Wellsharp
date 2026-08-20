@@ -216,7 +216,6 @@ class RoleInterfaceTest extends TestCase
                 ->assertSee('classesLeafletMap')
                 ->assertSee('classesTimeFrame')
                 ->assertSee('Calendar Schedule')
-                ->assertSee('How to read', false)
                 ->assertSee('wellsharpCalendar', false)
                 ->assertDontSee('Continuous multi-day class', false)
                 ->assertDontSee('<div class="panel-title">Past Classes</div>', false);

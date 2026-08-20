@@ -60,9 +60,11 @@ class StudentController extends Controller
         $this->authorize('create', User::class);
         $data = $request->validated();
         $data['role_id'] = Role::where('key', Role::STUDENT)->value('id');
-        $student = $action->execute($data);
+        $result = $action->execute($data);
 
-        return redirect()->route('admin.users.show', $student)->with('status', 'Student created successfully.');
+        return redirect()->route('admin.users.show', $result->user)
+            ->with('status', 'Student created successfully.')
+            ->with('generated_password', $result->generatedPassword);
     }
 
     private function studentQuery(Request $request)

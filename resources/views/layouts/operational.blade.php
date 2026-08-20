@@ -59,6 +59,7 @@
         logo: @json(asset('images/iadcLoginLgo.png')),
         certificatePdf: @json(asset('images/certificates/00001835.pdf'))
       };
+      window.wellsharpCurrentRole = @json(auth()->user()?->currentRole?->key);
     </script>
     @stack('scripts')
     <script src="{{ asset('js/proctor-home-laravel.js') }}?v={{ filemtime(public_path('js/proctor-home-laravel.js')) }}"></script>

@@ -29,6 +29,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::patch('users/{user}/archive', [UserController::class, 'archive'])->name('users.archive');
     Route::patch('users/{user}/status', [UserController::class, 'updateStatus'])->name('users.status');
     Route::patch('users/{user}/role', [UserController::class, 'changeRole'])->name('users.role');
+    Route::post('users/{user}/reveal-password', [UserController::class, 'revealPassword'])->name('users.reveal-password');
 
     Route::get('providers/data', [TrainingProviderController::class, 'data'])->name('providers.data');
     Route::resource('providers', TrainingProviderController::class)->except(['destroy']);

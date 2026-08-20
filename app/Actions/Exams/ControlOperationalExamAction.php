@@ -6,6 +6,7 @@ use App\Actions\Certificates\IssueCertificateAction;
 use App\Enums\ClassStatus;
 use App\Enums\ExamAttemptStatus;
 use App\Enums\ExamScheduleStatus;
+use App\Models\Role;
 use App\Models\TrainingClass;
 use App\Models\User;
 use App\Services\AuditRecorder;
@@ -22,14 +23,29 @@ class ControlOperationalExamAction
         private readonly IssueCertificateAction $issuer,
     ) {}
 
-    /** @return array{class: TrainingClass, proctor_name: ?string, schedules_controlled: int, changed: bool} */
-    public function executeManual(TrainingClass $trainingClass, string $action, User $actor, string $controlId): array
+    /**
+     * A Proctor may start/end a Class directly, with no credential entry — the
+     * Proctor's ID they own is not needed for their own actions. An Instructor
+     * must supply a Proctor's ID belonging to an active, eligible Proctor (never
+     * their own credential, since Instructors never own a Proctor's ID) as a
+     * dual-control/oversight check.
+     *
+     * @return array{class: TrainingClass, proctor_name: ?string, schedules_controlled: int, changed: bool}
+     */
+    public function executeManual(TrainingClass $trainingClass, string $action, User $actor, ?string $proctorId = null): array
     {
-        if (! $this->controlIds->findFor($actor, $controlId)) {
-            throw ValidationException::withMessages(['proctor_id' => 'The exam-control ID does not belong to the authenticated user.']);
+        $verifiedProctor = null;
+
+        if ($actor->currentRole?->key === Role::INSTRUCTOR) {
+            $verifiedProctor = $proctorId ? $this->controlIds->findActiveProctor($proctorId) : null;
+            if (! $verifiedProctor) {
+                throw ValidationException::withMessages(['proctor_id' => "Enter an active Proctor's ID."]);
+            }
+        } elseif ($actor->currentRole?->key !== Role::PROCTOR) {
+            throw ValidationException::withMessages(['action' => 'Only an authorized Proctor or Instructor can control a Class.']);
         }
 
-        return $this->execute($trainingClass, $action, 'manual', $actor);
+        return $this->execute($trainingClass, $action, 'manual', $actor, null, $verifiedProctor);
     }
 
     /** @return array{class: TrainingClass, proctor_name: ?string, schedules_controlled: int, changed: bool} */
@@ -39,13 +55,13 @@ class ControlOperationalExamAction
     }
 
     /** @return array{class: TrainingClass, proctor_name: ?string, schedules_controlled: int, changed: bool} */
-    private function execute(TrainingClass $trainingClass, string $action, string $source, ?User $actor, ?Carbon $now = null): array
+    private function execute(TrainingClass $trainingClass, string $action, string $source, ?User $actor, ?Carbon $now = null, ?User $verifiedProctor = null): array
     {
         if (! in_array($action, ['start', 'end'], true)) {
             throw ValidationException::withMessages(['action' => 'Choose start or end.']);
         }
 
-        return DB::transaction(function () use ($trainingClass, $action, $source, $actor, $now): array {
+        return DB::transaction(function () use ($trainingClass, $action, $source, $actor, $now, $verifiedProctor): array {
             $class = TrainingClass::query()->lockForUpdate()->findOrFail($trainingClass->getKey());
             $clock = $now ?: now();
 
@@ -69,7 +85,7 @@ class ControlOperationalExamAction
                     }
                     $this->audit->record('exam_schedule.'.$source.'_start', $schedule, null, $schedule->fresh()->toArray(), ucfirst($source).' start', $actor?->getKey());
                 }
-                $this->audit->record('class.'.$source.'_start', $class, $before, $class->fresh()->toArray(), ucfirst($source).' start', $actor?->getKey());
+                $this->audit->record('class.'.$source.'_start', $class, $before, $this->withVerifiedProctor($class->fresh()->toArray(), $verifiedProctor), ucfirst($source).' start', $actor?->getKey());
 
                 return $this->result($class, $actor, $schedules->count(), true);
             }
@@ -100,10 +116,22 @@ class ControlOperationalExamAction
                 }
                 $this->audit->record('exam_schedule.'.$source.'_end', $schedule, null, $schedule->fresh()->toArray(), ucfirst($source).' end', $actor?->getKey());
             }
-            $this->audit->record('class.'.$source.'_end', $class, $before, $class->fresh()->toArray(), ucfirst($source).' end', $actor?->getKey());
+            $this->audit->record('class.'.$source.'_end', $class, $before, $this->withVerifiedProctor($class->fresh()->toArray(), $verifiedProctor), ucfirst($source).' end', $actor?->getKey());
 
             return $this->result($class, $actor, $schedules->count(), true);
         });
+    }
+
+    private function withVerifiedProctor(array $state, ?User $verifiedProctor): array
+    {
+        if (! $verifiedProctor) {
+            return $state;
+        }
+
+        return $state + [
+            'verified_proctor_user_id' => $verifiedProctor->getKey(),
+            'verified_proctor_wellsharp_id' => $verifiedProctor->wellsharp_id,
+        ];
     }
 
     /** @return array{class: TrainingClass, proctor_name: ?string, schedules_controlled: int, changed: bool} */

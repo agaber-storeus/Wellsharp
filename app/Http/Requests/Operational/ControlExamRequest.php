@@ -16,7 +16,18 @@ class ControlExamRequest extends FormRequest
     {
         return [
             'action' => ['required', Rule::in(['start', 'end'])],
-            'proctor_id' => ['required', 'string', 'max:32'],
+            // A Proctor controls directly with no credential. An Instructor must supply
+            // an active Proctor's ID as a dual-control/oversight check.
+            'proctor_id' => [Rule::requiredIf(fn (): bool => $this->user()?->hasRole('instructor') === true), 'nullable', 'string', 'max:32'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'proctor_id.required' => "Proctor's ID is required.",
+            'proctor_id.string' => "Enter a valid Proctor's ID.",
+            'proctor_id.max' => "Enter a valid Proctor's ID.",
         ];
     }
 }

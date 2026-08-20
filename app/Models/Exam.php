@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ExamQuestionOrderMode;
 use App\Enums\ExamStatus;
 use App\Models\Concerns\HasPublicUlid;
+use App\Services\ExamCodeGenerator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,21 @@ class Exam extends Model
     use HasFactory, HasPublicUlid;
 
     protected $fillable = ['course_id', 'name', 'code', 'description', 'passing_score', 'retake_score', 'question_order_mode', 'status', 'created_by_user_id', 'updated_by_user_id'];
+
+    /**
+     * Exam codes are generated once on creation, never touched on update, so
+     * they stay stable for anything that already references them. Only fills
+     * in a code when one wasn't supplied (Admin/API callers may still set
+     * their own, matching the existing optional `code` field).
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Exam $exam): void {
+            if (blank($exam->code)) {
+                $exam->code = app(ExamCodeGenerator::class)->generate();
+            }
+        });
+    }
 
     protected function casts(): array
     {

@@ -9,6 +9,7 @@ use App\Models\Group;
 use App\Models\GroupMembership;
 use App\Models\Question;
 use App\Models\User;
+use App\Models\UserProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -42,8 +43,8 @@ class BusinessDomainTest extends TestCase
     {
         $this->post(route('admin.students.store'), [
             'wellsharp_id' => 'STUDENT-NEW-001', 'first_name' => 'New', 'last_name' => 'Student',
-            'email' => 'new.student@example.test', 'age' => 32, 'gender' => 'Female',
-            'password' => 'student-password-123', 'password_confirmation' => 'student-password-123',
+            'email' => 'new.student@example.test', 'birthday' => now()->subYears(32)->toDateString(), 'gender' => 'Female',
+            'password' => 'Stud1', 'password_confirmation' => 'Stud1',
         ])->assertRedirect();
 
         $student = User::where('wellsharp_id', 'STUDENT-NEW-001')->firstOrFail();
@@ -60,7 +61,7 @@ class BusinessDomainTest extends TestCase
 
         $this->post(route('admin.students.store'), [
             'wellsharp_id' => 'STUDENT-GROUPS-001', 'first_name' => 'Grouped', 'last_name' => 'Student',
-            'password' => 'student-password-123', 'password_confirmation' => 'student-password-123',
+            'password' => 'Stud1', 'password_confirmation' => 'Stud1',
             'group_ids' => [$morning->id, $evening->id],
         ])->assertRedirect();
 
@@ -77,13 +78,55 @@ class BusinessDomainTest extends TestCase
         $this->get(route('admin.users.show', $student))->assertOk()->assertSee('Student Morning')->assertDontSee('Student Evening');
     }
 
-    public function test_student_age_is_optional_but_reasonably_validated(): void
+    public function test_student_age_is_derived_from_birthday_and_reasonably_validated(): void
     {
         $this->post(route('admin.students.store'), [
             'wellsharp_id' => 'STUDENT-INVALID-001', 'first_name' => 'Invalid', 'last_name' => 'Age',
-            'password' => 'student-password-123', 'password_confirmation' => 'student-password-123', 'age' => 121,
-        ])->assertSessionHasErrors('age');
+            'password' => 'Stud1', 'password_confirmation' => 'Stud1', 'birthday' => now()->subYears(121)->toDateString(),
+        ])->assertSessionHasErrors('birthday');
         $this->assertDatabaseMissing('users', ['wellsharp_id' => 'STUDENT-INVALID-001']);
+    }
+
+    public function test_a_client_submitted_age_is_ignored_in_favor_of_the_birthday_derived_value(): void
+    {
+        $this->post(route('admin.students.store'), [
+            'wellsharp_id' => 'STUDENT-SPOOFED-AGE', 'first_name' => 'Spoofed', 'last_name' => 'Age',
+            'password' => 'Stud1', 'password_confirmation' => 'Stud1',
+            'birthday' => now()->subYears(20)->toDateString(), 'age' => 99,
+        ])->assertRedirect();
+
+        $student = User::where('wellsharp_id', 'STUDENT-SPOOFED-AGE')->firstOrFail();
+        $this->assertSame(20, $student->profile->age);
+    }
+
+    public function test_updating_a_students_birthday_recalculates_the_stored_age(): void
+    {
+        $this->post(route('admin.students.store'), [
+            'wellsharp_id' => 'STUDENT-AGE-UPDATE', 'first_name' => 'Age', 'last_name' => 'Updates',
+            'password' => 'Stud1', 'password_confirmation' => 'Stud1', 'birthday' => now()->subYears(18)->toDateString(),
+        ])->assertRedirect();
+        $student = User::where('wellsharp_id', 'STUDENT-AGE-UPDATE')->firstOrFail();
+        $this->assertSame(18, $student->profile->age);
+
+        $this->put(route('admin.users.update', $student), [
+            'first_name' => 'Age', 'last_name' => 'Updates', 'birthday' => now()->subYears(45)->toDateString(),
+        ])->assertRedirect();
+
+        $this->assertSame(45, $student->profile->fresh()->age);
+    }
+
+    public function test_calculate_age_handles_null_birthday_and_the_not_yet_had_birthday_this_year_edge_case(): void
+    {
+        $this->assertNull(UserProfile::calculateAge(null));
+        $this->assertNull(UserProfile::calculateAge(''));
+
+        // Born exactly 10 years ago tomorrow: the birthday has not happened
+        // yet this year, so the age must still read 9, not 10.
+        $notYetHadBirthday = now()->subYears(10)->addDay();
+        $this->assertSame(9, UserProfile::calculateAge($notYetHadBirthday->toDateString()));
+
+        $alreadyHadBirthday = now()->subYears(10)->subDay();
+        $this->assertSame(10, UserProfile::calculateAge($alreadyHadBirthday->toDateString()));
     }
 
     public function test_questions_page_filters_and_sorts_through_json_data_endpoint(): void

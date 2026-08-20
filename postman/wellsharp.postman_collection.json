@@ -14,7 +14,7 @@
     { "key": "training_class", "value": "01KZMH1TX1B89J3BTTSPBW04VXJ" },
     { "key": "attempt", "value": "replace-with-attempt-id" },
     { "key": "attempt_question", "value": "1" },
-    { "key": "control_id", "value": "replace-with-your-control-id" },
+    { "key": "proctor_id", "value": "replace-with-a-proctors-id" },
     { "key": "certificate", "value": "replace-with-certificate-id" },
     { "key": "document", "value": "replace-with-document-id" }
   ],
@@ -102,11 +102,11 @@
       "name": "Operational control",
       "item": [
         {
-          "name": "Verify own control ID",
+          "name": "Verify a Proctor's ID",
           "request": {
             "method": "POST",
             "header": [ { "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
-            "body": { "mode": "raw", "raw": "{\n  \"proctor_id\": \"{{control_id}}\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"proctor_id\": \"{{proctor_id}}\"\n}" },
             "url": { "raw": "{{base_url}}/{{role}}/proctor-id/verify", "host": ["{{base_url}}"], "path": ["{{role}}", "proctor-id", "verify"] }
           }
         },
@@ -115,7 +115,7 @@
           "request": {
             "method": "POST",
             "header": [ { "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
-            "body": { "mode": "raw", "raw": "{\n  \"action\": \"start\",\n  \"proctor_id\": \"{{control_id}}\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"start\",\n  \"proctor_id\": \"{{proctor_id}}\"\n}" },
             "url": { "raw": "{{base_url}}/{{role}}/classes/{{training_class}}/exam-control", "host": ["{{base_url}}"], "path": ["{{role}}", "classes", "{{training_class}}", "exam-control"] }
           }
         }

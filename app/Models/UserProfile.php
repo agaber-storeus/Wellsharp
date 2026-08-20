@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 class UserProfile extends Model
 {
@@ -25,5 +26,18 @@ class UserProfile extends Model
     public function fullName(): string
     {
         return trim(implode(' ', array_filter([$this->first_name, $this->last_name]))) ?: 'Unnamed user';
+    }
+
+    /**
+     * Age is never accepted as its own input - it is always derived from the
+     * date of birth so the two values can never drift apart.
+     */
+    public static function calculateAge(null|string|\DateTimeInterface $birthday): ?int
+    {
+        if (blank($birthday)) {
+            return null;
+        }
+
+        return Carbon::parse($birthday)->age;
     }
 }

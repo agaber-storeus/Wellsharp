@@ -12,14 +12,22 @@ class EnsureUserIsActive
     {
         $user = $request->user();
 
-        if (! $user || ! $user->isActive()) {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            return redirect()->route('login')->withErrors(['wellsharp_id' => 'Your account is not active.']);
+        if ($user && $user->isActive()) {
+            return $next($request);
         }
 
-        return $next($request);
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        // JSON/API callers (e.g. the batch Class-passwords endpoint) expect
+        // a 403 like any other authorization failure, not a redirect to an
+        // HTML login page - mirrors how EnsureCurrentRole already responds
+        // for JSON requests via abort().
+        if ($request->expectsJson()) {
+            abort(403, 'Your account is not active.');
+        }
+
+        return redirect()->route('login')->withErrors(['wellsharp_id' => 'Your account is not active.']);
     }
 }

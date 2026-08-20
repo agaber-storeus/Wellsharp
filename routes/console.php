@@ -12,7 +12,7 @@ Artisan::command('wellsharp:create-admin', function (CreateUserAction $createUse
     $firstName = $this->ask('First name');
     $lastName = $this->ask('Last name');
     $email = trim((string) $this->ask('Email (optional)')) ?: null;
-    $password = $this->secret('Password (minimum 12 characters)');
+    $password = $this->secret('Password (5-8 characters)');
     $confirmation = $this->secret('Confirm password');
     $roleId = Role::where('key', Role::ADMIN)->value('id');
 
@@ -29,7 +29,7 @@ Artisan::command('wellsharp:create-admin', function (CreateUserAction $createUse
         'first_name' => ['required', 'string', 'max:100'],
         'last_name' => ['required', 'string', 'max:100'],
         'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
-        'password' => ['required', 'string', 'min:12', 'confirmed'],
+        'password' => ['required', 'string', 'min:5', 'max:8', 'confirmed'],
         'role_id' => ['required', 'exists:roles,id'],
     ]);
 
@@ -39,11 +39,11 @@ Artisan::command('wellsharp:create-admin', function (CreateUserAction $createUse
         return 1;
     }
 
-    $user = $createUser->execute([
+    $result = $createUser->execute([
         'wellsharp_id' => $wellsharpId, 'first_name' => $firstName, 'last_name' => $lastName,
         'email' => $email, 'password' => $password, 'role_id' => $roleId,
     ]);
-    $this->info("Admin {$user->wellsharp_id} created.");
+    $this->info("Admin {$result->user->wellsharp_id} created.");
 
     return 0;
 })->purpose('Create an Admin account interactively');

@@ -16,6 +16,7 @@ use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Http\Requests\Admin\UpdateUserStatusRequest;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\AuditRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -87,9 +88,11 @@ class UserController extends Controller
     public function store(StoreUserRequest $request, CreateUserAction $action): RedirectResponse
     {
         $this->authorize('create', User::class);
-        $user = $action->execute($request->validated());
+        $result = $action->execute($request->validated());
 
-        return redirect()->route('admin.users.show', $user)->with('status', 'User created successfully.');
+        return redirect()->route('admin.users.show', $result->user)
+            ->with('status', 'User created successfully.')
+            ->with('generated_password', $result->generatedPassword);
     }
 
     public function show(User $user): View
@@ -128,6 +131,17 @@ class UserController extends Controller
         $action->execute($user, Role::findOrFail($request->integer('role_id')));
 
         return back()->with('status', 'Role changed. Existing sessions for this user have been revoked.');
+    }
+
+    public function revealPassword(User $user, AuditRecorder $audit): JsonResponse
+    {
+        $this->authorize('viewPassword', $user);
+        $password = $user->revealPassword();
+        abort_if($password === null, 404, 'No recoverable password is stored for this account.');
+
+        $audit->record('student.password_viewed', $user, null, ['viewed_by_role' => auth()->user()->currentRole?->key]);
+
+        return response()->json(['password' => $password])->header('Cache-Control', 'no-store');
     }
 
     public function disable(Request $request, User $user, DisableUserAction $action): RedirectResponse|JsonResponse
@@ -209,6 +223,7 @@ class UserController extends Controller
             'birthday' => $user->profile?->birthday?->format('Y-m-d') ?: 'Not set',
             'location' => collect([$user->profile?->city, $user->profile?->country])->filter()->implode(', ') ?: 'Not set',
             'wellsharp_id' => $user->wellsharp_id,
+            'username' => $user->username,
             'proctor_id' => $user->examControlCredential?->control_id,
             'role' => $user->currentRole?->name ?: 'Unassigned',
             'status' => $user->status->value,

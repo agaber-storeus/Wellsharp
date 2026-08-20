@@ -63,7 +63,9 @@ Transactional business workflows live in `app/Actions`, including exam schedulin
 
 ### Services
 
-Services encapsulate cross-model logic such as `StudentExamFlowService`, `ExamScoringService`, `OperationalReportingService`, `QuestionExcelService`, `QuestionImageService`, `CertificatePdfService`, and the exam-control credential services.
+Services encapsulate cross-model logic such as `StudentExamFlowService`, `ExamScoringService`, `OperationalReportingService`, `QuestionExcelService`, `QuestionImageService`, and `CertificatePdfService`.
+
+Generated account/content identifiers are centralized in dedicated services rather than scattered `Str::random`/`random_int` calls: `UserIdentityGenerator` (WellSharp ID + Username, from first/last name), `TemporaryPasswordGenerator` (secure temp passwords, 5-8 chars, default 8 - a deliberate business rule, not weakened security oversight), `ExamCodeGenerator`, `QuestionCodeGenerator`, and `ProctorIdGenerator` (a role-specific exam-control credential, distinct from the account-level identifiers - see `ProctorIdVerifier` for lookup). All five share a bounded generate-check-retry loop (`App\Services\Generation\GeneratesUniqueCode`) that throws `GenerationRetryExhaustedException` rather than looping forever. WellSharp ID/Username/Password are generated in `CreateUserAction` when the Admin/API caller leaves them blank; Exam/Question codes are generated in the owning model's `creating` hook (mirroring `HasPublicUlid`) so every creation path - Admin UI, seeders, tests, future API - gets one without depending on a Blade form. A Proctor's ID is generated explicitly wherever a user becomes eligible for one (`CreateUserAction`, `ChangeUserRoleAction`), since eligibility depends on the user's role rather than being knowable at model-`creating` time. Codes are only ever assigned once, on creation; existing rows with a blank code/username can be filled in via `php artisan wellsharp:backfill-identifiers` (idempotent, `--dry-run` supported), which never touches a row that already has a value. `questions.code` is NOT NULL at the database level (migration `2026_08_20_000001` backfills any legacy blanks before enforcing the constraint, in one safe step).
 
 ### Models
 
@@ -73,7 +75,7 @@ The application uses Eloquent models and relationships. Public route identifiers
 
 An Admin calls the assessment definition an Exam and operational role interfaces call the same operational record a Class. An Exam Schedule links an Exam and Group to an operational `classes` row. There is no separate user-selected bridge in the current implementation.
 
-Any active Proctor or Instructor may control any Class. The authenticated staff member must provide their own value from `exam_control_credentials.control_id`; another staff member's control ID is rejected. Manual controls can happen before configured dates and store `actual_started_at` or `actual_ended_at`. `wellsharp:process-exam-schedules` performs schedule-gated automatic transitions every minute.
+Only the Proctor role owns a **Proctor's ID** (`exam_control_credentials.control_id`), generated automatically when a user's active role is Proctor and revoked the moment they leave that role. Any active Proctor may control any Class directly, with no credential entry. An active Instructor may control any Class by supplying a Proctor's ID belonging to a currently active, eligible Proctor — never their own credential, since Instructors never own one. Manual controls can happen before configured dates and store `actual_started_at` or `actual_ended_at`. `wellsharp:process-exam-schedules` performs schedule-gated automatic transitions every minute.
 
 ## Assessment flow
 
@@ -90,8 +92,13 @@ Student confirms contact information
     → submits attempt
     → scoring runs and a passing attempt receives three certificate documents
 
+Proctor
+    → may start/end the Class directly, no credential entry required
+
+Instructor
+    → may start/end the Class by entering an active Proctor's ID
+
 Proctor/Instructor
-    → may start/end the Class with their own control ID
     → may view reports and release/scored attempts
 ```
 

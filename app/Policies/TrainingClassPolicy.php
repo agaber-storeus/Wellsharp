@@ -33,6 +33,18 @@ class TrainingClassPolicy
         return $actor->hasRole(Role::PROCTOR) || $actor->hasRole(Role::INSTRUCTOR);
     }
 
+    /**
+     * Gates the Class Dashboard's batch Student-password endpoint. Mirrors
+     * UserPolicy::viewPassword()'s actor-side condition (active Proctor or
+     * Instructor) - target-side "is this a Student" is enforced per-row in
+     * the controller instead, since this ability is checked once per Class,
+     * not once per Student.
+     */
+    public function viewStudentPasswords(User $actor, TrainingClass $trainingClass): bool
+    {
+        return $actor->isActive() && ($actor->hasRole(Role::PROCTOR) || $actor->hasRole(Role::INSTRUCTOR));
+    }
+
     public function create(User $actor): bool
     {
         return false;

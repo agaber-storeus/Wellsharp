@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\QuestionDifficulty;
 use App\Enums\QuestionType;
 use App\Models\Concerns\HasPublicUlid;
+use App\Services\QuestionCodeGenerator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,10 @@ class Question extends Model
 {
     use HasFactory, HasPublicUlid;
 
+    /**
+     * Question codes are generated once on creation, never touched on
+     * update, so they stay stable while question text/answers are edited.
+     */
     protected static function booted(): void
     {
         static::saving(function (Question $question): void {
@@ -22,12 +27,18 @@ class Question extends Model
                 $question->question_text_hash = self::textHash($question->question_text);
             }
         });
+
+        static::creating(function (Question $question): void {
+            if (blank($question->code)) {
+                $question->code = app(QuestionCodeGenerator::class)->generate();
+            }
+        });
     }
 
     protected $hidden = ['correct_answer_text', 'correct_answer_boolean', 'correct_answer_image_path'];
 
     protected $fillable = [
-        'course_id', 'question_text', 'question_text_hash', 'question_image_path', 'type', 'difficulty', 'default_marks',
+        'course_id', 'code', 'question_text', 'question_text_hash', 'question_image_path', 'type', 'difficulty', 'default_marks',
         'correct_answer_image_path',
         'correct_answer_text', 'correct_answer_boolean', 'solution_text',
         'is_active', 'created_by_user_id', 'updated_by_user_id',

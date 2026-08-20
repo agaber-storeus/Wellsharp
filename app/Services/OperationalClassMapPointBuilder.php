@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\CertificateDocumentType;
 use App\Enums\ClassStatus;
 use App\Models\Certificate;
 use App\Models\TrainingClass;
@@ -17,7 +18,7 @@ class OperationalClassMapPointBuilder
 
             return [
                 'classNumber' => $trainingClass->class_number,
-                'title' => $trainingClass->course->code.' — '.$trainingClass->course->name,
+                'title' => $trainingClass->displayTitle(),
                 'location' => $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Location not assigned',
                 'provider' => $trainingClass->provider?->name ?: 'Provider not assigned',
                 'status' => $status->value,
@@ -40,7 +41,7 @@ class OperationalClassMapPointBuilder
     public function buildModalData(Collection $classes): array
     {
         $attempts = $classes->flatMap(fn (TrainingClass $trainingClass) => $trainingClass->examSchedules->flatMap(fn ($schedule) => $schedule->attempts));
-        $certificates = Certificate::query()->whereIn('exam_attempt_id', $attempts->pluck('id'))->get()->keyBy('exam_attempt_id');
+        $certificates = Certificate::query()->with('documents')->whereIn('exam_attempt_id', $attempts->pluck('id'))->get()->keyBy('exam_attempt_id');
 
         return $classes->mapWithKeys(function (TrainingClass $trainingClass) use ($certificates): array {
             $status = $trainingClass->status;
@@ -49,26 +50,44 @@ class OperationalClassMapPointBuilder
                 ClassStatus::Planned => 'state-blue',
                 ClassStatus::Completed, ClassStatus::Cancelled => 'state-ended',
             };
-            $scoreRows = $trainingClass->examSchedules
+            $statusDisplayLabel = match ($status) {
+                ClassStatus::Active => 'Active',
+                ClassStatus::Planned => 'Not Started',
+                ClassStatus::Completed, ClassStatus::Cancelled => 'Test Ended',
+            };
+            $attemptsByStudent = $trainingClass->examSchedules
                 ->flatMap(fn ($schedule) => $schedule->attempts)
-                ->sortBy(fn ($attempt) => [$attempt->student?->display_name ?: $attempt->student?->wellsharp_id, $attempt->attempt_number])
-                ->map(function ($attempt) use ($certificates): array {
-                    $certificate = $certificates->get($attempt->id);
-                    $state = match ($attempt->status->value) {
+                ->groupBy('student_user_id');
+
+            $scoreRows = $trainingClass->enrollments
+                ->sortBy(fn ($enrollment) => $enrollment->student?->display_name ?: $enrollment->student?->wellsharp_id)
+                ->map(function ($enrollment) use ($certificates, $attemptsByStudent): array {
+                    $attempt = $attemptsByStudent->get($enrollment->student_user_id, collect())
+                        ->sortByDesc('attempt_number')
+                        ->first();
+                    $certificate = $attempt ? $certificates->get($attempt->id) : null;
+                    $documentsByType = $certificate?->documents->keyBy(fn ($document) => $document->type->value);
+                    $frontDocument = $documentsByType?->get(CertificateDocumentType::CompletionCardFront->value);
+                    $backDocument = $documentsByType?->get(CertificateDocumentType::CompletionCardBack->value);
+                    $state = $attempt ? match ($attempt->status->value) {
                         'submitted' => 'complete',
                         'expired' => 'noshow',
                         default => 'inprogress',
-                    };
+                    } : 'notstarted';
 
                     return [
-                        'name' => $attempt->student?->display_name ?: $attempt->student?->wellsharp_id ?: 'Unknown trainee',
-                        'score' => $attempt->score !== null ? (string) $attempt->score : null,
+                        'name' => $enrollment->student?->display_name ?: $enrollment->student?->wellsharp_id ?: 'Unknown trainee',
+                        'skillsScore' => $enrollment->skills_score,
+                        'skillsScoreUrl' => route(auth()->user()->hasRole('proctor') ? 'proctor.enrollments.skills-score' : 'instructor.enrollments.skills-score', $enrollment),
+                        'score' => $attempt && $attempt->score !== null ? (string) $attempt->score : null,
                         'state' => $state,
-                        'attemptNumber' => $attempt->attempt_number,
-                        'releasedAt' => $attempt->released_at?->format('Y-m-d H:i'),
-                        'reportUrl' => route(auth()->user()->hasRole('proctor') ? 'proctor.analytics.attempts.show' : 'instructor.analytics.attempts.show', $attempt),
-                        'releaseUrl' => route(auth()->user()->hasRole('proctor') ? 'proctor.analytics.attempts.release' : 'instructor.analytics.attempts.release', $attempt),
-                        'certificateUrl' => $certificate ? route(auth()->user()->hasRole('proctor') ? 'proctor.certificate' : 'instructor.certificate', ['certificate_id' => $certificate->certificate_number]) : null,
+                        'attemptNumber' => $attempt?->attempt_number,
+                        'releasedAt' => $attempt?->released_at?->format('Y-m-d H:i'),
+                        'reportUrl' => $attempt ? route(auth()->user()->hasRole('proctor') ? 'proctor.analytics.attempts.summary' : 'instructor.analytics.attempts.summary', $attempt) : null,
+                        'releaseUrl' => $attempt ? route(auth()->user()->hasRole('proctor') ? 'proctor.analytics.attempts.release' : 'instructor.analytics.attempts.release', $attempt) : null,
+                        'certificateDownloadUrl' => $frontDocument ? route('certificates.documents.download', [$certificate, $frontDocument]) : null,
+                        'certificateFrontUrl' => $frontDocument ? route('certificates.documents.standalone', [$certificate, $frontDocument]) : null,
+                        'certificateBackUrl' => $backDocument ? route('certificates.documents.standalone', [$certificate, $backDocument]) : null,
                         'certificateNumber' => $certificate?->certificate_number,
                     ];
                 })->values()->all();
@@ -76,8 +95,8 @@ class OperationalClassMapPointBuilder
             return [$trainingClass->public_id => [
                 'details' => [
                     ['Class ID:', $trainingClass->public_id],
-                    ['Class Title or ID:', $trainingClass->course->name ?: $trainingClass->class_number],
-                    ['Class Status:', $status->label(), $statusClass],
+                    ['Class Title or ID:', $trainingClass->displayTitle()],
+                    ['Class Status:', $statusDisplayLabel, $statusClass],
                     ['Class Dates:', $this->dateRange($trainingClass)],
                     ['Class Duration:', $this->durationLabel($trainingClass)],
                     ['Exam Date/Time:', $this->examAvailability($trainingClass)],
@@ -90,14 +109,14 @@ class OperationalClassMapPointBuilder
                     ['Instructor:', 'Any eligible Instructor'],
                     ['Class Language:', $trainingClass->course->languages->pluck('name')->join(', ') ?: 'Not assigned'],
                 ],
-                'showCodes' => false,
                 'codeRows' => $trainingClass->enrollments
                     ->map(fn ($enrollment): array => [
-                        $enrollment->student?->display_name ?: $enrollment->student?->wellsharp_id ?: 'Unknown trainee',
-                        $enrollment->student?->wellsharp_id ?: '—',
-                        $enrollment->status?->label() ?: 'Enrolled',
-                        $enrollment->student?->profile?->company ?: '—',
+                        'studentId' => $enrollment->student?->public_id,
+                        'name' => $enrollment->student?->display_name ?: $enrollment->student?->wellsharp_id ?: 'Unknown trainee',
+                        'username' => $enrollment->student?->wellsharp_id ?: '—',
+                        'company' => $enrollment->student?->profile?->company ?: '—',
                     ])->values()->all(),
+                'studentPasswordsUrl' => route(auth()->user()->hasRole('proctor') ? 'proctor.classes.student-passwords' : 'instructor.classes.student-passwords', $trainingClass),
                 'scoreRows' => $scoreRows,
                 'examControl' => [
                     'status' => $status->value,

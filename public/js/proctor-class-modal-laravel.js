@@ -1,104 +1,9 @@
 (function () {
   var assets = window.wellsharpPrototypeAssets || { logo: "/images/iadcLoginLgo.png" };
   var classModalData = window.wellsharpClassModalData || {};
-  var temporaryProctorCode = null;
-  var pendingExamButton = null;
   var pendingExamAction = "start";
   var pendingExamControl = null;
   var pendingProctorId = "";
-
-  var prototypeClasses = {
-    ended: {
-      details: [
-        ["Class ID:", "2183EA98"],
-        ["Class Title or ID:", "Driller10"],
-        ["Class Status:", '<span class="state-ended"></span>Test Ended'],
-        ["Class Dates:", "July 13 - 16"],
-        ["Exam Date/Time:", "07/17/2025 9:00 AM"],
-        ["Started On:", "July 17, 2025 9:49 AM"],
-        ["Ended On:", "September 16, 2025 11:26 AM"],
-        ["Address:", "bro Training Camp<br>New Cairo, First Tagamoa villa 604<br>cairo"],
-        ["Course Level:", "Drilling Operations Driller"],
-        ["Stacks Offered:", "Surface Stack"],
-        ["Supplement Offered:", "No Supplements Offered"],
-        ["Instructor:", "Abraham Kotb"],
-        ["Class Language:", "English"]
-      ],
-      showCodes: true
-    },
-    open: {
-      details: [
-        ["Class ID:", "03555D38"],
-        ["Class Title or ID:", "IADC SUPER 11"],
-        ["Class Status:", '<span class="state-green"></span>Test Open and Active <a class="tiny-red exam-state-btn" href="#">Stop Exam</a>'],
-        ["Class Dates:", "August 25 - 29"],
-        ["Exam Date/Time:", "08/29/2025 10:00 AM"],
-        ["Started On:", "August 29, 2025 10:05 AM"],
-        ["Ended On:", "n/a"],
-        ["Address:", "Virtual<br>Virtual<br>Virtual"],
-        ["Course Level:", "Drilling Operations Supervisor (Live)"],
-        ["Stacks Offered:", "Surface Stack"],
-        ["Supplement Offered:", "No Supplements Offered"],
-        ["Instructor:", "Abraham Kotb"],
-        ["Class Language:", "English"]
-      ],
-      showCodes: true
-    },
-    notstarted: {
-      details: [
-        ["Class ID:", "1C52A6B5"],
-        ["Class Title or ID:", "supervisor 2506"],
-        ["Class Status:", '<span class="state-blue"></span>Test Not Started <a class="tiny-blue exam-state-btn" href="#">Start Exam</a>'],
-        ["Class Dates:", "June 20 - 24"],
-        ["Exam Date/Time:", "06/24/2026 10:00 AM"],
-        ["Started On:", "n/a"],
-        ["Ended On:", "n/a"],
-        ["Address:", "bro training camp<br>Bro training camp First tagamoa villa 604 Cairo<br>cairo"],
-        ["Course Level:", "Drilling Operations Supervisor"],
-        ["Stacks Offered:", "Surface Stack"],
-        ["Supplement Offered:", "No Supplements Offered"],
-        ["Instructor:", "Abraham Kotb"],
-        ["Class Language:", "English"]
-      ],
-      showCodes: false
-    }
-  };
-
-  var codeRows = [
-    ["AL-GHAZI, HAMED RASHID KHALFAN", "halghazi", "zmx2c2", "XPO"],
-    ["ALMANNAIE, RASHED KH R H", "ralmannaie", "az2xcm", "XPO"],
-    ["ALMUQABQAB, SADIQ MOHAMMED", "salmuqabqab", "64mp3m", "XPO"],
-    ["ALNAJEM, ABDULAZIZ A KH", "aalnajem", "2eze62", "XPO"],
-    ["ALRUKAIBI, RASHID N R D", "ralrukaibi", "zngpar", "XPO"],
-    ["CHENG, ZHU", "zcheng", "r7p3y2", "XPO"],
-    ["FEI, LIU", "lfei", "fgx7ex", "XPO"],
-    ["HARTONO, RUDI", "rhartono", "6j9cpz", "XPO"],
-    ["Jabir, Alaa Majeed", "ajabir", "74cn7w", "XPO"],
-    ["KOTHAPALLI, MURALI NAGA RAJU", "mkothapalli", "c4xpef", "XPO"],
-    ["LIANG, CHANG", "cliang", "hzmzcx", "XPO"],
-    ["MAHMOOD, ARSHAD", "amahmood", "6w4ckh", "XPO"],
-    ["Michwit, Ahmed Zghaier", "amichwit", "ch46h2", "XPO"],
-    ["PARAMASIVAM, MAGESH", "mparamasivam", "ejwjwx", "XPO"],
-    ["SHAHHAT, AMR RAMADAN HUSSEIN", "ashahhat", "ncanxf", "XPO"],
-    ["SIMATUPANG, HERMAN", "hsimatupang", "paftax", "XPO"],
-    ["SOWILAM, AHMED SALAH MOHAMED", "asowilam", "2424jz", "XPO"],
-    ["TABENA, JAWAD KADHIM", "jtabena", "7mcyc4", "XPO"]
-  ];
-
-  var scoreRows = [
-    ["DJERDJOUR, MOHAMED", "77", "complete"],
-    ["FAHAD, ALI HASAN", "80", "complete"],
-    ["GHANIM, HAYDER RAHI", "81", "complete"],
-    ["KAREEM, ZAINAB RAHEEM", "", "notstarted"],
-    ["KHALAF, AHMED HAMAD", "88", "inprogress"],
-    ["KHAMEES, KAREEM MOHAMMED", "79", "complete"],
-    ["KOSHY, ROBIN", "80", "inprogress"],
-    ["MOHAMMED, GHASSAN YASEEN", "92", "complete"],
-    ["MOHAN, AKRAM ADIL", "80", "complete"],
-    ["NAJM, MOHAMMED ADDULKAREEM", "75", "noshow"],
-    ["NEAMAH, SADDAM KADHIM", "77", "complete"],
-    ["SODE, ABDULRAZAQ ATIYAH", "90", "complete"]
-  ];
 
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, function (char) {
@@ -110,6 +15,234 @@
         "'": "&#039;"
       }[char];
     });
+  }
+
+  function attrJson(value) {
+    return escapeHtml(JSON.stringify(value === undefined ? null : value));
+  }
+
+  // Loads every enrolled Student's password for one Class in a single batch
+  // request (never one request per Student), and caches the result on the
+  // shared classModalData entry so switching between the Class Dashboard's
+  // tabs doesn't re-fetch. Nothing here is ever written to localStorage,
+  // sessionStorage, cookies, the URL, or a DOM data-* attribute - the fetched
+  // values live only in this Alpine component's in-memory row state (and the
+  // in-memory classModalData cache) for as long as the page is open.
+  window.classRosterTable = function (rows, passwordsUrl, classId) {
+    return {
+      rows: rows || [],
+      passwordsUrl: passwordsUrl || null,
+      classId: classId || null,
+      init: function () {
+        var cache = this.classId && classModalData[this.classId] ? classModalData[this.classId].studentPasswords : null;
+        if (cache) {
+          this.applyPasswords(cache);
+          return;
+        }
+        this.loadPasswords();
+      },
+      applyPasswords: function (byStudentId) {
+        this.rows.forEach(function (row) {
+          var hasValue = Object.prototype.hasOwnProperty.call(byStudentId, row.studentId) && byStudentId[row.studentId];
+          row.password = hasValue ? byStudentId[row.studentId] : null;
+          row.passwordState = hasValue ? "loaded" : "unavailable";
+        });
+      },
+      loadPasswords: function () {
+        if (!this.passwordsUrl) {
+          this.applyPasswords({});
+          return;
+        }
+        var self = this;
+
+        fetch(this.passwordsUrl, {
+          method: "POST",
+          headers: {
+            "Accept": "application/json",
+            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
+          }
+        }).then(function (response) {
+          if (!response.ok) throw new Error("Failed to load passwords");
+          return response.json();
+        }).then(function (data) {
+          var byStudentId = {};
+          (data.students || []).forEach(function (entry) {
+            byStudentId[entry.student_id] = entry.password;
+          });
+          self.applyPasswords(byStudentId);
+          if (self.classId && classModalData[self.classId]) {
+            classModalData[self.classId].studentPasswords = byStudentId;
+          }
+        }).catch(function () {
+          self.applyPasswords({});
+        });
+      }
+    };
+  };
+
+  window.classScoresTable = function (rows) {
+    return {
+      rows: rows || [],
+      startEditScore: function (row) {
+        row.editing = true;
+        row.draft = row.skillsScore === null || row.skillsScore === undefined ? "" : row.skillsScore;
+        row.error = "";
+      },
+      saveScore: function (row) {
+        if (!row.skillsScoreUrl || row.saving) return;
+        var value = Number(row.draft);
+        if (row.draft === "" || !isFinite(value) || value < 0 || value > 100) {
+          row.error = "Enter a whole number from 0 to 100.";
+          return;
+        }
+
+        var rounded = Math.round(value);
+        row.saving = true;
+        row.error = "";
+
+        fetch(row.skillsScoreUrl, {
+          method: "POST",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
+          },
+          body: JSON.stringify({ skills_score: rounded })
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            return { ok: response.ok, data: data };
+          });
+        }).then(function (result) {
+          if (!result.ok) {
+            var errors = result.data.errors || {};
+            row.error = errors.skills_score ? errors.skills_score[0] : (result.data.message || "The Skills Score could not be saved.");
+            return;
+          }
+
+          row.skillsScore = result.data.skills_score;
+          row.editing = false;
+        }).catch(function () {
+          row.error = "The Skills Score could not be saved. Try again.";
+        }).finally(function () {
+          row.saving = false;
+        });
+      },
+      releaseAttempt: function (row) {
+        if (!row.releaseUrl || row.releasing || row.releasedAt) return;
+        row.releasing = true;
+        row.releaseError = "";
+
+        fetch(row.releaseUrl, {
+          method: "POST",
+          headers: {
+            "Accept": "application/json",
+            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
+          }
+        }).then(function (response) {
+          if (!response.ok) throw new Error("Release failed");
+          row.releasedAt = new Date().toISOString();
+        }).catch(function () {
+          row.releaseError = "Release failed";
+        }).finally(function () {
+          row.releasing = false;
+        });
+      },
+      openScoreReport: function (row) {
+        if (row.reportUrl) openReport(row.reportUrl);
+      }
+    };
+  };
+
+  function classRosterMarkup(rows, passwordsUrl, classId) {
+    return `
+      <div x-data="classRosterTable(${attrJson(rows)}, ${attrJson(passwordsUrl)}, ${attrJson(classId)})">
+        <table class="codes-table">
+          <thead><tr>
+            <th>Name</th>
+            <th>Username</th>
+            <th>Password</th>
+            <th>Company</th>
+          </tr></thead>
+          <tbody>
+            <template x-for="row in rows" :key="row.username + '-' + row.name">
+              <tr>
+                <td x-text="row.name"></td>
+                <td x-text="row.username"></td>
+                <td>
+                  <span x-show="row.passwordState === 'loaded'" x-text="row.password"></span>
+                  <span x-show="row.passwordState === 'unavailable'">Unavailable</span>
+                  <span x-show="!row.passwordState">•••••</span>
+                </td>
+                <td x-text="row.company"></td>
+              </tr>
+            </template>
+            <tr x-show="!rows.length"><td colspan="4" class="empty-code-row-cell">No enrolled trainees are stored for this Class.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function classScoresMarkup(rows) {
+    return `
+      <div x-data="classScoresTable(${attrJson(rows)})">
+        <table class="scores-table class-scores-table">
+          <thead><tr>
+            <th>Name</th>
+            <th>Skills Score</th>
+            <th>Knowledge Exam</th>
+            <th>Certificate</th>
+          </tr></thead>
+          <tbody>
+            <template x-for="row in rows" :key="(row.skillsScoreUrl || row.name)">
+              <tr>
+                <td x-text="row.name"></td>
+                <td>
+                  <template x-if="!row.editing">
+                    <span class="score-edit-cell">
+                      <span x-text="row.skillsScore === null || row.skillsScore === undefined ? '—' : row.skillsScore"></span>
+                      <a href="#" class="edit-score" x-show="row.skillsScoreUrl" x-on:click.prevent="startEditScore(row)"><span class="edit-score-icon" aria-hidden="true"></span></a>
+                    </span>
+                  </template>
+                  <template x-if="row.editing">
+                    <span class="score-edit-cell">
+                      <input class="score-input" type="number" min="0" max="100" x-model="row.draft" aria-label="Skills Score">
+                      <a href="#" class="save-score" x-on:click.prevent="saveScore(row)">&#128190;</a>
+                      <small class="score-error" x-show="row.error" x-text="row.error"></small>
+                    </span>
+                  </template>
+                </td>
+                <td>
+                  <template x-if="row.state === 'notstarted'"><span>Not Started</span></template>
+                  <template x-if="row.state === 'noshow'"><span>No Show</span></template>
+                  <template x-if="row.state !== 'notstarted' && row.state !== 'noshow'">
+                    <span>
+                      <a class="score-btn" href="#" x-show="row.reportUrl" x-on:click.prevent="openScoreReport(row)">Score Report</a>
+                      <span x-show="!row.reportUrl">Score Report</span>
+                      <span class="release-btn is-released" x-show="row.releasedAt">Released</span>
+                      <a class="release-btn" href="#" x-show="!row.releasedAt" x-on:click.prevent="releaseAttempt(row)" x-text="row.releasing ? 'Releasing...' : 'Release'"></a>
+                    </span>
+                  </template>
+                </td>
+                <td>
+                  <template x-if="row.state !== 'notstarted' && row.state !== 'noshow' && row.certificateDownloadUrl">
+                    <span>
+                      <a class="release-btn certificate-download" x-bind:href="row.certificateDownloadUrl">Download</a>
+                      <div class="certificate-actions">
+                        <a class="mini-cert-btn" x-show="row.certificateFrontUrl" x-bind:href="row.certificateFrontUrl" target="_blank" rel="noopener">Front</a>
+                        <a class="mini-cert-btn" x-show="row.certificateBackUrl" x-bind:href="row.certificateBackUrl" target="_blank" rel="noopener">Back</a>
+                      </div>
+                    </span>
+                  </template>
+                  <template x-if="!(row.state !== 'notstarted' && row.state !== 'noshow' && row.certificateDownloadUrl)">-</template>
+                </td>
+              </tr>
+            </template>
+            <tr x-show="!rows.length"><td colspan="4" class="scores-empty-cell">No trainees are enrolled in this Class.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
   function ensureModal() {
@@ -152,7 +285,7 @@
 
   function proctorCheckMarkup(action, control) {
     var isEnding = action === "end" || action === "stop";
-    var buttonText = isEnding ? "End Class" : "Start Class";
+    var buttonText = isEnding ? "End Exam" : "Start Exam";
     var schedules = control && Array.isArray(control.scheduledFor) ? control.scheduledFor : [];
     var scheduledText = schedules.length
       ? schedules.map(function (schedule) {
@@ -161,7 +294,7 @@
       }).join(", ")
       : "No linked Exam schedule";
     var controlNote = control
-      ? '<p class="proctor-note"><strong>This controls the linked Class.</strong> The Admin Exam schedule dates do not block this action after an authorized Proctor ID is verified.</p>'
+      ? "<p class=\"proctor-note\"><strong>This controls the linked Class.</strong> The Admin Exam schedule dates do not block this action after an authorized Proctor's ID is verified.</p>"
       : "";
 
     return [
@@ -189,11 +322,8 @@
   }
 
   function openProctorCheck(button, control) {
-    pendingExamButton = button;
-    pendingExamControl = control || null;
-    pendingExamAction = pendingExamControl
-      ? button.getAttribute("data-exam-action") || (pendingExamControl.status === "active" ? "end" : "start")
-      : (button.textContent.indexOf("Stop") !== -1 ? "stop" : "start");
+    pendingExamControl = control;
+    pendingExamAction = button.getAttribute("data-exam-action") || (control.status === "active" ? "end" : "start");
     pendingProctorId = "";
 
     closeProctorCheck();
@@ -242,61 +372,51 @@
     var input = document.getElementById("proctorCodeInput");
     var value = input ? input.value.trim() : "";
 
-    if (pendingExamControl) {
-      if (!value) {
-        setProctorMessage("error", "Enter the Proctor ID first.");
-        return;
-      }
-
-      var verifyButton = document.querySelector("[data-proctor-check]");
-      if (verifyButton) verifyButton.disabled = true;
-      setProctorMessage("error", "Checking Proctor ID...");
-
-      fetch(pendingExamControl.verifyUrl, {
-        method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
-        },
-        body: JSON.stringify({ proctor_id: value })
-      }).then(function (response) {
-        return response.json().then(function (data) {
-          return { ok: response.ok, data: data };
-        });
-      }).then(function (result) {
-        if (!result.ok) {
-          var errors = result.data.errors || {};
-          var message = errors.proctor_id ? errors.proctor_id[0] : (result.data.message || "No proctor found with this ID");
-          pendingProctorId = "";
-          setProctorMessage("error", message);
-          return;
-        }
-
-        pendingProctorId = value;
-        setProctorMessage("success", "Proctor found: " + result.data.proctor_name);
-      }).catch(function () {
-        pendingProctorId = "";
-        setProctorMessage("error", "The Proctor ID could not be verified. Try again.");
-      }).finally(function () {
-        if (verifyButton) verifyButton.disabled = false;
-      });
+    if (!value) {
+      setProctorMessage("error", "Enter the Proctor ID first.");
       return;
     }
 
-    setProctorMessage("error", "This Class has no live Proctor verification endpoint.");
+    var verifyButton = document.querySelector("[data-proctor-check]");
+    if (verifyButton) verifyButton.disabled = true;
+    setProctorMessage("error", "Checking Proctor ID...");
+
+    fetch(pendingExamControl.verifyUrl, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
+      },
+      body: JSON.stringify({ proctor_id: value })
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        return { ok: response.ok, data: data };
+      });
+    }).then(function (result) {
+      if (!result.ok) {
+        var errors = result.data.errors || {};
+        var message = errors.proctor_id ? errors.proctor_id[0] : (result.data.message || "No proctor found with this ID");
+        pendingProctorId = "";
+        setProctorMessage("error", message);
+        return;
+      }
+
+      pendingProctorId = value;
+      setProctorMessage("success", "Proctor found: " + result.data.proctor_name);
+    }).catch(function () {
+      pendingProctorId = "";
+      setProctorMessage("error", "The Proctor ID could not be verified. Try again.");
+    }).finally(function () {
+      if (verifyButton) verifyButton.disabled = false;
+    });
   }
 
   function finishExamStateChange(responseData) {
-    if (pendingExamButton) {
-      pendingExamButton.textContent = pendingExamAction === "start" ? "Class Started" : "Class Ended";
-      pendingExamButton.classList.add("is-released");
-    }
-
-    if (pendingExamControl && currentClassId && classModalData[currentClassId]) {
+    if (currentClassId && classModalData[currentClassId]) {
       var updatedStatus = responseData?.class?.status || (pendingExamAction === "start" ? "active" : "completed");
-      var statusText = updatedStatus === "active" ? "Active" : (updatedStatus === "completed" ? "Completed" : updatedStatus);
-      var statusClass = updatedStatus === "active" ? "state-green" : "state-ended";
+      var statusText = updatedStatus === "active" ? "Active" : (updatedStatus === "planned" ? "Not Started" : "Test Ended");
+      var statusClass = updatedStatus === "active" ? "state-green" : (updatedStatus === "planned" ? "state-blue" : "state-ended");
       classModalData[currentClassId].examControl.status = updatedStatus;
       classModalData[currentClassId].details = classModalData[currentClassId].details.map(function (item) {
         return item[0] === "Class Status:" ? [item[0], statusText, statusClass] : item;
@@ -304,6 +424,7 @@
     }
 
     closeProctorCheck();
+    openModal("details", currentClass, currentClassId);
   }
 
   function controlClass() {
@@ -314,19 +435,7 @@
     launch.classList.add("disabled");
     setProctorMessage("error", pendingExamAction === "start" ? "Starting Class..." : "Ending Class...");
 
-    fetch(pendingExamControl.controlUrl, {
-      method: "POST",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
-      },
-      body: JSON.stringify({ action: pendingExamAction, proctor_id: pendingProctorId })
-    }).then(function (response) {
-      return response.json().then(function (data) {
-        return { ok: response.ok, data: data };
-      });
-    }).then(function (result) {
+    postExamControl(pendingExamControl, pendingExamAction, pendingProctorId, function (result) {
       if (!result.ok) {
         var errors = result.data.errors || {};
         var message = errors.action ? errors.action[0] : (errors.proctor_id ? errors.proctor_id[0] : (result.data.message || "The Class could not be updated."));
@@ -335,16 +444,59 @@
       }
 
       finishExamStateChange(result.data);
-    }).catch(function () {
+    }, function () {
       setProctorMessage("error", "The Class could not be updated. Try again.");
     });
+  }
+
+  function postExamControl(control, action, proctorId, onSettled, onError) {
+    var body = { action: action };
+    if (proctorId) {
+      body.proctor_id = proctorId;
+    }
+
+    return fetch(control.controlUrl, {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
+      },
+      body: JSON.stringify(body)
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        return { ok: response.ok, data: data };
+      });
+    }).then(onSettled).catch(onError);
+  }
+
+  // A Proctor controls the Class directly with no credential prompt.
+  function controlClassAsProctor(action, control) {
+    pendingExamControl = control;
+    pendingExamAction = action;
+
+    postExamControl(control, action, null, function (result) {
+      if (!result.ok) {
+        var errors = result.data.errors || {};
+        var message = errors.action ? errors.action[0] : (result.data.message || "The Class could not be updated.");
+        window.alert(message);
+        return;
+      }
+
+      finishExamStateChange(result.data);
+    }, function () {
+      window.alert("The Class could not be updated. Try again.");
+    });
+  }
+
+  function closeButtonMarkup() {
+    return '<a class="modal-close" href="#" data-class-close>x</a>';
   }
 
   function modalShell(activeTab, body, extraClass) {
     var classContext = ' data-class-state="' + escapeHtml(currentClass) + '" data-class-id="' + escapeHtml(currentClassId || '') + '"';
 
-    return [
-      '<a class="modal-close" href="#" data-class-close>x</a>',
+    return closeButtonMarkup() + '<div class="modal-scroll-area">' + [
       '<div class="dash-head">',
       "<h1>Class Dashboard</h1>",
       '<img src="' + assets.logo + '" alt="IADC WellSharp" />',
@@ -356,82 +508,54 @@
       '<div class="' + extraClass + '">',
       body,
       "</div>"
-    ].join("");
+    ].join("") + '</div>';
   }
 
   var currentClass = "ended";
   var currentClassId = null;
+  var currentReportData = null;
 
   function getClassConfig() {
     return classModalData[currentClassId] || { details: [["Class Status:", "Live Class data unavailable"]], codeRows: [], scoreRows: [], examControl: null };
   }
 
+  function statusControlMarkup(examControl) {
+    if (!examControl) {
+      return "";
+    }
+
+    var canControl = examControl.status === "planned" || examControl.status === "active";
+    if (!canControl) {
+      return "";
+    }
+
+    var action = examControl.status === "active" ? "end" : "start";
+    var label = examControl.status === "active" ? "Stop Exam" : "Start Exam";
+    var buttonClass = action === "end" ? "tiny-red" : "tiny-blue";
+
+    return ' <a href="#" class="' + buttonClass + ' exam-state-btn" data-exam-control data-exam-action="' + action + '">' + label + '</a>';
+  }
+
   function renderDetails() {
     var config = getClassConfig();
+    var examControl = config.examControl;
     var details = config.details.map(function (item) {
       var value = item[2] ? '<span class="' + item[2] + '"></span>' + escapeHtml(item[1]) : escapeHtml(item[1]);
+      if (item[0] === "Class Status:") {
+        value += statusControlMarkup(examControl);
+      }
       return "<dt>" + escapeHtml(item[0]) + "</dt><dd>" + value + "</dd>";
     }).join("");
-
-    var codes = (config.codeRows || []).length
-      ? config.codeRows.map(function (row) {
-        return "<tr><td>" + escapeHtml(row[0]) + "</td><td>" + escapeHtml(row[1]) + "</td><td>" + escapeHtml(row[2]) + "</td><td>" + escapeHtml(row[3]) + "</td></tr>";
-      }).join("")
-      : '<tr class="empty-code-row"><td colspan="4"></td></tr>';
-
-    var examControl = config.examControl;
-    var controlMarkup = "";
-    if (examControl) {
-      var controlAction = examControl.status === "active" ? "end" : "start";
-      var canControl = examControl.status === "planned" || examControl.status === "active";
-      var controlLabel = examControl.status === "active" ? "End Class" : "Start Class";
-      var controlSchedule = Array.isArray(examControl.scheduledFor) && examControl.scheduledFor.length
-        ? examControl.scheduledFor.map(function (schedule) {
-          var range = [schedule.start, schedule.end].filter(Boolean).join(" to ");
-          return escapeHtml(schedule.name + (range ? " (" + range + ")" : ""));
-        }).join(", ")
-        : "No linked Exam schedule";
-      controlMarkup = '<section class="exam-control-panel"><h3>Class Control</h3><p>Linked Admin Exam: ' + controlSchedule + '</p>' + (canControl
-        ? '<a href="#" class="' + (controlAction === "end" ? "tiny-red" : "tiny-blue") + ' exam-control-btn" data-exam-control data-exam-action="' + controlAction + '">' + controlLabel + '</a>'
-        : '<p class="proctor-note">This Class is closed and cannot be controlled.</p>') + '</section>';
-    }
 
     return modalShell("details", [
       '<div class="class-detail-column"><dl class="class-details">',
       details,
-      "</dl>",
-      controlMarkup,
-      "</div>",
+      "</dl></div>",
       "<div>",
-      '<table class="codes-table"><thead><tr><th>Name</th><th>WellSharp ID</th><th>Enrollment</th><th>Company</th></tr></thead><tbody>',
-      codes,
-      "</tbody></table>",
+      classRosterMarkup(config.codeRows || [], config.studentPasswordsUrl || null, currentClassId),
       '<button class="print-btn" type="button" data-print-modal data-print-type="codes">Print/ Save Codes</button>',
       "</div>"
     ].join(""), "dash-content");
-  }
-
-  function scoreActions(row) {
-    var state = row.state;
-
-    if (state === "notstarted") {
-      return ["<td>Not Started</td>", "<td>-</td>"];
-    }
-
-    if (state === "noshow") {
-      return ["<td>No Show</td>", "<td>-</td>"];
-    }
-
-    var release = row.releasedAt
-      ? '<span class="release-btn is-released">Released</span>'
-      : '<a class="release-btn" href="#" data-release-url="' + escapeHtml(row.releaseUrl || "") + '">Release</a>';
-    var report = row.reportUrl ? '<a class="score-btn" href="' + escapeHtml(row.reportUrl) + '">Score Report</a>' : "Score Report";
-    var certificate = row.certificateUrl ? '<a class="release-btn certificate-download" href="' + escapeHtml(row.certificateUrl) + '">Lookup</a>' : "-";
-
-    return [
-      '<td>' + report + ' ' + release + '</td>',
-      '<td>' + certificate + '</td>'
-    ];
   }
 
   function printDetails(config) {
@@ -456,17 +580,18 @@
   function printRows(type, config) {
     if (type === "codes") {
       return (config.codeRows || []).map(function (row) {
-        return '<tr><td class="person-cell">' + escapeHtml(row[0]) + '</td><td>' + escapeHtml(row[1]) + '</td><td><span class="status-chip success">' + escapeHtml(row[2]) + '</span></td><td>' + escapeHtml(row[3]) + '</td></tr>';
-      }).join("") || '<tr><td colspan="4" class="empty-print">No enrolled trainees are stored for this Class.</td></tr>';
+        return '<tr><td class="person-cell">' + escapeHtml(row.name) + '</td><td>' + escapeHtml(row.username) + '</td><td>' + escapeHtml(row.company) + '</td></tr>';
+      }).join("") || '<tr><td colspan="3" class="empty-print">No enrolled trainees are stored for this Class.</td></tr>';
     }
 
     return (config.scoreRows || []).map(function (row) {
-      var score = row.score ? escapeHtml(row.score) + "%" : "—";
+      var skillsScore = row.skillsScore !== null && row.skillsScore !== undefined ? escapeHtml(row.skillsScore) + "%" : "—";
       var state = printStateLabel(row.state);
       var certificate = row.certificateNumber ? "Issued · " + row.certificateNumber : "Not issued";
       var release = row.releasedAt ? "Released" : "Pending release";
+      var attemptLabel = row.attemptNumber ? "Attempt " + escapeHtml(row.attemptNumber) + " · " + release : release;
 
-      return '<tr><td class="person-cell">' + escapeHtml(row.name) + '</td><td class="score-cell">' + score + '</td><td><span class="status-chip ' + printStateClass(row.state) + '">' + state + '</span><small>Attempt ' + escapeHtml(row.attemptNumber || 1) + ' · ' + release + '</small></td><td>' + escapeHtml(certificate) + '</td></tr>';
+      return '<tr><td class="person-cell">' + escapeHtml(row.name) + '</td><td class="score-cell">' + skillsScore + '</td><td><span class="status-chip ' + printStateClass(row.state) + '">' + state + '</span><small>' + attemptLabel + '</small></td><td>' + escapeHtml(certificate) + '</td></tr>';
     }).join("") || '<tr><td colspan="4" class="empty-print">No trainee attempts are stored for this Class.</td></tr>';
   }
 
@@ -503,13 +628,17 @@
     var isCodes = type === "codes";
     var title = isCodes ? "Class Roster &amp; Trainee Codes" : "Class Results Report";
     var subtitle = isCodes ? "Enrollment and WellSharp identification details" : "Assessment outcomes and certificate status";
-    var headers = isCodes ? ["Name", "WellSharp ID", "Enrollment", "Company"] : ["Name", "Skills Score", "Knowledge Exam", "Certificate"];
+    var headers = isCodes ? ["Name", "Username", "Company"] : ["Name", "Skills Score", "Knowledge Exam", "Certificate"];
     var generatedAt = new Date().toLocaleString();
     var tableClass = isCodes ? "codes-print-table" : "results-print-table";
     var documentMarkup = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + title.replace(/&amp;/g, "&") + '</title><style>' +
       '@page{size:A4 landscape;margin:14mm}*{box-sizing:border-box}body{margin:0;background:#fff;color:#17364f;font:13px Arial,Helvetica,sans-serif}.print-sheet{max-width:1120px;margin:0 auto}.print-header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-bottom:18px;border-bottom:3px solid #e97825}.brand-lockup{display:flex;align-items:center;gap:14px}.brand-mark{width:58px;height:58px;object-fit:contain}.brand-name{color:#0e3554;font-size:19px;font-weight:700;letter-spacing:.04em}.brand-subtitle{margin-top:4px;color:#71808d;font-size:11px}.print-meta{text-align:right;color:#71808d;font-size:11px;line-height:1.5}.print-title{margin:24px 0 5px;color:#0e3554;font-size:25px}.print-subtitle{margin:0 0 18px;color:#71808d;font-size:13px}.print-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 24px;margin-bottom:22px;padding:14px 16px;border:1px solid #d8e1e7;border-radius:8px;background:#f7fafb}.print-detail{display:grid;grid-template-columns:minmax(75px,auto) 1fr;gap:7px;padding:6px 0;border-bottom:1px solid #e5edf1}.print-detail dt{color:#71808d;font-weight:700}.print-detail dd{margin:0;color:#213547;overflow-wrap:anywhere}.print-table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:1px solid #b9c7d2;border-radius:8px}.print-table th{padding:11px 12px;background:#0e3554;color:#fff;text-align:left;font-size:12px;letter-spacing:.04em}.print-table td{padding:11px 12px;border-top:1px solid #d8e1e7;vertical-align:top;line-height:1.3}.print-table tr:nth-child(even) td{background:#f2f6f8}.print-table tr:nth-child(odd) td{background:#fff}.print-table th:not(:last-child),.print-table td:not(:last-child){border-right:1px solid #d8e1e7}.person-cell{font-weight:700}.score-cell{font-size:16px;font-weight:700;color:#0e3554}.status-chip{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}.status-chip.success{background:#e7f7ee;color:#067647}.status-chip.danger{background:#fef0ee;color:#b42318}.status-chip.neutral{background:#edf2f7;color:#46566a}.print-table small{display:block;margin-top:5px;color:#71808d;font-size:10px}.empty-print{padding:28px!important;text-align:center;color:#71808d!important}.print-footer{display:flex;justify-content:space-between;gap:20px;margin-top:18px;padding-top:10px;border-top:1px solid #d8e1e7;color:#71808d;font-size:10px}.print-note{margin-top:13px;color:#71808d;font-size:10px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.print-sheet{max-width:none}.no-print{display:none}}@media(max-width:800px){.print-detail-grid{grid-template-columns:1fr}.print-header{flex-direction:column}.print-meta{text-align:left}}' +
       '</style></head><body><main class="print-sheet"><header class="print-header"><div class="brand-lockup"><img class="brand-mark" src="' + escapeHtml(assets.logo) + '" alt="IADC WellSharp"><div><div class="brand-name">IADC WELLSHARP</div><div class="brand-subtitle">' + subtitle + '</div></div></div><div class="print-meta">Generated ' + escapeHtml(generatedAt) + '<br>WellSharp operational workspace</div></header><h1 class="print-title">' + title + '</h1><p class="print-subtitle">Class dashboard export</p><dl class="print-detail-grid">' + printDetails(config) + '</dl><table class="print-table ' + tableClass + '"><thead><tr>' + headers.map(function (header) { return '<th>' + header + '</th>'; }).join("") + '</tr></thead><tbody>' + printRows(type, config) + '</tbody></table><p class="print-note">This document was generated from the current Class dashboard data. Use the browser print dialog and choose “Save as PDF” to save a PDF copy.</p><footer class="print-footer"><span>WellSharp Class Dashboard</span><span>Confidential operational record</span></footer></main></body></html>';
 
+    openPrintDocument(documentMarkup);
+  }
+
+  function openPrintDocument(documentMarkup) {
     // Keep the popup reference. Chromium may return null when a popup is blocked.
     var printWindow = window.open("", "_blank", "width=1100,height=800");
 
@@ -534,90 +663,93 @@
 
   function renderScores() {
     var config = getClassConfig();
-    var scoreRows = config.scoreRows || [];
-    var rows = scoreRows.map(function (row) {
-      var actions = scoreActions(row);
-      var score = row.score ? escapeHtml(row.score) + "%" : "-";
-      return [
-        "<tr>",
-        "<td>" + escapeHtml(row.name) + "</td>",
-        "<td>" + score + "</td>",
-        actions[0],
-        actions[1],
-        "</tr>"
-      ].join("");
-    }).join("");
 
     return modalShell("scores", [
-      '<table class="scores-table class-scores-table"><thead><tr><th>Name</th><th>Skills Score</th><th>Knowledge Exam</th><th>Certificate</th></tr></thead><tbody>',
-      rows || '<tr><td colspan="4" class="scores-empty-cell">No trainee attempts are stored for this Class.</td></tr>',
-      "</tbody></table>",
+      classScoresMarkup(config.scoreRows || []),
       '<button class="print-btn" type="button" data-print-modal data-print-type="results">Export Class Results</button>'
     ].join(""), "dash-content scores-mode");
   }
 
-  function renderReport() {
+  function renderReport(data) {
+    var hasScore = data.score !== null && data.score !== undefined;
+    var scoreLine = hasScore
+      ? "You scored " + escapeHtml(data.score) + " percent on this knowledge assessment and, therefore, " + (data.passed ? "passed" : "did not pass") + " the course."
+      : "This knowledge assessment has not been scored yet.";
+    var topics = (data.topics || []).map(function (topic) {
+      return "<li><u>" + escapeHtml(topic.title) + "</u><br><em>" + escapeHtml(topic.note) + "</em></li>";
+    }).join("");
+
     return [
       '<a class="modal-close" href="#" data-class-close>x</a>',
       '<div class="score-report-modal">',
-      '<div class="report-top"><img src="' + assets.logo + '" alt="IADC WellSharp" /><a class="print-btn" href="#">Print/ Save</a></div>',
+      '<div class="report-top"><img src="' + assets.logo + '" alt="IADC WellSharp" /><button class="print-btn" type="button" data-print-report>Print/ Save</button></div>',
       "<h2>Knowledge Assessment Report</h2>",
       '<div class="score-report-scroll">',
       '<dl class="report-fields">',
-      "<dt>Name:</dt><dd>AQIB SHAHZAD</dd>",
-      "<dt>Assessment:</dt><dd>Drilling Operations, Supervisor, Surface</dd>",
-      "<dt>Stack:</dt><dd>Surface Stack</dd>",
-      "<dt>Assessment Date:</dt><dd>August 21, 2025 11:48 AM</dd>",
-      "<dt>Score:</dt><dd>90%</dd>",
+      "<dt>Name:</dt><dd>" + escapeHtml(data.name) + "</dd>",
+      "<dt>Assessment:</dt><dd>" + escapeHtml(data.assessment) + "</dd>",
+      "<dt>Stack:</dt><dd>" + escapeHtml(data.stack) + "</dd>",
+      "<dt>Assessment Date:</dt><dd>" + escapeHtml(data.assessmentDate) + "</dd>",
+      "<dt>Score:</dt><dd>" + (hasScore ? escapeHtml(data.score) + "%" : "Pending") + "</dd>",
       "</dl>",
       "<h3>Instructions</h3>",
-      "<p>Thank you for completing the IADC Well Control Knowledge Assessment for the course. You scored 90 percent on this knowledge assessment and, therefore, passed the course. If you passed your skills assessment you will be given your Certificate of Completion by your instructor, who will also review your missed questions with you.</p>",
+      "<p>Thank you for completing the IADC Well Control Knowledge Assessment for the course. " + scoreLine + " If you passed your skills assessment you will be given your Certificate of Completion by your instructor, who will also review your missed questions with you.</p>",
       "<p>After your instructor reviews your exam results with you, you may choose to return to your computer to review each test question you missed on today's exam. To launch the review feature, log in using the same code you used at the beginning of the exam.</p>",
       "<p>Once you complete your review and you have received your Certificate, you are to log out of the testing system and may leave the testing center.</p>",
       "<h3>Topics for Review</h3>",
-      "<p><strong>Barriers:</strong></p><ul><li><u>Testing Barriers</u><br><em>Explain positive pressure and negative pressure barrier tests.</em></li></ul>",
-      "<p><strong>Equipment:</strong></p><ul><li><u>BOP Stack, Stack Valves, and Wellhead Components</u><br><em>Explain the purpose of the key components of equipment on the BOP Stack.</em></li><li><u>Mud-Gas Separator</u><br><em>Explain the purpose and location of the mud-gas separator in the circulating system.</em></li></ul>",
-      "<p><strong>Managed Pressure Drilling (MPD):</strong></p><ul><li><u>MPD</u><br><em>Explain the value of using MPD techniques.</em></li></ul>",
+      topics ? ("<ul>" + topics + "</ul>") : "<p>No missed questions on this attempt.</p>",
       "</div>",
       "</div>"
     ].join("");
   }
 
-  function renderFront() {
-    return [
-      '<a class="modal-close" href="#" data-class-close>x</a>',
-      '<div class="certificate-card-modal">',
-      '<div class="completion-card">',
-      "<h2>IADC WellSharp Course Completion Card</h2>",
-      '<p><strong>Trainee Name</strong><span>AHMED MOHAMED ELMASRY ABDALLA</span></p>',
-      '<p><strong>Course Name</strong><span>Drilling Operations, Supervisor, Surface</span></p>',
-      '<p><strong>Supplement Name</strong><span></span></p>',
-      '<p><strong>Completion Date</strong><span>21 August 2025</span><strong>Expiration Date</strong><span>21 August 2027</span></p>',
-      '<p><strong>Provider</strong><span>Bro Well Control School</span></p>',
-      '<p><strong>Provider #</strong><span>00001179</span><strong>Phone #</strong><span>201012453893</span></p>',
-      '<p><strong>Instructor Name</strong><span>Abraham Kotb</span></p>',
-      '<footer>Certificate Number: 8C6D0EEE-F87B7A</footer>',
-      "</div>",
-      "</div>"
-    ].join("");
+  function reportErrorMarkup(message) {
+    return '<a class="modal-close" href="#" data-class-close>x</a><div class="score-report-modal"><p class="proctor-note">' + escapeHtml(message) + "</p></div>";
   }
 
-  function renderBack() {
-    return [
-      '<a class="modal-close" href="#" data-class-close>x</a>',
-      '<div class="certificate-card-modal">',
-      '<div class="qr-card">',
-      '<img src="' + assets.logo + '" alt="IADC WellSharp" />',
-      "<div>",
-      "<p>This individual has successfully completed a well control course at an institution accredited by the International Association of Drilling Contractors.</p>",
-      "<p>For scheduling training or replacement of lost card, please call the training provider with information provided on this completion card.</p>",
-      "<p>To verify validity, please visit the IADC website:</p>",
-      "<strong>www.iadc.org/wellsharp</strong>",
-      "</div>",
-      '<div class="fake-qr" aria-label="QR code"></div>',
-      "</div>",
-      "</div>"
-    ].join("");
+  function openReport(url) {
+    if (!url) {
+      return;
+    }
+
+    var modal = ensureModal();
+    modal.className = "dashboard-modal shared-class-modal report-wrapper";
+    modal.innerHTML = reportErrorMarkup("Loading report...");
+
+    fetch(url, { headers: { "Accept": "application/json" } })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("Unable to load report");
+        }
+        return response.json();
+      })
+      .then(function (data) {
+        currentReportData = data;
+        modal.innerHTML = renderReport(data);
+      })
+      .catch(function () {
+        modal.innerHTML = reportErrorMarkup("The report could not be loaded. Try again.");
+      });
+  }
+
+  function printReportDocument(data) {
+    var topics = (data.topics || []).map(function (topic) {
+      return '<div class="print-detail"><dt>' + escapeHtml(topic.title) + "</dt><dd>" + escapeHtml(topic.note) + "</dd></div>";
+    }).join("") || '<div class="print-detail"><dd class="empty-print">No missed questions on this attempt.</dd></div>';
+    var hasScore = data.score !== null && data.score !== undefined;
+    var generatedAt = new Date().toLocaleString();
+    var documentMarkup = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Knowledge Assessment Report</title><style>' +
+      '@page{size:A4;margin:16mm}*{box-sizing:border-box}body{margin:0;background:#fff;color:#17364f;font:13px Arial,Helvetica,sans-serif}.print-sheet{max-width:820px;margin:0 auto}.print-header{display:flex;align-items:center;gap:14px;padding-bottom:18px;border-bottom:3px solid #e97825}.brand-mark{width:58px;height:58px;object-fit:contain}.brand-name{color:#0e3554;font-size:19px;font-weight:700;letter-spacing:.04em}.print-meta{margin-top:4px;color:#71808d;font-size:11px}.print-title{margin:24px 0 14px;color:#0e3554;font-size:25px}.print-detail-grid{display:grid;grid-template-columns:1fr;gap:0;margin-bottom:22px;padding:14px 16px;border:1px solid #d8e1e7;border-radius:8px;background:#f7fafb}.print-detail-grid.topics{grid-template-columns:1fr}.print-detail{display:grid;grid-template-columns:minmax(120px,auto) 1fr;gap:7px;padding:6px 0;border-bottom:1px solid #e5edf1}.print-detail dt{color:#71808d;font-weight:700}.print-detail dd{margin:0;color:#213547;overflow-wrap:anywhere}.print-detail dd.empty-print{color:#71808d}.print-note{margin-top:13px;color:#71808d;font-size:10px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}' +
+      '</style></head><body><main class="print-sheet"><header class="print-header"><img class="brand-mark" src="' + escapeHtml(assets.logo) + '" alt="IADC WellSharp"><div><div class="brand-name">IADC WELLSHARP</div><div class="print-meta">Generated ' + escapeHtml(generatedAt) + '</div></div></header><h1 class="print-title">Knowledge Assessment Report</h1><dl class="print-detail-grid">' +
+      '<div class="print-detail"><dt>Name</dt><dd>' + escapeHtml(data.name) + '</dd></div>' +
+      '<div class="print-detail"><dt>Assessment</dt><dd>' + escapeHtml(data.assessment) + '</dd></div>' +
+      '<div class="print-detail"><dt>Stack</dt><dd>' + escapeHtml(data.stack) + '</dd></div>' +
+      '<div class="print-detail"><dt>Assessment Date</dt><dd>' + escapeHtml(data.assessmentDate) + '</dd></div>' +
+      '<div class="print-detail"><dt>Score</dt><dd>' + (hasScore ? escapeHtml(data.score) + "%" : "Pending") + '</dd></div>' +
+      '</dl><h1 class="print-title" style="font-size:18px;margin-top:0">Topics for Review</h1><dl class="print-detail-grid topics">' + topics + '</dl>' +
+      '<p class="print-note">This document was generated from the current Class dashboard data. Use the browser print dialog and choose “Save as PDF” to save a PDF copy.</p></main></body></html>';
+
+    openPrintDocument(documentMarkup);
   }
 
   function openModal(type, classState, classId) {
@@ -631,47 +763,12 @@
 
     if (type === "scores") {
       modal.innerHTML = renderScores();
-    } else if (type === "report") {
-      modal.classList.add("report-wrapper");
-      modal.innerHTML = renderReport();
-    } else if (type === "front") {
-      modal.classList.add("certificate-wrapper");
-      modal.innerHTML = renderFront();
-    } else if (type === "back") {
-      modal.classList.add("certificate-wrapper");
-      modal.innerHTML = renderBack();
     } else {
       modal.innerHTML = renderDetails();
     }
   }
 
   document.addEventListener("click", function (event) {
-    var release = event.target.closest("a.release-btn:not(.certificate-download)");
-    if (release) {
-      event.preventDefault();
-      var releaseUrl = release.getAttribute("data-release-url");
-      if (!releaseUrl) {
-        release.textContent = "Unavailable";
-        return;
-      }
-      release.textContent = "Releasing...";
-      release.classList.add("is-released");
-      fetch(releaseUrl, {
-        method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || ""
-        }
-      }).then(function (response) {
-        if (!response.ok) throw new Error("Release failed");
-        release.textContent = "Released";
-      }).catch(function () {
-        release.textContent = "Release failed";
-        release.classList.remove("is-released");
-      });
-      return;
-    }
-
     var print = event.target.closest("[data-print-modal]");
     if (print) {
       event.preventDefault();
@@ -679,30 +776,11 @@
       return;
     }
 
-    var saveScore = event.target.closest(".save-score");
-    if (saveScore) {
+    var printReport = event.target.closest("[data-print-report]");
+    if (printReport) {
       event.preventDefault();
-      var cell = saveScore.closest("td");
-      var input = cell ? cell.querySelector(".score-input") : null;
-      var value = input && input.value.trim() ? input.value.trim() : "81";
-
-      if (cell) {
-        cell.innerHTML = escapeHtml(value) + ' <a class="edit-score" href="#"><span class="edit-score-icon" aria-hidden="true"></span></a>';
-      }
-      return;
-    }
-
-    var examButton = event.target.closest(".exam-state-btn");
-    if (examButton) {
-      event.preventDefault();
-      if (examButton.textContent.indexOf("Stop") !== -1) {
-        var shouldStop = window.confirm("Are you sure that you would like to close this exam?  Do not stop class if all trainees have not completed their exams");
-        if (shouldStop) {
-          examButton.textContent = "Exam Stopped";
-          examButton.classList.add("is-released");
-        }
-      } else {
-        openProctorCheck(examButton);
+      if (currentReportData) {
+        printReportDocument(currentReportData);
       }
       return;
     }
@@ -714,7 +792,12 @@
       if (action === "end" && !window.confirm("Are you sure that you would like to close this Class? Do not stop it if all trainees have not completed their exams.")) {
         return;
       }
-      openProctorCheck(examControlButton, getClassConfig().examControl);
+      var examControl = getClassConfig().examControl;
+      if (window.wellsharpCurrentRole === "proctor") {
+        controlClassAsProctor(action, examControl);
+      } else {
+        openProctorCheck(examControlButton, examControl);
+      }
       return;
     }
 
@@ -736,11 +819,7 @@
     if (proctorLaunch) {
       event.preventDefault();
       if (!proctorLaunch.disabled) {
-        if (pendingExamControl) {
-          controlClass();
-        } else {
-          finishExamStateChange();
-        }
+        controlClass();
       }
       return;
     }

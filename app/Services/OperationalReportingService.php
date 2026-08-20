@@ -16,7 +16,8 @@ class OperationalReportingService
     {
         return TrainingClass::query()
             ->with([
-                'course',
+                'course.level',
+                'staffAssignments',
                 'examSchedules.exam.subject',
                 'examSchedules.attempts.student.profile',
                 'examSchedules.attempts.exam.subject',
@@ -26,12 +27,16 @@ class OperationalReportingService
             ->get();
     }
 
-    /** @return Collection<int, ExamAttempt> */
-    public function filteredAttempts(Collection $classes, Request $request): Collection
+    /**
+     * Every exam attempt the given classes make visible, regardless of request filters.
+     * Callers that need the full authorized dataset (e.g. to hand to a client-side Alpine
+     * table for filtering/sorting/pagination) should use this instead of filteredAttempts().
+     *
+     * @param  Collection<int, TrainingClass>  $classes
+     * @return Collection<int, ExamAttempt>
+     */
+    public function allAttempts(Collection $classes): Collection
     {
-        $courseId = $request->integer('course_id') ?: null;
-        [$from, $to] = $this->dateBounds($request);
-
         return $classes
             ->flatMap(function (TrainingClass $trainingClass): Collection {
                 return $trainingClass->examSchedules->flatMap(function ($schedule) use ($trainingClass): Collection {
@@ -40,6 +45,27 @@ class OperationalReportingService
                     });
                 });
             })
+            ->values();
+    }
+
+    /**
+     * Server-side filtered attempts, used by the Excel export which must apply the
+     * requester's current filters itself (the results page filters client-side in Alpine).
+     *
+     * @param  Collection<int, TrainingClass>  $classes
+     * @return Collection<int, ExamAttempt>
+     */
+    public function filteredAttempts(Collection $classes, Request $request): Collection
+    {
+        $courseId = $request->integer('course_id') ?: null;
+        $role = (string) $request->input('role', 'Trainees');
+        [$from, $to] = $this->dateBounds($request);
+
+        if (in_array($role, ['Instructors', 'Proctors'], true)) {
+            return collect();
+        }
+
+        return $this->allAttempts($classes)
             ->filter(function (ExamAttempt $attempt) use ($courseId, $from, $to): bool {
                 if ($courseId && (int) $attempt->exam?->course_id !== $courseId) {
                     return false;
@@ -66,35 +92,76 @@ class OperationalReportingService
             ->filter(fn (ExamAttempt $attempt): bool => $attempt->score !== null)
             ->groupBy('exam_id')
             ->map(function (Collection $examAttempts): array {
-                $firstAttempts = $examAttempts->where('attempt_number', 1);
-                $retakes = $examAttempts->where('attempt_number', '>', 1);
                 $exam = $examAttempts->first()->exam;
 
-                return [
-                    'exam_id' => $exam?->getKey(),
-                    'name' => $exam?->name ?: 'Assessment',
-                    'subject' => $exam?->subject?->name ?: 'Not assigned',
-                    'trainees' => $examAttempts->pluck('student_user_id')->unique()->count(),
-                    'passed' => $examAttempts->where('passed', true)->count(),
-                    'failed' => $examAttempts->where('passed', false)->count(),
-                    'rate' => $this->rate($examAttempts->whereIn('passed', [true, false])->where('passed', true)->count(), $examAttempts->whereIn('passed', [true, false])->count()),
-                    'average' => $this->average($examAttempts),
-                    'retaking' => $retakes->pluck('student_user_id')->unique()->count(),
-                    'retake_passed' => $retakes->where('passed', true)->count(),
-                    'retake_failed' => $retakes->where('passed', false)->count(),
-                    'retake_rate' => $this->rate($retakes->where('passed', true)->count(), $retakes->whereIn('passed', [true, false])->count()),
-                    'retake_average' => $this->average($retakes),
-                    'attempts' => $examAttempts->sortBy([['attempt_number', 'asc'], ['submitted_at', 'desc']])->values(),
-                    'initial_attempts' => $firstAttempts->count(),
-                ];
+                return $this->summarizeAttempts($examAttempts, $exam?->name ?: 'Assessment', $exam?->subject?->name ?: 'Not assigned', $exam?->getKey());
             })
             ->sortBy('name')
             ->values();
     }
 
+    /**
+     * Totals footer for the assessment comparison table: counts are summed across rows,
+     * rates/averages are the mean of each row's percentage — matching the reference design
+     * (a trainee who sits multiple assessments is counted once per row, not deduped overall).
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array<string, mixed>
+     */
+    public function totalsRow(Collection $rows): array
+    {
+        return [
+            'name' => '',
+            'subject' => null,
+            'trainees' => $rows->sum('trainees'),
+            'passed' => $rows->sum('passed'),
+            'failed' => $rows->sum('failed'),
+            'rate' => $this->averagePercent($rows->pluck('rate')),
+            'average' => $this->averagePercent($rows->pluck('average')),
+            'retaking' => $rows->sum('retaking'),
+            'retake_passed' => $rows->sum('retake_passed'),
+            'retake_failed' => $rows->sum('retake_failed'),
+            'retake_rate' => $this->averagePercent($rows->pluck('retake_rate')),
+            'retake_average' => $this->averagePercent($rows->pluck('retake_average')),
+        ];
+    }
+
+    /** @param Collection<int, string> $percentages */
+    private function averagePercent(Collection $percentages): string
+    {
+        $numbers = $percentages->map(fn (string $value): float => (float) rtrim($value, '%'));
+
+        return $numbers->isEmpty() ? '0%' : number_format($numbers->avg(), 2).'%';
+    }
+
     public function canViewAttempt(ExamAttempt $attempt, User $user): bool
     {
         return $user->isActive() && ($user->hasRole('proctor') || $user->hasRole('instructor'));
+    }
+
+    /** @return array<string, mixed> */
+    private function summarizeAttempts(Collection $examAttempts, string $name, ?string $subject, mixed $examId): array
+    {
+        $firstAttempts = $examAttempts->where('attempt_number', 1);
+        $retakes = $examAttempts->where('attempt_number', '>', 1);
+
+        return [
+            'exam_id' => $examId,
+            'name' => $name,
+            'subject' => $subject,
+            'trainees' => $examAttempts->pluck('student_user_id')->unique()->count(),
+            'passed' => $examAttempts->where('passed', true)->count(),
+            'failed' => $examAttempts->where('passed', false)->count(),
+            'rate' => $this->rate($examAttempts->where('passed', true)->count(), $examAttempts->whereIn('passed', [true, false])->count()),
+            'average' => $this->average($examAttempts),
+            'retaking' => $retakes->pluck('student_user_id')->unique()->count(),
+            'retake_passed' => $retakes->where('passed', true)->count(),
+            'retake_failed' => $retakes->where('passed', false)->count(),
+            'retake_rate' => $this->rate($retakes->where('passed', true)->count(), $retakes->whereIn('passed', [true, false])->count()),
+            'retake_average' => $this->average($retakes),
+            'attempts' => $examAttempts->sortBy([['attempt_number', 'asc'], ['submitted_at', 'desc']])->values(),
+            'initial_attempts' => $firstAttempts->count(),
+        ];
     }
 
     private function average(Collection $attempts): string
@@ -110,9 +177,9 @@ class OperationalReportingService
     }
 
     /** @return array{0: ?Carbon, 1: ?Carbon} */
-    private function dateBounds(Request $request): array
+    public function dateBounds(Request $request): array
     {
-        $range = (string) $request->input('date_range', 'Custom Date Range');
+        $range = (string) $request->input('date_range', 'All Time');
         if ($range === 'All Time') {
             return [null, null];
         }

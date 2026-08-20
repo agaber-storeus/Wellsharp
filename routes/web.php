@@ -25,9 +25,17 @@ Route::get('/certificates/{certificate}/documents/{document}', [CertificateDocum
     ->middleware(['auth', 'active.user', 'session.version'])
     ->name('certificates.documents.show');
 
+Route::get('/certificates/{certificate}/documents/{document}/view', [CertificateDocumentController::class, 'standalone'])
+    ->middleware(['auth', 'active.user', 'session.version'])
+    ->name('certificates.documents.standalone');
+
 Route::get('/certificates/{certificate}/documents/{document}/download', [CertificateDocumentController::class, 'download'])
     ->middleware(['auth', 'active.user', 'session.version'])
     ->name('certificates.documents.download');
+
+Route::get('/certificates/{certificate}/documents/{document}/preview', [CertificateDocumentController::class, 'preview'])
+    ->middleware(['auth', 'active.user', 'session.version'])
+    ->name('certificates.documents.preview');
 
 Route::get('/home', function () {
     $landingRoute = match (auth()->user()->currentRole?->key) {
@@ -48,13 +56,19 @@ foreach (['proctor', 'instructor'] as $operationalRole) {
         Route::get('/analytics', [NavigationController::class, 'analytics'])->name('analytics');
         Route::get('/analytics/search', [NavigationController::class, 'analyticsSearch'])->name('analytics.search');
         Route::get('/analytics/results', [ReportController::class, 'results'])->name('analytics.results');
+        Route::get('/analytics/results/export', [ReportController::class, 'exportResults'])->name('analytics.results.export');
         Route::get('/analytics/attempts/{attempt}', [ReportController::class, 'show'])->name('analytics.attempts.show');
+        Route::get('/analytics/attempts/{attempt}/summary', [ReportController::class, 'summary'])->name('analytics.attempts.summary');
         Route::post('/analytics/attempts/{attempt}/release', [ReportController::class, 'release'])->name('analytics.attempts.release');
         Route::get('/classes', [NavigationController::class, 'classes'])->name('classes');
         Route::get('/browse', [NavigationController::class, 'browse'])->name('browse');
         Route::get('/browse/results', [NavigationController::class, 'browseResults'])->name('browse.results');
         Route::get('/certificate', [NavigationController::class, 'certificate'])->name('certificate');
+        Route::get('/certificate/data', [NavigationController::class, 'certificateData'])->name('certificate.data');
         Route::get('/certificate/export', [NavigationController::class, 'certificateExport'])->name('certificate.export');
+        Route::post('/students/{student}/reveal-password', [NavigationController::class, 'revealStudentPassword'])->name('students.reveal-password');
+        Route::post('/classes/{trainingClass}/student-passwords', [NavigationController::class, 'classStudentPasswords'])->name('classes.student-passwords');
+        Route::post('/enrollments/{enrollment}/skills-score', [NavigationController::class, 'updateSkillsScore'])->name('enrollments.skills-score');
         Route::post('/proctor-id/verify', [ExamControlController::class, 'verifyProctorId'])->name('proctor-id.verify');
         Route::post('/classes/{trainingClass}/exam-control', [ExamControlController::class, 'control'])->name('classes.exam-control');
     });

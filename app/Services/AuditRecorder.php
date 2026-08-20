@@ -40,6 +40,6 @@ class AuditRecorder
             return null;
         }
 
-        return Arr::except($state, ['password', 'password_confirmation', 'remember_token', 'correct_answer', 'answer_key', 'secret', 'token']);
+        return Arr::except($state, ['password', 'password_confirmation', 'password_ciphertext', 'remember_token', 'correct_answer', 'answer_key', 'secret', 'token']);
     }
 }

@@ -20,6 +20,20 @@ class Role extends Model
 
     protected $fillable = ['key', 'name', 'description'];
 
+    /**
+     * Password length validation rules for the given role key. Students get
+     * an exact 5-character rule; every other role (Proctor/Instructor/Admin)
+     * keeps the general 5-8 range. Centralized here so StoreUserRequest and
+     * UpdateUserRequest (and any future caller) resolve the same policy
+     * instead of each hardcoding it.
+     *
+     * @return array<int, string>
+     */
+    public static function passwordLengthRules(?string $roleKey): array
+    {
+        return $roleKey === self::STUDENT ? ['size:5'] : ['min:5', 'max:8'];
+    }
+
     public function users(): HasMany
     {
         return $this->hasMany(User::class, 'current_role_id');

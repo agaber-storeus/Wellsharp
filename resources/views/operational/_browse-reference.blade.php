@@ -2,14 +2,14 @@
   <section class="panel">
     <div class="panel-title">Search Options</div>
     <div class="panel-body">
-      <form class="search-form browse-reference-search" x-on:submit.prevent="page = 1">
+      <form class="search-form browse-reference-search" x-on:submit.prevent="page = 1; hasSearched = true">
         <div>
           <div class="form-line"><label for="browse-search">Class Title or ID:</label><input id="browse-search" x-model.debounce.200ms="filters.search" x-on:input="page = 1" autocomplete="off" /></div>
           <div class="form-line"><label>Date Filter:</label><div class="date-inputs"><input id="browse-start-date" type="date" x-model="filters.start_date" x-on:change="page = 1" /><span>to</span><input id="browse-end-date" type="date" x-model="filters.end_date" x-on:change="page = 1" /></div></div>
           <div class="form-line"><label for="browse-exam-date">Exam Date:</label><input id="browse-exam-date" type="date" placeholder="Test Date" x-model="filters.exam_date" x-on:change="page = 1" /></div>
-          <div class="form-line"><label for="browse-city">City:</label><input id="browse-city" x-model.debounce.200ms="filters.city" x-on:input="page = 1" /></div>
-          <div class="form-line"><label for="browse-country">Country:</label><input id="browse-country" x-model.debounce.200ms="filters.country" x-on:input="page = 1" /></div>
-          <div class="form-line"><label for="browse-state">State:</label><input id="browse-state" x-model.debounce.200ms="filters.state" x-on:input="page = 1" /></div>
+          <div class="form-line"><label for="browse-country">Country:</label><select id="browse-country" x-model="filters.country" x-on:change="onCountryChange()"><option value="">All Countries</option><template x-for="country in locationOptions.countries" :key="country"><option :value="country" x-text="country"></option></template></select></div>
+          <div class="form-line"><label for="browse-state">State:</label><select id="browse-state" x-model="filters.state" x-on:change="onStateChange()" :disabled="!filters.country || loadingStates"><option value="">All States</option><template x-for="state in locationOptions.states" :key="state"><option :value="state" x-text="state"></option></template></select></div>
+          <div class="form-line"><label for="browse-city">City:</label><select id="browse-city" x-model="filters.city" x-on:change="page = 1" :disabled="!filters.country || loadingCities"><option value="">All Cities</option><template x-for="city in locationOptions.cities" :key="city"><option :value="city" x-text="city"></option></template></select></div>
         </div>
         <div>
           <div class="form-line"><label for="browse-course">Course:</label><select id="browse-course" x-model="filters.course_id" x-on:change="page = 1"><option value="">All Courses</option>@foreach($courses as $course)<option value="{{ $course->id }}">{{ $course->name }}</option>@endforeach</select></div>
@@ -22,31 +22,33 @@
     </div>
   </section>
 
-  <div class="browse-reference-actions">
-    <a class="export-btn" href="#" x-on:click.prevent="exportCsv">Export Excel</a>
-  </div>
+  <div x-show="hasSearched" x-cloak>
+    <div class="browse-reference-actions">
+      <a class="export-btn" href="#" x-on:click.prevent="exportCsv">Export Excel</a>
+    </div>
 
-  <div class="browse-table-scroll">
-    <table class="results-table browse-results-table" x-ref="browseTable">
-      <colgroup><template x-for="column in visibleColumns" :key="'col-' + column.key"><col x-bind:data-column-key="column.key" x-bind:style="columnStyle(column)"></template></colgroup>
-      <thead><tr>
-        <template x-for="column in visibleColumns" :key="column.key"><th scope="col" x-bind:data-column-key="column.key" x-bind:style="columnStyle(column)"><button class="browse-sort-button browse-reference-sort" type="button" x-on:click="sortBy(column.key)"><span x-text="column.label"></span><span class="browse-sort-icon" x-text="sortIcon(column.key)"></span></button><span class="browse-column-resizer" x-bind:data-resize-column-key="column.key" role="separator" aria-label="Resize column" title="Drag to resize"></span></th></template>
-      </tr></thead>
-      <tbody>
-        <template x-for="trainingClass in pageRows" :key="trainingClass.id"><tr>
-          <template x-for="column in visibleColumns" :key="column.key"><td x-bind:data-column-key="column.key" x-bind:style="columnStyle(column)">
-            <template x-if="column.key === 'id'"><a href="#" data-class-modal="details" :data-class-state="trainingClass.state" :data-class-id="trainingClass.id" x-text="trainingClass.id"></a></template>
-            <template x-if="column.key === 'status'"><span class="browse-status-value"><span class="status-dot" :class="statusDotClass(trainingClass)"></span><span x-text="displayStatus(trainingClass)"></span></span></template>
-            <template x-if="column.key === 'retakes'"><span :class="Number(trainingClass.retakes) > 0 ? 'retake-badge' : ''" x-text="trainingClass.retakes"></span></template>
-            <template x-if="!['id', 'status', 'retakes'].includes(column.key)"><span x-text="cellValue(trainingClass, column.key)"></span></template>
-          </td></template>
-        </tr></template>
-        <tr x-show="!pageRows.length" x-cloak><td x-bind:colspan="Math.max(1, visibleColumns.length)">No classes found.</td></tr>
-      </tbody>
-    </table>
+    <div class="browse-table-scroll">
+      <table class="results-table browse-results-table" x-ref="browseTable">
+        <colgroup><template x-for="column in visibleColumns" :key="'col-' + column.key"><col x-bind:data-column-key="column.key" x-bind:style="columnStyle(column)"></template></colgroup>
+        <thead><tr>
+          <template x-for="column in visibleColumns" :key="column.key"><th scope="col" x-bind:data-column-key="column.key" x-bind:style="columnStyle(column)"><button class="browse-sort-button browse-reference-sort" type="button" x-on:click="sortBy(column.key)"><span x-text="column.label"></span><span class="browse-sort-icon" x-text="sortIcon(column.key)"></span></button><span class="browse-column-resizer" x-bind:data-resize-column-key="column.key" role="separator" aria-label="Resize column" title="Drag to resize"></span></th></template>
+        </tr></thead>
+        <tbody>
+          <template x-for="trainingClass in pageRows" :key="trainingClass.id"><tr>
+            <template x-for="column in visibleColumns" :key="column.key"><td x-bind:data-column-key="column.key" x-bind:style="columnStyle(column)">
+              <template x-if="column.key === 'id'"><a href="#" data-class-modal="details" :data-class-state="trainingClass.state" :data-class-id="trainingClass.id" :title="trainingClass.id" x-text="trainingClass.id.slice(0, 8)"></a></template>
+              <template x-if="column.key === 'status'"><span class="browse-status-value"><span class="status-dot" :class="statusDotClass(trainingClass)"></span><span x-text="displayStatus(trainingClass)"></span></span></template>
+              <template x-if="column.key === 'retakes'"><span :class="Number(trainingClass.retakes) > 0 ? 'retake-badge' : ''" x-text="trainingClass.retakes"></span></template>
+              <template x-if="!['id', 'status', 'retakes'].includes(column.key)"><span x-text="cellValue(trainingClass, column.key)"></span></template>
+            </td></template>
+          </tr></template>
+          <tr x-show="!pageRows.length" x-cloak><td x-bind:colspan="Math.max(1, visibleColumns.length)">No classes found.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="results-caption" x-text="resultSummary"></p>
+    <div class="pagination browse-reference-pagination" x-show="pageCount > 1" x-cloak><button type="button" x-on:click="page = Math.max(1, page - 1)" x-bind:disabled="page === 1">Previous</button><span class="page-box" x-text="page"></span><button type="button" x-on:click="page = Math.min(pageCount, page + 1)" x-bind:disabled="page === pageCount">Next</button></div>
   </div>
-  <p class="results-caption" x-text="resultSummary"></p>
-  <div class="pagination browse-reference-pagination" x-show="pageCount > 1" x-cloak><button type="button" x-on:click="page = Math.max(1, page - 1)" x-bind:disabled="page === 1">Previous</button><span class="page-box" x-text="page"></span><button type="button" x-on:click="page = Math.min(pageCount, page + 1)" x-bind:disabled="page === pageCount">Next</button></div>
 </div>
 
 @push('scripts')
@@ -62,10 +64,13 @@
       { key: 'deployment', label: 'Deployment', width: 92, visible: true }, { key: 'proctor', label: 'Proctor', width: 228, visible: true }
     ]; };
     var clampColumnWidth = function (value, fallback) { var width = Number(value); if (!Number.isFinite(width)) width = fallback; return Math.max(60, Math.min(460, Math.round(width))); };
+    var hasProvidedFilterValue = Object.keys(provided).some(function (key) { return provided[key] !== undefined && provided[key] !== null && provided[key] !== ''; });
 
     return {
       rows: rows || [], filters: Object.assign(blankFilters(), provided), page: 1, perPage: 50, sortKey: 'starts_at', sortDirection: 'asc',
       columns: defaultColumns(), resizingColumn: null, resizeStartX: 0, resizeStartWidth: 0,
+      hasSearched: hasProvidedFilterValue,
+      locationOptions: { countries: [], states: [], cities: [] }, loadingStates: false, loadingCities: false,
       init: function () {
         try {
           var saved = JSON.parse(localStorage.getItem('wellsharp-browse-columns-v4') || 'null');
@@ -82,6 +87,58 @@
             });
           }
         } catch (error) { /* Preferences are optional and the table remains usable. */ }
+        this.fetchCountries();
+        if (this.filters.country) this.onCountryChange(this.filters.state, this.filters.city);
+      },
+      fetchCountries: function () {
+        var self = this;
+        fetch('https://countriesnow.space/api/v0.1/countries/positions')
+          .then(function (response) { return response.json(); })
+          .then(function (payload) {
+            self.locationOptions.countries = ((payload && payload.data) || [])
+              .map(function (country) { return country.name; })
+              .filter(Boolean)
+              .sort();
+          })
+          .catch(function () { /* Public API is optional; filters remain usable without options. */ });
+      },
+      onCountryChange: function (keepState, keepCity) {
+        var self = this;
+        this.filters.state = keepState || '';
+        this.filters.city = keepCity || '';
+        this.locationOptions.states = [];
+        this.locationOptions.cities = [];
+        this.page = 1;
+        if (!this.filters.country) return;
+        this.loadingStates = true;
+        fetch('https://countriesnow.space/api/v0.1/countries/states/q?country=' + encodeURIComponent(this.filters.country))
+          .then(function (response) { return response.json(); })
+          .then(function (payload) {
+            var states = (payload && payload.data && payload.data.states) || [];
+            self.locationOptions.states = states.map(function (state) { return state.name; });
+            if (!self.locationOptions.states.length) self.fetchCities();
+          })
+          .catch(function () { /* Public API is optional; filters remain usable without options. */ })
+          .then(function () { self.loadingStates = false; });
+      },
+      onStateChange: function () {
+        this.filters.city = '';
+        this.locationOptions.cities = [];
+        this.page = 1;
+        this.fetchCities();
+      },
+      fetchCities: function () {
+        var self = this;
+        if (!this.filters.country) return;
+        this.loadingCities = true;
+        var endpoint = this.filters.state
+          ? 'https://countriesnow.space/api/v0.1/countries/state/cities/q?country=' + encodeURIComponent(this.filters.country) + '&state=' + encodeURIComponent(this.filters.state)
+          : 'https://countriesnow.space/api/v0.1/countries/cities/q?country=' + encodeURIComponent(this.filters.country);
+        fetch(endpoint)
+          .then(function (response) { return response.json(); })
+          .then(function (payload) { self.locationOptions.cities = (payload && payload.data) || []; })
+          .catch(function () { /* Public API is optional; filters remain usable without options. */ })
+          .then(function () { self.loadingCities = false; });
       },
       get filteredRows() {
         var filters = this.filters;

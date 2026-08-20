@@ -70,7 +70,48 @@ class BrowseClassesTest extends TestCase
             ->assertSee('resizeColumn', false)
             ->assertSee('browse-status-value', false)
             ->assertSee('visibleColumns', false)
-            ->assertSee('Class Title or ID:');
+            ->assertSee('Class Title or ID:')
+            ->assertSee('hasSearched', false)
+            ->assertSee('trainingClass.id.slice(0, 8)', false)
+            ->assertSee('locationOptions.countries', false)
+            ->assertSee('onCountryChange', false)
+            ->assertSee('onStateChange', false)
+            ->assertSee('countriesnow.space', false)
+            ->assertSee('id="browse-country"', false)
+            ->assertSee('id="browse-state"', false)
+            ->assertSee('id="browse-city"', false);
+    }
+
+    public function test_browse_page_wires_up_has_searched_from_the_query_string_filters(): void
+    {
+        $proctor = User::factory()->proctor()->create();
+        $assigned = TrainingClass::factory()->create(['class_number' => 'BROWSE-HIDDEN-TABLE-001']);
+        ClassStaffAssignment::factory()->create([
+            'class_id' => $assigned->id,
+            'user_id' => $proctor->id,
+            'assignment_role' => 'proctor',
+        ]);
+
+        // hasSearched is computed client-side from the initial filters object handed to Alpine
+        // (hasProvidedFilterValue), so what's verifiable server-side is that: (a) the results
+        // block starts gated behind hasSearched, and (b) the filters JSON passed to Alpine
+        // correctly reflects an empty vs populated query string.
+        $emptyFiltersResponse = $this->actingAs($proctor)
+            ->withSession(['auth.session_version' => $proctor->session_version])
+            ->get(route('proctor.browse'));
+
+        $emptyFiltersResponse->assertOk()
+            ->assertSee('x-show="hasSearched"', false)
+            ->assertSee('hasSearched: hasProvidedFilterValue', false);
+
+        $deepLinkResponse = $this->actingAs($proctor)
+            ->withSession(['auth.session_version' => $proctor->session_version])
+            ->get(route('proctor.browse', ['search' => 'BROWSE-DEEPLINK-001']));
+
+        // @js() HEX-escapes quotes so the literal text in the markup uses \\u0022 in
+        // place of ", not raw quote characters.
+        $quote = chr(92).'u0022';
+        $deepLinkResponse->assertOk()->assertSee($quote.'search'.$quote.':'.$quote.'BROWSE-DEEPLINK-001'.$quote, false);
     }
 
     public function test_instructor_browse_results_uses_the_same_database_backed_alpine_table(): void

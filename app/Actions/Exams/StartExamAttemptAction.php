@@ -6,10 +6,12 @@ use App\Enums\ExamAttemptStatus;
 use App\Enums\ExamQuestionOrderMode;
 use App\Enums\ExamScheduleStatus;
 use App\Enums\GroupMembershipStatus;
+use App\Enums\QuestionType;
 use App\Models\ExamAttempt;
 use App\Models\ExamAttemptQuestion;
 use App\Models\ExamQuestion;
 use App\Models\ExamSchedule;
+use App\Models\Question;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -54,7 +56,7 @@ class StartExamAttemptAction
 
             $examQuestions = ExamQuestion::query()
                 ->where('exam_id', $schedule->exam_id)
-                ->with('question')
+                ->with('question.options')
                 ->orderBy('display_order')
                 ->get();
 
@@ -75,13 +77,15 @@ class StartExamAttemptAction
                 'expires_at' => $this->expiresAt($schedule),
             ]);
 
-            $orderedQuestions = $this->orderQuestions($examQuestions, $schedule->exam->question_order_mode);
+            $orderMode = $schedule->exam->question_order_mode;
+            $orderedQuestions = $this->orderQuestions($examQuestions, $orderMode);
             foreach ($orderedQuestions as $index => $examQuestion) {
                 ExamAttemptQuestion::create([
                     'exam_attempt_id' => $attempt->getKey(),
                     'question_id' => $examQuestion->question_id,
                     'display_order' => $index + 1,
                     'points' => $examQuestion->points,
+                    'option_order' => $this->optionOrder($examQuestion->question, $orderMode),
                 ]);
             }
 
@@ -120,6 +124,19 @@ class StartExamAttemptAction
         }
 
         return $examQuestions->values();
+    }
+
+    /**
+     * Freezes a per-student randomized MCQ option order when the exam shuffles question order.
+     * Static exams, and non-MCQ questions, keep the option bank's natural display order (null).
+     */
+    private function optionOrder(Question $question, ExamQuestionOrderMode $mode): ?array
+    {
+        if ($mode !== ExamQuestionOrderMode::Shuffle || $question->type !== QuestionType::Mcq || $question->options->count() < 2) {
+            return null;
+        }
+
+        return $question->options->shuffle()->pluck('public_id')->all();
     }
 
     private function expiresAt(ExamSchedule $schedule): ?Carbon

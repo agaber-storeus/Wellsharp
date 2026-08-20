@@ -834,8 +834,8 @@ class DemoDataSeeder extends Seeder
         );
 
         $attempt->attemptQuestions()->delete();
-        $examQuestions = $schedule->exam()->with(['examQuestions.question.options'])->firstOrFail()->examQuestions;
-        foreach ($examQuestions as $index => $examQuestion) {
+        $exam = $schedule->exam()->with(['examQuestions.question.options'])->firstOrFail();
+        foreach ($exam->examQuestions as $index => $examQuestion) {
             $answer = $status === ExamAttemptStatus::Submitted || $status === ExamAttemptStatus::Expired || $index < 3
                 ? ($correct ? $this->answerForQuestion($examQuestion->question) : $this->wrongAnswerForQuestion($examQuestion->question))
                 : null;
@@ -846,8 +846,25 @@ class DemoDataSeeder extends Seeder
                 'points' => $examQuestion->points ?: $examQuestion->question->default_marks,
                 'answer' => $answer,
                 'answered_at' => $answer === null ? null : $startedAt->copy()->addMinutes(min($index + 2, 60)),
+                'option_order' => $this->optionOrderFor($examQuestion->question, $exam->question_order_mode),
             ]);
         }
+    }
+
+    /**
+     * Freezes a per-student randomized MCQ option order when the exam
+     * shuffles question order, mirroring StartExamAttemptAction::optionOrder()
+     * exactly so demo attempts exercise the same option_order field real
+     * student exam-taking produces. Static exams and non-MCQ questions keep
+     * the option bank's natural display order (null).
+     */
+    private function optionOrderFor(Question $question, ExamQuestionOrderMode $mode): ?array
+    {
+        if ($mode !== ExamQuestionOrderMode::Shuffle || $question->type !== QuestionType::Mcq || $question->options->count() < 2) {
+            return null;
+        }
+
+        return $question->options->shuffle()->pluck('public_id')->all();
     }
 
     private function answerForQuestion(Question $question): ?string

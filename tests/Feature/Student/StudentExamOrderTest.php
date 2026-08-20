@@ -10,6 +10,7 @@ use App\Models\ExamSchedule;
 use App\Models\Group;
 use App\Models\GroupMembership;
 use App\Models\Question;
+use App\Models\QuestionOption;
 use App\Models\StudentSurvey;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -88,6 +89,49 @@ class StudentExamOrderTest extends TestCase
         $this->assertSame($firstOrder, $firstAttempt->fresh()->attemptQuestions()->pluck('question_id')->all());
     }
 
+    public function test_static_exam_keeps_the_question_banks_option_order_for_mcq_questions(): void
+    {
+        [$exam, $optionPublicIdsByQuestion] = $this->makeMcqExam('static');
+        $schedule = $this->makeSchedule($exam);
+
+        $this->startAs($this->studentOne, $schedule);
+        $attempt = ExamAttempt::firstOrFail();
+
+        foreach ($attempt->attemptQuestions as $attemptQuestion) {
+            $this->assertNull($attemptQuestion->option_order);
+            $this->assertSame(
+                $optionPublicIdsByQuestion[$attemptQuestion->question_id],
+                $attemptQuestion->orderedOptions()->pluck('public_id')->all(),
+            );
+        }
+    }
+
+    public function test_shuffle_exam_freezes_a_different_mcq_option_order_per_student_and_reuses_it(): void
+    {
+        [$exam, $optionPublicIdsByQuestion] = $this->makeMcqExam('shuffle');
+        $schedule = $this->makeSchedule($exam);
+
+        $this->startAs($this->studentOne, $schedule);
+        $firstAttempt = ExamAttempt::query()->where('student_user_id', $this->studentOne->id)->firstOrFail();
+        $firstOrders = $firstAttempt->attemptQuestions->mapWithKeys(fn ($aq) => [$aq->question_id => $aq->option_order])->all();
+
+        $this->startAs($this->studentTwo, $schedule);
+        $secondAttempt = ExamAttempt::query()->where('student_user_id', $this->studentTwo->id)->firstOrFail();
+        $secondOrders = $secondAttempt->attemptQuestions->mapWithKeys(fn ($aq) => [$aq->question_id => $aq->option_order])->all();
+
+        foreach ($optionPublicIdsByQuestion as $questionId => $expectedPublicIds) {
+            $expected = collect($expectedPublicIds)->sort()->values()->all();
+            $this->assertSame($expected, collect($firstOrders[$questionId])->sort()->values()->all());
+            $this->assertSame($expected, collect($secondOrders[$questionId])->sort()->values()->all());
+        }
+
+        $this->assertNotSame($firstOrders, $secondOrders);
+
+        $this->startAs($this->studentOne, $schedule);
+        $this->assertDatabaseCount('exam_attempts', 2);
+        $this->assertSame($firstOrders, $firstAttempt->fresh()->attemptQuestions->mapWithKeys(fn ($aq) => [$aq->question_id => $aq->option_order])->all());
+    }
+
     public function test_student_cannot_start_an_exam_for_another_group(): void
     {
         [$exam] = $this->makeExam('shuffle');
@@ -143,6 +187,39 @@ class StudentExamOrderTest extends TestCase
         }
 
         return [$exam, $questions];
+    }
+
+    /** @return array{0: Exam, 1: array<int, array<int, string>>} question_id => ordered option public_ids */
+    private function makeMcqExam(string $mode): array
+    {
+        $exam = Exam::create([
+            'course_id' => ($course = Course::factory()->create())->id,
+            'name' => ucfirst($mode).' MCQ Exam',
+            'question_order_mode' => $mode,
+            'status' => 'published',
+        ]);
+
+        $optionPublicIdsByQuestion = [];
+        foreach (range(1, 4) as $questionNumber) {
+            $question = Question::create([
+                'course_id' => $course->id,
+                'question_text' => "MCQ Question {$questionNumber}",
+                'type' => 'mcq',
+                'difficulty' => 'easy',
+            ]);
+            ExamQuestion::create(['exam_id' => $exam->id, 'question_id' => $question->id, 'display_order' => $questionNumber]);
+
+            $options = collect(range(1, 4))->map(fn (int $optionNumber): QuestionOption => QuestionOption::create([
+                'question_id' => $question->id,
+                'option_text' => "Option {$optionNumber}",
+                'is_correct' => $optionNumber === 1,
+                'display_order' => $optionNumber,
+            ]));
+
+            $optionPublicIdsByQuestion[$question->id] = $options->pluck('public_id')->all();
+        }
+
+        return [$exam, $optionPublicIdsByQuestion];
     }
 
     private function makeSchedule(Exam $exam): ExamSchedule

@@ -39,7 +39,7 @@
         </div>
         @if($question->type === \App\Enums\QuestionType::Mcq)
           <div class="answer-list compact">
-            @foreach($question->options as $option)
+            @foreach($attemptQuestion->orderedOptions() as $option)
               <label x-bind:class="expired ? 'is-disabled' : ''">
                 <input type="radio" name="question-{{ $questionKey }}" value="{{ $option->public_id }}" x-model="answers['{{ $questionKey }}']" x-on:change="save('{{ $questionKey }}', $event.target.value)" x-bind:disabled="expired" />
                 <span>{{ $option->option_text }}</span>

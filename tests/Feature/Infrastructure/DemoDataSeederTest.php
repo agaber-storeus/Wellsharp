@@ -118,6 +118,11 @@ class DemoDataSeederTest extends TestCase
             $this->assertDatabaseHas('users', ['current_role_id' => Role::query()->where('key', $roleKey)->value('id')]);
         }
 
+        // exam_attempt_questions.option_order is only ever populated for
+        // Shuffle-mode MCQ questions with 2+ options; Static exams stay null.
+        $this->assertGreaterThan(0, (int) $this->app['db']->table('exam_attempt_questions')->whereNotNull('option_order')->count());
+        $this->assertGreaterThan(0, (int) $this->app['db']->table('exam_attempt_questions')->whereNull('option_order')->count());
+
         // enrollments.skills_score must stay within NavigationController's
         // validated 0-100 range and exercise both ends of it, not just highs.
         $this->assertGreaterThan(0, (int) $this->app['db']->table('enrollments')->where('skills_score', '<', 70)->count());

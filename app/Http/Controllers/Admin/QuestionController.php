@@ -64,6 +64,38 @@ class QuestionController extends Controller
         ]);
     }
 
+    public function courseData(Request $request, Course $course): JsonResponse
+    {
+        $this->authorize('viewAny', Question::class);
+        $search = trim((string) $request->input('search'));
+        $difficulty = $request->input('difficulty');
+        $type = $request->input('type');
+        $status = $request->input('status');
+        $sort = (string) $request->input('sort', 'created_at');
+        $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
+        $allowedSorts = ['question_text', 'type', 'difficulty', 'is_active', 'created_at'];
+        $sort = in_array($sort, $allowedSorts, true) ? $sort : 'created_at';
+
+        $questions = $course->questions()->with('options')
+            ->when($search, fn ($query) => $query->where('question_text', 'like', "%{$search}%"))
+            ->when(in_array($difficulty, array_column(QuestionDifficulty::cases(), 'value'), true), fn ($query) => $query->where('difficulty', $difficulty))
+            ->when(in_array($type, array_column(QuestionType::cases(), 'value'), true), fn ($query) => $query->where('type', $type))
+            ->when(in_array($status, ['active', 'archived'], true), fn ($query) => $query->where('is_active', $status === 'active'))
+            ->orderBy($sort, $direction)
+            ->paginate(15, ['*'], 'page', max(1, (int) $request->input('page', 1)));
+
+        return response()->json([
+            'data' => $questions->getCollection()->map(fn (Question $question): array => $this->questionPayload($question))->values(),
+            'meta' => [
+                'current_page' => $questions->currentPage(),
+                'last_page' => $questions->lastPage(),
+                'total' => $questions->total(),
+                'from' => $questions->firstItem(),
+                'to' => $questions->lastItem(),
+            ],
+        ]);
+    }
+
     public function all(Request $request): View
     {
         $this->authorize('viewAny', Question::class);
@@ -119,9 +151,17 @@ class QuestionController extends Controller
         $search = trim((string) $request->input('search'));
         $difficulty = $request->input('difficulty');
         $type = $request->input('type');
-        $questions = $course->questions()->with('options')->when($search, fn ($query) => $query->where('question_text', 'like', "%{$search}%"))->when(in_array($difficulty, array_column(QuestionDifficulty::cases(), 'value'), true), fn ($query) => $query->where('difficulty', $difficulty))->when(in_array($type, array_column(QuestionType::cases(), 'value'), true), fn ($query) => $query->where('type', $type))->latest()->paginate(15)->withQueryString();
+        $status = $request->input('status');
+        $questions = $course->questions()->with('options')
+            ->when($search, fn ($query) => $query->where('question_text', 'like', "%{$search}%"))
+            ->when(in_array($difficulty, array_column(QuestionDifficulty::cases(), 'value'), true), fn ($query) => $query->where('difficulty', $difficulty))
+            ->when(in_array($type, array_column(QuestionType::cases(), 'value'), true), fn ($query) => $query->where('type', $type))
+            ->when(in_array($status, ['active', 'archived'], true), fn ($query) => $query->where('is_active', $status === 'active'))
+            ->latest()->paginate(15)->withQueryString();
 
-        return view('admin.questions.index', compact('course', 'questions', 'search', 'difficulty', 'type'));
+        $initialQuestions = $questions->getCollection()->map(fn (Question $question): array => $this->questionPayload($question))->values();
+
+        return view('admin.questions.index', compact('course', 'questions', 'initialQuestions', 'search', 'difficulty', 'type', 'status'));
     }
 
     public function create(Course $course): View
@@ -241,6 +281,7 @@ class QuestionController extends Controller
     {
         return [
             'id' => $question->getKey(),
+            'code' => $question->code,
             'question_text' => $question->question_text,
             'subject' => $question->course?->name,
             'type' => $question->type->value,
@@ -249,6 +290,7 @@ class QuestionController extends Controller
             'difficulty_label' => $question->difficulty->label(),
             'question_image_url' => $question->question_image_path ? Storage::disk('public')->url($question->question_image_path) : null,
             'answer_images_count' => $question->options->whereNotNull('image_path')->count() + ($question->correct_answer_image_path ? 1 : 0),
+            'options_count' => $question->type === QuestionType::Mcq ? $question->options->count() : null,
             'active' => $question->is_active,
             'edit_url' => route('admin.courses.questions.edit', [$question->course, $question]),
             'archive_url' => route('admin.courses.questions.destroy', [$question->course, $question]),

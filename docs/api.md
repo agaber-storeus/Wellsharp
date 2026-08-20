@@ -95,6 +95,10 @@ Subject table data. `Course` is the technical model/table naming; the Admin UI l
 
 Question bank data. Query parameters: `search`, `course_id`, `difficulty`, `type`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `question_text`, `course_id`, `type`, `difficulty`, `is_active`, and `created_at`. Types are `true_false`, `mcq`, and `input`; difficulties are `easy`, `medium`, and `hard`; statuses are `active` and `archived`.
 
+### `GET /admin/courses/{course}/questions/data`
+
+Question bank data scoped to a single Subject's question-bank page (as opposed to the cross-Subject `/admin/questions/data` table). Same query parameters and sort values as above, minus `course_id` (implied by the route).
+
 ### `GET /admin/exams/data`
 
 Exam definition data. Query parameters: `search`, `course_id`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `name`, `code`, `subject`, `questions_count`, `schedules_count`, `status`, and `created_at`.

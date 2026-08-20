@@ -45,7 +45,7 @@
                         <td><div class="provider-actions"><a x-bind:href="provider.view_url">View</a><template x-if="provider.status !== 'archived'"><button class="btn secondary small provider-status-toggle" type="button" x-on:click.prevent="archiveProvider(provider)" x-bind:aria-busy="provider.archiving ? 'true' : 'false'" x-text="provider.archiving ? 'Archiving...' : 'Archive'"></button></template></div></td>
                     </tr>
                 </template>
-                <tr x-show="!loading && rows.length === 0" x-cloak><td colspan="5" class="muted">No providers found.</td></tr>
+                <tr x-show="!loading && rows.length === 0" x-cloak><td colspan="5"><div class="admin-empty-row"><span class="admin-empty-row-icon">🔍</span>No providers found.</div></td></tr>
             </tbody>
         </table>
     </div>

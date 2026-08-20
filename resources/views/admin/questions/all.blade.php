@@ -51,7 +51,7 @@
                         <td><div class="admin-actions-cell"><a x-bind:href="question.edit_url">Edit</a><template x-if="question.active"><button class="btn secondary small question-status-toggle" type="button" x-on:click.prevent="archiveQuestion(question)" x-bind:disabled="question.archiving" x-bind:aria-busy="question.archiving ? 'true' : 'false'" x-text="question.archiving ? 'Updating...' : 'Archive'"></button></template></div></td>
                     </tr>
                 </template>
-                <tr x-show="!loading && rows.length === 0" x-cloak><td colspan="7" class="muted">No questions found.</td></tr>
+                <tr x-show="!loading && rows.length === 0" x-cloak><td colspan="7"><div class="admin-empty-row"><span class="admin-empty-row-icon">🔍</span>No questions found.</div></td></tr>
             </tbody>
         </table>
     </div>

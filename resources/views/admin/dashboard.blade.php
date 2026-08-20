@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
 @section('admin-content')
-<div class="page-head dashboard-hero">
+<div class="page-head hero dashboard-hero">
     <div>
         <span class="admin-kicker">System overview</span>
         <h1>Admin dashboard</h1>
@@ -10,17 +10,17 @@
     <a class="btn" href="{{ route('admin.users.create') }}">Create user</a>
 </div>
 
-<section class="stats" aria-label="Platform statistics">
-    <div class="card stat"><span class="muted">All users</span><strong>{{ $userCount }}</strong><span class="stat-caption">Registered accounts</span></div>
-    <div class="card stat"><span class="muted">Active users</span><strong>{{ $activeUserCount }}</strong><span class="stat-caption">Ready to sign in</span></div>
-    <div class="card stat"><span class="muted">Active providers</span><strong>{{ $providerCount }}</strong><span class="stat-caption">Training locations</span></div>
-    <div class="card stat"><span class="muted">Active subjects</span><strong>{{ $courseCount }}</strong><span class="stat-caption">Configured subjects</span></div>
-    <div class="card stat"><span class="muted">Issued certificates</span><strong>{{ $certificateCount }}</strong><a class="stat-link" href="{{ route('admin.certificates.index') }}">View certificates <span aria-hidden="true">&rarr;</span></a></div>
+<section class="admin-bento" aria-label="Platform statistics">
+    <div class="card stat admin-bento-card--third"><span class="muted">All users</span><strong>{{ $userCount }}</strong><span class="stat-caption">Registered accounts</span></div>
+    <div class="card stat admin-bento-card--third"><span class="muted">Active users</span><strong>{{ $activeUserCount }}</strong><span class="stat-caption">Ready to sign in</span></div>
+    <div class="card stat admin-bento-card--third"><span class="muted">Active providers</span><strong>{{ $providerCount }}</strong><span class="stat-caption">Training locations</span></div>
+    <div class="card stat admin-bento-card--third"><span class="muted">Active subjects</span><strong>{{ $courseCount }}</strong><span class="stat-caption">Configured subjects</span></div>
+    <div class="card stat admin-bento-card--third"><span class="muted">Issued certificates</span><strong>{{ $certificateCount }}</strong><a class="stat-link" href="{{ route('admin.certificates.index') }}">View certificates <span aria-hidden="true">&rarr;</span></a></div>
 </section>
 
 <section class="card setup-card" aria-labelledby="setup-title">
     <div class="admin-section-head"><div><span class="admin-kicker">Workspace foundations</span><h2 id="setup-title">Continue setup</h2></div><span class="badge active">Admin only</span></div>
-    <p class="admin-intro">Create users, providers, Subject reference values, Subjects, and Classes/Exams from the management sections. Any active Proctor or Instructor can control any Class with their own exam-control ID.</p>
+    <p class="admin-intro">Create users, providers, Subject reference values, Subjects, and Classes/Exams from the management sections. Any active Proctor can control any Class directly; an active Instructor can do so by entering an active Proctor's ID.</p>
     <div class="actions"><a class="btn secondary" href="{{ route('admin.providers.index') }}">Manage providers</a><a class="btn secondary" href="{{ route('admin.courses.index') }}">Review Subjects</a><a class="btn secondary" href="{{ route('admin.classes.index') }}">Manage classes</a></div>
 </section>
 

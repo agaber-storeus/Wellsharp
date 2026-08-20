@@ -1,0 +1,247 @@
+/*
+ * WellSharp Admin — global design system.
+ * Single source of truth for tokens + reusable page/bento/table/badge/button
+ * primitives, applied across the whole .admin-shell. Loads after admin.css
+ * and admin-modern.css so its :root overrides retint every existing rule
+ * that already reads --admin-navy/--admin-blue/--admin-ink/--admin-muted/
+ * --admin-line/--admin-page/--admin-surface/--admin-danger/--admin-success
+ * (both files use these exact custom-property names) without having to
+ * rewrite those rules. Anything genuinely new lives in the classes below.
+ * Never loaded outside .admin-shell — Proctor/Instructor/Student/auth pages
+ * use their own stylesheets (proctor.css, student.css, auth.css) untouched.
+ */
+:root{
+    /* ---- retint the existing shared tokens (warm modernism) ---- */
+    --admin-page:#f7f1e5;
+    --admin-bg:#f7f1e5;
+    --admin-surface:#fffcf6;
+    --admin-surface-strong:#fffefb;
+    --admin-navy:#1f2a1c;
+    --admin-blue:#2f6f6a;
+    --admin-orange:#e2691a;
+    --admin-ink:#241d13;
+    --admin-muted:#8a7a63;
+    --admin-line:#e6d7bd;
+    --admin-focus:#2f6f6a;
+    --admin-danger:#b3261e;
+    --admin-success:#1f7a4d;
+    --admin-radius:18px;
+    --admin-shadow:0 16px 36px rgba(90,62,30,.09),0 2px 7px rgba(90,62,30,.05);
+    --admin-shadow-hover:0 20px 44px rgba(90,62,30,.13),0 3px 9px rgba(90,62,30,.06);
+    --admin-ease:cubic-bezier(.2,.7,.2,1);
+
+    /* ---- new semantic/status tokens ---- */
+    --admin-surface-soft:#f1e6d2;
+    --admin-accent-warm:var(--admin-orange);
+    --admin-accent-warm-soft:#f7ddc0;
+    --admin-accent-cool:var(--admin-blue);
+    --admin-accent-cool-soft:#dcece9;
+    --admin-danger-soft:#f7ddd8;
+    --admin-success-soft:#dcf1e4;
+    --admin-warning:#a5690a;
+    --admin-warning-soft:#f5e6c4;
+    --admin-required:#b3261e;
+
+    /* ---- radius / shadow / spacing / type scales ---- */
+    --admin-radius-sm:10px;
+    --admin-radius-md:14px;
+    --admin-radius-lg:22px;
+    --admin-radius-organic:26px 18px 26px 16px;
+    --admin-shadow-xs:0 1px 2px rgba(90,62,30,.06);
+    --admin-shadow-sm:var(--admin-shadow);
+    --admin-shadow-md:var(--admin-shadow-hover);
+    --admin-shadow-lg:0 26px 56px rgba(90,62,30,.16),0 4px 12px rgba(90,62,30,.07);
+    --admin-space-1:4px;
+    --admin-space-2:8px;
+    --admin-space-3:12px;
+    --admin-space-4:16px;
+    --admin-space-5:20px;
+    --admin-space-6:24px;
+    --admin-space-7:32px;
+    --admin-space-8:40px;
+    --admin-text-xs:11px;
+    --admin-text-sm:12px;
+    --admin-text-base:13.5px;
+    --admin-text-md:14px;
+    --admin-text-lg:16px;
+    --admin-text-xl:18px;
+    --admin-text-2xl:22px;
+    --admin-text-display:26px;
+    --admin-weight-regular:400;
+    --admin-weight-medium:500;
+    --admin-weight-semibold:600;
+    --admin-weight-bold:700;
+    --admin-leading-tight:1.2;
+    --admin-leading-snug:1.35;
+    --admin-leading-normal:1.55;
+    --admin-leading-relaxed:1.6;
+    --admin-duration-fast:.15s;
+    --admin-duration:.22s;
+    --admin-focus-ring:0 0 0 3px rgba(47,111,106,.22);
+}
+
+/*
+ * ================= Typography =================
+ * One contemporary sans-serif (Inter) across the entire admin interface,
+ * replacing Oswald everywhere it was previously used for headings (page
+ * titles, section headings, sidebar/header wordmarks, dashboard survey
+ * headings). Hierarchy now comes from size/weight/spacing on a single
+ * family rather than a family switch, which reads calmer and more
+ * space-efficient. Weight is deliberately limited to four steps (400/500/
+ * 600/700) applied consistently by role — 700 is reserved for large
+ * dashboard metric numbers only, everything else tops out at 600 — instead
+ * of the previous scattered 600/700 mix. Sizes are one notch down from the
+ * previous scale (see --admin-text-* above) for a denser, calmer read
+ * without shrinking anything below a comfortable minimum (11px floor).
+ * These rules override admin.css/admin-modern.css/admin-survey-dashboard.css
+ * font declarations in place (same selectors, later file wins the cascade)
+ * rather than duplicating their layout/spacing rules.
+ */
+body.admin-body{font-family:Inter,system-ui,sans-serif;font-size:var(--admin-text-base);font-weight:var(--admin-weight-regular);line-height:var(--admin-leading-normal);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.admin-brand span{font:var(--admin-weight-semibold) 15px/1.2 Inter,sans-serif;letter-spacing:.01em}
+.admin-header-context strong{font:var(--admin-weight-semibold) var(--admin-text-md)/1.2 Inter,sans-serif}
+.admin-header-context .eyebrow{font-size:10.5px}
+.admin-nav>a{font-size:var(--admin-text-base);font-weight:var(--admin-weight-medium)}
+.admin-nav>a.active,.admin-nav-category{font-weight:var(--admin-weight-medium)}
+.admin-nav-group.open>.admin-nav-category{font-weight:var(--admin-weight-semibold)}
+.admin-subnav a{font-size:12.5px}
+.admin-subnav a.active{font-weight:var(--admin-weight-semibold)}
+.admin-avatar{font-weight:var(--admin-weight-semibold)}
+.admin-kicker{font-size:10.5px;font-weight:var(--admin-weight-semibold);letter-spacing:.08em}
+.admin-section-head h2,.card h2{font:var(--admin-weight-semibold) var(--admin-text-xl)/var(--admin-leading-snug) Inter,sans-serif;letter-spacing:-.005em}
+.admin-intro{line-height:var(--admin-leading-relaxed)}
+.stat strong{font-family:Inter,sans-serif;font-size:26px;font-weight:var(--admin-weight-bold);line-height:1.1}
+.stat .muted{font-size:11px;font-weight:var(--admin-weight-medium)}
+.stat-caption{font-size:11.5px}
+.stat-link{font-size:11.5px;font-weight:var(--admin-weight-semibold)}
+.btn{font-family:Inter,sans-serif;font-size:13px;font-weight:var(--admin-weight-semibold);letter-spacing:.005em}
+.btn.small{font-size:11.5px}
+.table th{font-size:var(--admin-text-xs);font-weight:var(--admin-weight-semibold)}
+.table td{font-size:var(--admin-text-base);line-height:var(--admin-leading-snug)}
+.badge{font-size:var(--admin-text-sm)}
+.muted{line-height:var(--admin-leading-normal)}
+.field label{font-size:13px;font-weight:var(--admin-weight-semibold)}
+.field textarea,.card textarea{line-height:var(--admin-leading-normal)}
+.check-grid label{font-size:var(--admin-text-base);font-weight:var(--admin-weight-regular)}
+.alert{font-size:var(--admin-text-base);line-height:var(--admin-leading-normal)}
+.survey-dashboard-heading h2{font:var(--admin-weight-semibold) 20px/var(--admin-leading-tight) Inter,sans-serif}
+.survey-dashboard-count strong{font-size:24px;font-weight:var(--admin-weight-bold)}
+.survey-response-toggle strong{font-size:15px;font-weight:var(--admin-weight-semibold)}
+.question-wizard label{font-size:13px;font-weight:var(--admin-weight-semibold)}
+.wizard-tab{font-size:12.5px;font-weight:var(--admin-weight-medium)}
+.wizard-tab.active{font-weight:var(--admin-weight-semibold)}
+
+/* ================= Page architecture ================= */
+.admin-page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--admin-space-5);margin-bottom:var(--admin-space-6);flex-wrap:wrap}
+.page-head h1,.admin-page-head h1{margin:0;color:var(--admin-ink);font:var(--admin-weight-bold) var(--admin-text-display)/var(--admin-leading-tight) Inter,sans-serif;letter-spacing:-.015em;text-wrap:balance}
+.admin-page-head p{margin:6px 0 0;max-width:64ch;color:var(--admin-muted)}
+.page-head p,.admin-page-head p{font-size:var(--admin-text-md);line-height:var(--admin-leading-relaxed)}
+.admin-page-actions{display:flex;align-items:center;gap:var(--admin-space-2);flex-wrap:wrap}
+.admin-page-content{display:flex;flex-direction:column;gap:var(--admin-space-6)}
+
+/* Hero variant used for form entry points (organic asymmetric banner). */
+.page-head.hero,.admin-page-head.hero{position:relative;padding:var(--admin-space-6) var(--admin-space-7);border-radius:var(--admin-radius-organic);background:linear-gradient(135deg,var(--admin-surface) 0%,var(--admin-surface-soft) 100%);border:1px solid var(--admin-line);box-shadow:var(--admin-shadow-sm);overflow:hidden}
+.page-head.hero::before,.admin-page-head.hero::before{content:"";position:absolute;top:-60px;right:-40px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(226,105,26,.16),transparent 70%);pointer-events:none}
+.page-head.hero::after,.admin-page-head.hero::after{content:"";position:absolute;bottom:-70px;left:20%;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(47,111,106,.14),transparent 70%);pointer-events:none}
+.page-head.hero>*,.admin-page-head.hero>*{position:relative}
+
+/* ================= Bento grid system ================= */
+.admin-bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--admin-space-5);align-items:start}
+.admin-bento-card{position:relative;grid-column:span 6;padding:var(--admin-space-6) calc(var(--admin-space-6) + 2px);border:1px solid var(--admin-line);border-radius:var(--admin-radius-lg);background:var(--admin-surface);box-shadow:var(--admin-shadow-sm);overflow:hidden;transition:box-shadow var(--admin-duration) var(--admin-ease),transform var(--admin-duration) var(--admin-ease),border-color var(--admin-duration) var(--admin-ease)}
+.admin-bento-card::after{content:"";position:absolute;top:-46px;right:-46px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(226,105,26,.08),transparent 72%);pointer-events:none}
+.admin-bento-card:hover{box-shadow:var(--admin-shadow-md);border-color:#d9c193;transform:translateY(-1px)}
+.admin-bento-card--wide{grid-column:span 12}
+.admin-bento-card--third{grid-column:span 4}
+.admin-bento-card--feature{border-radius:var(--admin-radius-organic);background:linear-gradient(135deg,var(--admin-surface) 0%,var(--admin-surface-soft) 100%)}
+.admin-bento-card--brutal{border:2.5px solid var(--admin-ink);border-radius:var(--admin-radius-sm);box-shadow:6px 6px 0 var(--admin-ink);background:var(--admin-surface-strong)}
+.admin-bento-card--brutal:hover{box-shadow:8px 8px 0 var(--admin-ink);transform:translate(-2px,-2px)}
+
+.admin-card-head{display:flex;align-items:center;gap:11px;margin-bottom:var(--admin-space-5)}
+.admin-card-icon{display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;border-radius:12px;background:var(--admin-accent-warm-soft);font-size:17px}
+.admin-card-icon.cool{background:var(--admin-accent-cool-soft)}
+.admin-card-head h2,.admin-card-head h3{margin:0;color:var(--admin-accent-cool);font:var(--admin-weight-semibold) 11px/1.2 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.admin-card-note{margin:-8px 0 var(--admin-space-4);color:var(--admin-muted);font-size:var(--admin-text-sm);line-height:1.6}
+
+/* Digital-heritage micro-metadata: small uppercase mono labels for system/technical facts (IDs, timestamps, codes). */
+.admin-meta-label{display:inline-flex;align-items:center;gap:6px;color:var(--admin-muted);font:var(--admin-weight-medium) 10.5px/1 "JetBrains Mono",ui-monospace,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase}
+.admin-meta-value{font:var(--admin-weight-semibold) var(--admin-text-base) Inter,sans-serif;color:var(--admin-ink)}
+
+/* ================= Field grid (forms) ================= */
+.admin-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--admin-space-4)}
+.admin-field-grid .field.full{grid-column:1/-1}
+.admin-bento-card .field label,.admin-field-grid .field label{color:var(--admin-ink);font-weight:var(--admin-weight-semibold);font-size:13px}
+.admin-bento-card .field input,.admin-bento-card .field select,.admin-bento-card .field textarea,
+.admin-field-grid .field input,.admin-field-grid .field select,.admin-field-grid .field textarea{padding:11px 13px;border:1px solid #ddc9a8;border-radius:var(--admin-radius-sm);background:#fffefb;color:var(--admin-ink);font:inherit;transition:border-color var(--admin-duration-fast) var(--admin-ease),box-shadow var(--admin-duration-fast) var(--admin-ease)}
+.admin-bento-card .field input:hover,.admin-bento-card .field select:hover,.admin-field-grid .field input:hover,.admin-field-grid .field select:hover{border-color:var(--admin-accent-warm)}
+.admin-bento-card .field input:focus,.admin-bento-card .field select:focus,.admin-field-grid .field input:focus,.admin-field-grid .field select:focus{border-color:var(--admin-accent-warm);box-shadow:0 0 0 3px rgba(226,105,26,.16);outline:0}
+.admin-bento-card .field input[readonly],.admin-bento-card .field input:disabled,
+.admin-field-grid .field input[readonly],.admin-field-grid .field input:disabled{background:var(--admin-surface-soft);color:var(--admin-muted);cursor:not-allowed}
+.admin-bento-card .field small.muted,.admin-field-grid .field small.muted{color:var(--admin-muted)}
+.admin-bento-card .field.has-error input,.admin-bento-card .field.has-error select,
+.admin-field-grid .field.has-error input,.admin-field-grid .field.has-error select{border-color:var(--admin-danger)}
+.admin-field-error{margin:2px 0 0;color:var(--admin-danger);font-size:12px}
+
+/* Required-field asterisk — see resources/views/components/admin/label.blade.php */
+.required-mark{margin-left:3px;color:var(--admin-required);font-weight:700}
+.admin-badge-generated{display:inline-flex;align-items:center;gap:5px;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--admin-accent-cool-soft);color:var(--admin-accent-cool);font:var(--admin-weight-semibold) 10px/1.6 "JetBrains Mono",ui-monospace,monospace;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle}
+
+/* ================= Buttons ================= */
+.btn{border-radius:var(--admin-radius-sm)}
+.btn.primary,.btn:not(.secondary):not(.danger):not(.ghost):not(.tertiary){background:linear-gradient(135deg,#ef8438,var(--admin-accent-warm));border-color:transparent;box-shadow:0 10px 22px rgba(226,105,26,.22);transition:transform var(--admin-duration-fast) var(--admin-ease),box-shadow var(--admin-duration-fast) var(--admin-ease),background var(--admin-duration-fast) var(--admin-ease)}
+.btn.primary:hover,.btn:not(.secondary):not(.danger):not(.ghost):not(.tertiary):hover{background:linear-gradient(135deg,#f2924c,#c85a15);box-shadow:0 14px 26px rgba(226,105,26,.28);transform:translateY(-1px)}
+.btn.secondary{border:1px solid var(--admin-line);background:var(--admin-surface);color:var(--admin-ink);box-shadow:none}
+.btn.secondary:hover{background:var(--admin-surface-soft)}
+.btn.tertiary{border:0;background:transparent;color:var(--admin-accent-cool);padding-left:4px;padding-right:4px}
+.btn.tertiary:hover{text-decoration:underline;background:transparent}
+.btn.danger{border-color:#e3b5ac;background:#fff;color:var(--admin-danger)}
+.btn.danger:hover{background:var(--admin-danger-soft)}
+.btn.ghost{border:1px dashed var(--admin-line);background:transparent;color:var(--admin-muted)}
+.btn.ghost:hover{border-style:solid;color:var(--admin-ink)}
+.btn:focus-visible{outline:3px solid var(--admin-focus-ring);outline-offset:2px}
+
+/* ================= Status badges (semantic, keyed by literal enum value) ================= */
+.badge{border-radius:999px;background:var(--admin-surface-soft);color:var(--admin-ink);font-weight:var(--admin-weight-semibold)}
+.badge.active,.badge.enrolled,.badge.completed,.badge.published,.badge.issued{background:var(--admin-success-soft);color:var(--admin-success)}
+.badge.disabled,.badge.archived,.badge.cancelled,.badge.retired,.badge.revoked,.badge.withdrawn,.badge.ended,.badge.removed,.badge.inactive,.badge.expired{background:var(--admin-danger-soft);color:var(--admin-danger)}
+.badge.draft,.badge.planned,.badge.scheduled,.badge.in_progress,.badge.submitted{background:var(--admin-accent-cool-soft);color:var(--admin-accent-cool)}
+
+/* ================= Tables ================= */
+.table-wrap{border-radius:var(--admin-radius-md)}
+.table th{background:var(--admin-surface-soft);color:var(--admin-muted)}
+.table tbody tr:hover{background:#fbf4e6}
+.table td,.table th{border-bottom-color:var(--admin-line)}
+
+/* ================= Filters / search ================= */
+.search input,.card select,.card input,.card textarea{border-color:#ddc9a8}
+.search input:focus,.card select:focus,.card input:focus,.card textarea:focus{border-color:var(--admin-accent-warm);box-shadow:0 0 0 3px rgba(226,105,26,.14)}
+.admin-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--admin-space-3);margin-bottom:var(--admin-space-5)}
+.admin-filter-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border:1px solid var(--admin-line);border-radius:999px;background:var(--admin-surface);color:var(--admin-muted);font-size:12.5px;font-weight:var(--admin-weight-medium);cursor:pointer;transition:background var(--admin-duration-fast) ease,color var(--admin-duration-fast) ease,border-color var(--admin-duration-fast) ease}
+.admin-filter-chip:hover{border-color:var(--admin-accent-warm)}
+.admin-filter-chip.is-active{background:var(--admin-accent-warm);border-color:transparent;color:#fff}
+
+/* ================= Empty states ================= */
+.admin-empty{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:var(--admin-space-7) var(--admin-space-6);border:1px dashed var(--admin-line);border-radius:var(--admin-radius-lg);background:var(--admin-surface-soft)}
+.admin-empty-icon{display:grid;place-items:center;width:44px;height:44px;margin-bottom:6px;border-radius:14px;background:var(--admin-accent-warm-soft);font-size:20px}
+.admin-empty h3{margin:0;color:var(--admin-ink);font:var(--admin-weight-semibold) var(--admin-text-lg)/var(--admin-leading-snug) Inter,sans-serif}
+.admin-empty p{margin:0;max-width:48ch;color:var(--admin-muted);font-size:var(--admin-text-base)}
+.admin-empty .btn{margin-top:8px}
+/* Compact variant for a table's "no rows" state — sits inside a colspan <td>. */
+.admin-empty-row{display:flex;flex-direction:column;align-items:center;gap:4px;padding:var(--admin-space-6) var(--admin-space-4);color:var(--admin-muted);font-size:13.5px;text-align:center}
+.admin-empty-row .admin-empty-row-icon{font-size:20px;opacity:.7}
+
+/* ================= Metadata grid (detail/show pages) ================= */
+.admin-meta-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--admin-space-5)}
+.admin-meta-item{display:flex;flex-direction:column;gap:5px;min-width:0}
+.admin-meta-item .muted{font-size:var(--admin-text-sm)}
+.admin-meta-item strong{overflow-wrap:anywhere;color:var(--admin-ink);font-weight:var(--admin-weight-semibold)}
+@media(max-width:900px){.admin-meta-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.admin-meta-grid{grid-template-columns:1fr}}
+
+/* ================= Metrics (dashboard maximalism, restrained) ================= */
+.admin-metric-value{font:var(--admin-weight-bold) var(--admin-text-2xl)/1.1 Inter,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat strong{font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+@media(max-width:900px){.admin-bento-card--third{grid-column:span 6}}
+@media(max-width:780px){.admin-bento{grid-template-columns:1fr}.admin-bento-card,.admin-bento-card--wide,.admin-bento-card--third{grid-column:1/-1}}
+@media(max-width:600px){.admin-field-grid{grid-template-columns:1fr}.page-head.hero,.admin-page-head.hero{padding:var(--admin-space-5) var(--admin-space-4)}.admin-bento-card{padding:var(--admin-space-5) var(--admin-space-4)}.admin-page-head{align-items:flex-start;flex-direction:column}}
+@media(prefers-reduced-motion:reduce){.admin-bento-card,.admin-bento-card:hover,.btn,.btn:hover,.admin-bento-card--brutal:hover{transform:none;transition:none}}

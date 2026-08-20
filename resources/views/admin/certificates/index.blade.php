@@ -33,7 +33,7 @@
                 <td><div class="admin-status-cell"><span class="badge" x-bind:class="certificate.status" x-text="certificate.status_label"></span></div></td>
                 <td><div class="admin-actions-cell"><a x-bind:href="certificate.certificate_url">View</a></div></td>
             </tr></template>
-            <tr x-show="!loading && rows.length === 0" x-cloak><td colspan="9" class="muted">No certificates found.</td></tr>
+            <tr x-show="!loading && rows.length === 0" x-cloak><td colspan="9"><div class="admin-empty-row"><span class="admin-empty-row-icon">🔍</span>No certificates found.</div></td></tr>
         </tbody></table>
     </div>
     <div class="actions" style="justify-content:space-between;margin-top:18px"><span class="muted" x-text="meta.total ? 'Showing '+meta.from+' to '+meta.to+' of '+meta.total+' certificates' : 'No certificates found'"></span><div class="actions"><button class="btn secondary" type="button" x-on:click="load(meta.current_page - 1)" x-bind:disabled="loading || meta.current_page <= 1">Previous</button><span class="muted" x-text="meta.current_page+' / '+meta.last_page"></span><button class="btn secondary" type="button" x-on:click="load(meta.current_page + 1)" x-bind:disabled="loading || meta.current_page >= meta.last_page">Next</button></div></div>

@@ -149,7 +149,7 @@ class QuestionBankTest extends TestCase
             ->assertSee('question-status-toggle', false);
         $this->get(route('admin.courses.questions.index', $this->course))
             ->assertOk()
-            ->assertSee('questionRow(', false)
+            ->assertSee('archiveQuestion(question)', false)
             ->assertSee('question-status-toggle', false);
         $this->delete(route('admin.courses.questions.destroy', [$this->course, $question]))->assertRedirect();
         $this->assertDatabaseHas('questions', ['id' => $question->id, 'is_active' => 0]);

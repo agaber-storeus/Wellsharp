@@ -51,7 +51,7 @@
                             </td>
                         </tr>
                     </template>
-                    <tr x-show="section.rows.length === 0" x-cloak><td colspan="4" class="muted">No values found.</td></tr>
+                    <tr x-show="section.rows.length === 0" x-cloak><td colspan="4"><div class="admin-empty-row"><span class="admin-empty-row-icon">🗂️</span>No values found.</div></td></tr>
                 </tbody></table></div>
             </section>
         </template>

@@ -52,6 +52,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::post('courses/{course}/questions/import/preview', [QuestionController::class, 'preview'])->name('courses.questions.import.preview');
     Route::post('courses/{course}/questions/import/confirm', [QuestionController::class, 'confirm'])->name('courses.questions.import.confirm');
     Route::get('courses/{course}/questions', [QuestionController::class, 'index'])->name('courses.questions.index');
+    Route::get('courses/{course}/questions/data', [QuestionController::class, 'courseData'])->name('courses.questions.data');
     Route::get('courses/{course}/questions/create', [QuestionController::class, 'create'])->name('courses.questions.create');
     Route::post('courses/{course}/questions', [QuestionController::class, 'store'])->name('courses.questions.store');
     Route::get('courses/{course}/questions/{question}/edit', [QuestionController::class, 'edit'])->name('courses.questions.edit');

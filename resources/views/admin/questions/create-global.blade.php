@@ -2,7 +2,7 @@
 
 @section('admin-content')
 <div class="question-creation-page">
-    <div class="page-head">
+    <div class="page-head admin-page-head hero">
         <div>
             <span class="admin-kicker">Question Bank</span>
             <div class="question-breadcrumb"><a href="{{ route('admin.questions.index') }}">Questions</a><span aria-hidden="true">›</span><span>Create</span></div>

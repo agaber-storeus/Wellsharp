@@ -10,6 +10,7 @@ use App\Http\Requests\Admin\StoreExamRequest;
 use App\Http\Requests\Admin\UpdateExamRequest;
 use App\Models\Course;
 use App\Models\Exam;
+use App\Models\Group;
 use App\Services\AuditRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -47,12 +48,51 @@ class ExamController extends Controller
         ]);
     }
 
-    public function index(Course $course): View
+    public function index(Request $request, Course $course): View
     {
         $this->authorize('viewAny', Exam::class);
-        $exams = $course->exams()->withCount(['questions', 'groups', 'schedules'])->latest()->paginate(15);
+        $search = trim((string) $request->input('search'));
+        $status = $request->input('status');
+        $exams = $course->exams()->withCount(['questions', 'groups', 'schedules'])
+            ->when($search, fn ($query) => $query->where(function ($query) use ($search): void {
+                $query->where('name', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%");
+            }))
+            ->when(in_array($status, array_column(ExamStatus::cases(), 'value'), true), fn ($query) => $query->where('status', $status))
+            ->latest()->paginate(15)->withQueryString();
 
-        return view('admin.exams.index', compact('course', 'exams'));
+        $initialExams = $exams->getCollection()->map(fn (Exam $exam): array => $this->examPayload($exam))->values();
+
+        return view('admin.exams.index', compact('course', 'exams', 'initialExams', 'search', 'status'));
+    }
+
+    public function courseData(Request $request, Course $course): JsonResponse
+    {
+        $this->authorize('viewAny', Exam::class);
+        $search = trim((string) $request->input('search'));
+        $status = $request->input('status');
+        $sort = (string) $request->input('sort', 'created_at');
+        $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
+        $allowedSorts = ['name', 'code', 'questions_count', 'schedules_count', 'status', 'created_at'];
+        $sort = in_array($sort, $allowedSorts, true) ? $sort : 'created_at';
+
+        $exams = $course->exams()->withCount(['questions', 'groups', 'schedules'])
+            ->when($search, fn ($query) => $query->where(function ($query) use ($search): void {
+                $query->where('name', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%");
+            }))
+            ->when(in_array($status, array_column(ExamStatus::cases(), 'value'), true), fn ($query) => $query->where('status', $status))
+            ->orderBy($sort, $direction)
+            ->paginate(15, ['*'], 'page', max(1, (int) $request->input('page', 1)));
+
+        return response()->json([
+            'data' => $exams->getCollection()->map(fn (Exam $exam): array => $this->examPayload($exam))->values(),
+            'meta' => [
+                'current_page' => $exams->currentPage(),
+                'last_page' => $exams->lastPage(),
+                'total' => $exams->total(),
+                'from' => $exams->firstItem(),
+                'to' => $exams->lastItem(),
+            ],
+        ]);
     }
 
     public function all(): View
@@ -73,7 +113,7 @@ class ExamController extends Controller
         $this->authorize('create', Exam::class);
         $questions = $course->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get();
 
-        return view('admin.exams.create', ['course' => $course, 'subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions]);
+        return view('admin.exams.create', ['course' => $course, 'subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()]);
     }
 
     public function createGlobal(): View
@@ -82,7 +122,7 @@ class ExamController extends Controller
         $course = Course::query()->find(request('course_id'));
         $questions = $course?->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get() ?? collect();
 
-        return view('admin.exams.create', ['course' => $course, 'subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => request('course_id'), 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions]);
+        return view('admin.exams.create', ['course' => $course, 'subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => request('course_id'), 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()]);
     }
 
     public function store(StoreExamRequest $request, Course $course, SaveExamAction $action): RedirectResponse
@@ -126,7 +166,7 @@ class ExamController extends Controller
         $questions = $course->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get();
         $exam->load('examQuestions');
 
-        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id]);
+        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()]);
     }
 
     public function editGlobal(Exam $exam): View
@@ -136,7 +176,7 @@ class ExamController extends Controller
         $questions = $course->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get();
         $exam->load('examQuestions');
 
-        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id]);
+        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()]);
     }
 
     public function update(UpdateExamRequest $request, Course $course, Exam $exam, SaveExamAction $action): RedirectResponse
@@ -206,6 +246,7 @@ class ExamController extends Controller
             'retake_score' => $exam->retake_score,
             'questions_count' => $exam->questions_count,
             'schedules_count' => $exam->schedules_count,
+            'question_order_mode_label' => $exam->question_order_mode->label(),
             'status' => $exam->status->value,
             'status_label' => $exam->status->label(),
             'can_archive' => $exam->status !== ExamStatus::Archived,

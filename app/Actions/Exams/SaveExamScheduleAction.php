@@ -28,6 +28,16 @@ class SaveExamScheduleAction
                 throw ValidationException::withMessages(['group_id' => 'Only active groups can be scheduled.']);
             }
             $creating = $schedule === null;
+            $startDate = Carbon::createFromFormat('Y-m-d', $data['start_date'])->toDateString();
+            $endDate = Carbon::createFromFormat('Y-m-d', $data['end_date'])->toDateString();
+            if ($creating && ExamSchedule::query()
+                ->where('exam_id', $exam->getKey())
+                ->where('group_id', $group->getKey())
+                ->whereDate('start_date', $startDate)
+                ->whereDate('end_date', $endDate)
+                ->exists()) {
+                throw ValidationException::withMessages(['group_id' => 'This Exam is already scheduled for this Group on these dates.']);
+            }
             if (! $creating) {
                 $schedule = ExamSchedule::query()->lockForUpdate()->findOrFail($schedule->getKey());
                 if ($schedule->start_date?->isPast() && $schedule->status === ExamScheduleStatus::Scheduled) {
@@ -42,8 +52,8 @@ class SaveExamScheduleAction
             }
             $attributes = [
                 'exam_id' => $exam->getKey(), 'group_id' => $group->getKey(),
-                'start_date' => Carbon::createFromFormat('Y-m-d', $data['start_date'])->toDateString(),
-                'end_date' => Carbon::createFromFormat('Y-m-d', $data['end_date'])->toDateString(),
+                'start_date' => $startDate,
+                'end_date' => $endDate,
                 'duration_minutes' => $data['duration_minutes'],
                 'updated_by_user_id' => auth()->id(),
             ];

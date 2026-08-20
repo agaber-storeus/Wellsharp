@@ -302,6 +302,84 @@ class BusinessDomainTest extends TestCase
         $this->assertDatabaseHas('exam_schedules', ['exam_id' => $exam->id, 'group_id' => $secondGroup->id]);
     }
 
+    public function test_admin_can_publish_an_exam_with_an_inline_group_schedule_in_one_action(): void
+    {
+        $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Inline schedule question', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'answer']);
+        $group = Group::create(['name' => 'Inline Schedule Group', 'status' => 'active']);
+        $proctor = User::factory()->proctor()->create();
+
+        $this->post(route('admin.courses.exams.store', $this->subject), [
+            'name' => 'Immediate Visibility Exam', 'question_order_mode' => 'static', 'status' => 'published',
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+            'group_id' => $group->id,
+            'start_date' => now()->addDay()->format('Y-m-d'),
+            'end_date' => now()->addDays(3)->format('Y-m-d'),
+            'duration_minutes' => 45,
+        ])->assertRedirect();
+
+        $exam = Exam::where('name', 'Immediate Visibility Exam')->firstOrFail();
+        $this->assertSame('published', $exam->status->value);
+        $this->assertDatabaseCount('exam_schedules', 1);
+        $schedule = ExamSchedule::where('exam_id', $exam->id)->firstOrFail();
+        $this->assertSame($group->id, $schedule->group_id);
+        $this->assertNotNull($schedule->training_class_id);
+        $this->assertDatabaseCount('classes', 1);
+
+        // Visible immediately to Proctor/Instructor without the Laravel Scheduler running,
+        // shown under the Exam's own name (Exam and Class are the same record).
+        $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version]);
+        $this->get(route('proctor.classes'))->assertOk()->assertSee('Immediate Visibility Exam');
+        $this->assertDatabaseHas('classes', ['course_id' => $this->subject->id, 'status' => 'planned']);
+    }
+
+    public function test_inline_exam_schedule_fields_must_be_all_or_nothing(): void
+    {
+        $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Partial schedule question', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'answer']);
+        $group = Group::create(['name' => 'Partial Group', 'status' => 'active']);
+
+        $this->post(route('admin.courses.exams.store', $this->subject), [
+            'name' => 'Partially Scheduled Exam', 'question_order_mode' => 'static', 'status' => 'published',
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+            'group_id' => $group->id,
+        ])->assertSessionHasErrors(['start_date', 'end_date', 'duration_minutes']);
+
+        $this->assertDatabaseMissing('exams', ['name' => 'Partially Scheduled Exam']);
+    }
+
+    public function test_publishing_an_exam_without_schedule_fields_still_succeeds_for_later_or_multi_group_scheduling(): void
+    {
+        $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'No inline schedule question', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'answer']);
+
+        $this->post(route('admin.courses.exams.store', $this->subject), [
+            'name' => 'Publish Without Schedule', 'question_order_mode' => 'static', 'status' => 'published',
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertRedirect();
+
+        $exam = Exam::where('name', 'Publish Without Schedule')->firstOrFail();
+        $this->assertSame('published', $exam->status->value);
+        $this->assertDatabaseCount('exam_schedules', 0);
+        $this->assertDatabaseCount('classes', 0);
+    }
+
+    public function test_duplicate_schedule_for_same_exam_group_and_dates_is_rejected(): void
+    {
+        $exam = Exam::create(['course_id' => $this->subject->id, 'name' => 'No Duplicate Exam', 'question_order_mode' => 'static', 'status' => 'published']);
+        $group = Group::create(['name' => 'No Duplicate Group', 'status' => 'active']);
+        $payload = [
+            'exam_id' => $exam->id, 'group_id' => $group->id,
+            'start_date' => now()->addDays(5)->format('Y-m-d'), 'end_date' => now()->addDays(6)->format('Y-m-d'),
+            'duration_minutes' => 60,
+        ];
+
+        $this->post(route('admin.exam-schedules.store'), $payload)->assertRedirect();
+        $this->assertDatabaseCount('exam_schedules', 1);
+        $this->assertDatabaseCount('classes', 1);
+
+        $this->post(route('admin.exam-schedules.store'), $payload)->assertSessionHasErrors('group_id');
+        $this->assertDatabaseCount('exam_schedules', 1);
+        $this->assertDatabaseCount('classes', 1);
+    }
+
     public function test_exam_schedules_validate_ranges_and_can_be_cancelled_without_deletion(): void
     {
         $exam = Exam::create(['course_id' => $this->subject->id, 'name' => 'Scheduled Exam', 'question_order_mode' => 'static', 'status' => 'published']);

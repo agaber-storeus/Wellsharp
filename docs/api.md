@@ -99,6 +99,10 @@ Question bank data. Query parameters: `search`, `course_id`, `difficulty`, `type
 
 Exam definition data. Query parameters: `search`, `course_id`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `name`, `code`, `subject`, `questions_count`, `schedules_count`, `status`, and `created_at`.
 
+### `GET /admin/courses/{course}/exams/data`
+
+Exam definition data scoped to a single Subject's exam list page. Query parameters: `search`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `name`, `code`, `questions_count`, `schedules_count`, `status`, and `created_at`.
+
 ### `GET /admin/exam-schedules/data`
 
 Exam schedule data. Query parameters: `search`, `exam_id`, `group_id`, `course_id`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `exam`, `subject`, `group`, `start_date`, `end_date`, `duration_minutes`, and `status`.

@@ -11,7 +11,10 @@ use Illuminate\Validation\ValidationException;
 
 class SaveExamAction
 {
-    public function __construct(private readonly AuditRecorder $audit) {}
+    public function __construct(
+        private readonly AuditRecorder $audit,
+        private readonly SaveExamScheduleAction $scheduler,
+    ) {}
 
     public function execute(?Exam $exam, Course $course, array $data): Exam
     {
@@ -36,7 +39,11 @@ class SaveExamAction
                 $before = ['name' => $exam->name, 'status' => $exam->status->value, 'question_order_mode' => $exam->question_order_mode->value];
                 $exam->update([
                     'name' => trim($data['name']),
-                    'code' => filled($data['code'] ?? null) ? strtoupper(trim($data['code'])) : null,
+                    // The Exam Code is generated once on creation and must stay
+                    // stable across ordinary edits: only overwrite it here if the
+                    // caller explicitly supplied a new one, never null it out
+                    // just because an update payload omitted the field.
+                    'code' => filled($data['code'] ?? null) ? strtoupper(trim($data['code'])) : $exam->code,
                     'description' => $data['description'] ?? null,
                     'passing_score' => $data['passing_score'] ?? null,
                     'retake_score' => $data['retake_score'] ?? null,
@@ -54,8 +61,36 @@ class SaveExamAction
             ]);
             $this->audit->record('exam.questions_updated', $exam, null, ['exam_id' => $exam->getKey(), 'question_count' => $exam->examQuestions->count()]);
 
+            $this->scheduleIfNeeded($exam, $data);
+
             return $exam->fresh(['subject', 'examQuestions.question', 'groups', 'schedules']);
         });
+    }
+
+    /**
+     * Publishing an Exam for the first time bundles it with its initial Group
+     * schedule in the same admin action, so the Class exists and is visible to
+     * Proctor/Instructor/Student immediately, with no separate "Create Exam
+     * Schedule" step required. Exams that already have a schedule are left
+     * alone here; additional Group schedules still go through SaveExamScheduleAction
+     * directly (admin.exam-schedules.*) so one Exam can still serve multiple Groups.
+     */
+    private function scheduleIfNeeded(Exam $exam, array $data): void
+    {
+        if ($exam->status !== ExamStatus::Published || $exam->schedules()->exists()) {
+            return;
+        }
+        if (! filled($data['group_id'] ?? null) || ! filled($data['start_date'] ?? null) || ! filled($data['end_date'] ?? null)) {
+            return;
+        }
+
+        $this->scheduler->execute(null, [
+            'exam_id' => $exam->getKey(),
+            'group_id' => $data['group_id'],
+            'start_date' => $data['start_date'],
+            'end_date' => $data['end_date'],
+            'duration_minutes' => $data['duration_minutes'] ?? null,
+        ]);
     }
 
     private function syncQuestions(Exam $exam, array $data): void

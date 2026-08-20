@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\Course;
+use App\Models\Group;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -29,6 +30,13 @@ class StoreExamRequest extends FormRequest
             'question_ids.*' => ['integer', Rule::exists('questions', 'id')],
             'display_orders' => ['nullable', 'array'],
             'display_orders.*' => ['nullable', 'integer', 'min:1'],
+            // Scheduling fields: the Exam is scheduled for a Group in this same
+            // request when it doesn't have a schedule yet, so Admin never has to
+            // visit a separate "Create Exam Schedule" screen for the first Class.
+            'group_id' => ['nullable', 'integer', Rule::exists('student_groups', 'id')],
+            'start_date' => ['nullable', 'date_format:Y-m-d'],
+            'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'duration_minutes' => ['nullable', 'integer', 'min:1'],
         ];
     }
 
@@ -48,6 +56,31 @@ class StoreExamRequest extends FormRequest
                 if (count($orders) !== count(array_unique(array_map('intval', $orders)))) {
                     $validator->errors()->add('display_orders', 'Static question order numbers must be unique.');
                 }
+            }
+
+            // Group/date fields are an optional inline bundle: fill them in to schedule
+            // this Exam's first Class in the same save, or leave them blank and schedule
+            // later (or schedule additional Groups) from the Exam Schedules screen.
+            $touchedSchedule = collect(['group_id', 'start_date', 'end_date', 'duration_minutes'])->contains(fn (string $field): bool => $this->filled($field));
+            if (! $touchedSchedule) {
+                return;
+            }
+            if (! $this->filled('group_id')) {
+                $validator->errors()->add('group_id', 'Select a Group to schedule this Exam for.');
+            } else {
+                $group = Group::query()->find($this->input('group_id'));
+                if (! $group || $group->status->value !== 'active') {
+                    $validator->errors()->add('group_id', 'Select an active Group.');
+                }
+            }
+            if (! $this->filled('start_date')) {
+                $validator->errors()->add('start_date', 'Provide a start date.');
+            }
+            if (! $this->filled('end_date')) {
+                $validator->errors()->add('end_date', 'Provide an end date.');
+            }
+            if (! $this->filled('duration_minutes')) {
+                $validator->errors()->add('duration_minutes', 'Provide the time allowed for each student.');
             }
         });
     }

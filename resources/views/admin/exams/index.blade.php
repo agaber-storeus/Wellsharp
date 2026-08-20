@@ -1,37 +1,47 @@
 @extends('layouts.admin')
 
 @section('admin-content')
+<style>[x-cloak]{display:none!important}.exam-table-loading{opacity:.55;pointer-events:none}.exam-sort{border:0;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;padding:0}.exam-sort:hover{color:var(--admin-blue)}.exam-sort-icon{font-size:11px;margin-left:3px}.exam-table-error{background:#fef3f2;color:#b42318;border-radius:5px;padding:10px 12px;margin-bottom:15px}.exam-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.exam-status-toggle{cursor:pointer!important;pointer-events:auto!important;touch-action:manipulation}.exam-row-error{display:block;color:#b42318;font-size:12px;margin-top:5px}.search select{padding:10px;border:1px solid #b9c7d2;border-radius:5px;background:#fff;color:inherit;font:inherit}</style>
 <div class="page-head"><div><span class="admin-kicker">Subject &middot; {{ $course->code }}</span><h1>Exams</h1><p>{{ $course->name }}</p></div><div class="actions"><a class="btn secondary" href="{{ route('admin.courses.show', $course) }}">Subject</a><a class="btn" href="{{ route('admin.courses.exams.create', $course) }}">Create exam</a></div></div>
-<div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Code</th><th>Questions</th><th>Schedules</th><th>Mode</th><th>Status</th><th></th></tr></thead><tbody>
-@forelse($exams as $exam)
-    <tr x-data="examRow(@js(route('admin.exams.archive', $exam)), @js($exam->status->value))"><td><a href="{{ route('admin.exams.show', $exam) }}">{{ $exam->name }}</a></td><td>{{ $exam->code ?: '-' }}</td><td>{{ $exam->questions_count }}</td><td>{{ $exam->schedules_count }}</td><td>{{ $exam->question_order_mode->label() }}</td><td><span class="badge" x-bind:class="status" x-text="status === 'archived' ? 'Archived' : @js($exam->status->label())"></span></td><td><div class="exam-actions"><a href="{{ route('admin.exams.show', $exam) }}">View</a><template x-if="status !== 'archived'"><button class="btn secondary small exam-status-toggle" type="button" x-on:click.prevent="archive()" x-bind:disabled="archiving" x-bind:aria-busy="archiving ? 'true' : 'false'" x-text="archiving ? 'Updating...' : 'Archive'"></button></template><span class="exam-row-error" x-show="error" x-text="error" x-cloak></span></div></td></tr>
-@empty
-    <tr><td colspan="7" class="muted">No exams found.</td></tr>
-@endforelse
-</tbody></table></div>{{ $exams->links('components.pagination') }}</div>
-<style>[x-cloak]{display:none!important}.exam-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.exam-status-toggle{cursor:pointer!important;pointer-events:auto!important;touch-action:manipulation}.exam-row-error{display:block;color:#b42318;font-size:12px;margin-top:5px}</style>
+<div class="card" x-data="courseExamTable(@js(route('admin.courses.exams.data', $course)), @js($initialExams), @js(['current_page' => $exams->currentPage(), 'last_page' => $exams->lastPage(), 'total' => $exams->total(), 'from' => $exams->firstItem(), 'to' => $exams->lastItem()]))">
+    <form class="search" x-on:submit.prevent="load(1)">
+        <input x-model="search" x-on:input.debounce.350ms="load(1)" placeholder="Search name or code" autocomplete="off">
+        <select x-model="status" x-on:change="load(1)"><option value="">All Statuses</option>@foreach(\App\Enums\ExamStatus::cases() as $item)<option value="{{ $item->value }}">{{ $item->label() }}</option>@endforeach</select>
+        <button class="btn secondary" type="submit">Apply</button>
+        <button class="btn secondary" type="button" x-show="hasFilters()" x-on:click="clearFilters()" x-cloak>Clear</button>
+    </form>
+    <div class="exam-table-error" x-show="error" x-text="error" x-cloak></div>
+    <div class="table-wrap" x-bind:class="loading ? 'exam-table-loading' : ''">
+        <table class="table">
+            <thead><tr><th><button class="exam-sort" type="button" x-on:click="sortBy('name')">Name <span class="exam-sort-icon" x-text="sortIcon('name')"></span></button></th><th><button class="exam-sort" type="button" x-on:click="sortBy('code')">Code <span class="exam-sort-icon" x-text="sortIcon('code')"></span></button></th><th><button class="exam-sort" type="button" x-on:click="sortBy('questions_count')">Questions <span class="exam-sort-icon" x-text="sortIcon('questions_count')"></span></button></th><th><button class="exam-sort" type="button" x-on:click="sortBy('schedules_count')">Schedules <span class="exam-sort-icon" x-text="sortIcon('schedules_count')"></span></button></th><th>Mode</th><th><button class="exam-sort" type="button" x-on:click="sortBy('status')">Status <span class="exam-sort-icon" x-text="sortIcon('status')"></span></button></th><th></th></tr></thead>
+            <tbody>
+                <template x-for="exam in rows" :key="exam.id">
+                    <tr>
+                        <td><a x-bind:href="exam.exam_url" x-text="exam.name"></a></td>
+                        <td x-text="exam.code || '-'"></td>
+                        <td x-text="exam.questions_count"></td>
+                        <td x-text="exam.schedules_count"></td>
+                        <td x-text="exam.question_order_mode_label"></td>
+                        <td><span class="badge" x-bind:class="exam.status" x-text="exam.status_label"></span></td>
+                        <td><div class="exam-actions"><a x-bind:href="exam.exam_url">View</a><template x-if="exam.can_archive"><button class="btn secondary small exam-status-toggle" type="button" x-on:click.prevent="archiveExam(exam)" x-bind:disabled="exam.archiving" x-bind:aria-busy="exam.archiving ? 'true' : 'false'" x-text="exam.archiving ? 'Updating...' : 'Archive'"></button></template><span class="exam-row-error" x-show="exam.rowError" x-text="exam.rowError" x-cloak></span></div></td>
+                    </tr>
+                </template>
+                <tr x-show="!loading && rows.length === 0" x-cloak><td colspan="7"><div class="admin-empty-row"><span class="admin-empty-row-icon">🔍</span>No exams found.</div></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="actions" style="justify-content:space-between;margin-top:18px"><span class="muted" x-text="meta.total ? 'Showing '+meta.from+' to '+meta.to+' of '+meta.total+' exams' : 'No exams found'"></span><div class="actions"><button class="btn secondary" type="button" x-on:click="load(meta.current_page - 1)" x-bind:disabled="loading || meta.current_page <= 1">Previous</button><span class="muted" x-text="meta.current_page+' / '+meta.last_page"></span><button class="btn secondary" type="button" x-on:click="load(meta.current_page + 1)" x-bind:disabled="loading || meta.current_page >= meta.last_page">Next</button></div></div>
+</div>
 <script>
-    window.examRow = function (endpoint, initialStatus) {
+    window.courseExamTable = function (endpoint, initialRows, initialMeta) {
         return {
-            endpoint,
-            status: initialStatus,
-            archiving: false,
-            error: '',
-            async archive() {
-                if (this.status === 'archived' || this.archiving) return;
-                this.archiving = true;
-                this.error = '';
-                try {
-                    const response = await fetch(this.endpoint, { method: 'PATCH', credentials: 'same-origin', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '', 'X-Requested-With': 'XMLHttpRequest' } });
-                    const payload = await response.json().catch(() => ({}));
-                    if (!response.ok) throw new Error(payload.message || 'Exam could not be archived.');
-                    this.status = payload.status || 'archived';
-                } catch (exception) {
-                    this.error = exception.message || 'Exam could not be archived.';
-                } finally {
-                    this.archiving = false;
-                }
-            }
+            endpoint, rows: initialRows || [], meta: initialMeta || { current_page: 1, last_page: 1, total: 0, from: null, to: null }, search: @js($search), status: @js($status), sort: 'created_at', direction: 'desc', loading: false, error: '', request: null,
+            hasFilters() { return this.search || this.status; },
+            clearFilters() { this.search = ''; this.status = ''; this.load(1); },
+            sortIcon(field) { return this.sort === field ? (this.direction === 'asc' ? '▲' : '▼') : '↕'; },
+            sortBy(field) { if (this.sort === field) this.direction = this.direction === 'asc' ? 'desc' : 'asc'; else { this.sort = field; this.direction = 'asc'; } this.load(1); },
+            async load(page) { page = Math.max(1, page || 1); if (this.request) this.request.abort(); this.request = new AbortController(); const params = new URLSearchParams({ page, sort: this.sort, direction: this.direction }); if (this.search) params.set('search', this.search); if (this.status) params.set('status', this.status); this.loading = true; this.error = ''; try { const response = await fetch(this.endpoint + '?' + params.toString(), { headers: { Accept: 'application/json' }, signal: this.request.signal }); if (!response.ok) throw new Error('Exam search failed'); const payload = await response.json(); this.rows = payload.data; this.meta = payload.meta; } catch (error) { if (error.name !== 'AbortError') this.error = 'Exams could not be loaded. Try again.'; } finally { this.loading = false; } },
+            async archiveExam(exam) { if (!exam.can_archive || exam.archiving) return; exam.archiving = true; exam.rowError = ''; try { const response = await fetch(exam.archive_url, { method: 'PATCH', credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '', 'X-Requested-With': 'XMLHttpRequest' } }); const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload.message || 'Exam could not be archived.'); exam.status = payload.status; exam.status_label = payload.status_label; exam.can_archive = false; } catch (exception) { exam.rowError = exception.message || 'Exam could not be archived.'; } finally { exam.archiving = false; } }
         };
     };
 </script>

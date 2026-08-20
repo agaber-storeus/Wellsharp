@@ -97,6 +97,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::patch('exams/{exam}/schedules/{schedule}/cancel', [ExamScheduleController::class, 'cancel'])->name('exams.schedules.cancel');
 
     Route::get('courses/{course}/exams', [ExamController::class, 'index'])->name('courses.exams.index');
+    Route::get('courses/{course}/exams/data', [ExamController::class, 'courseData'])->name('courses.exams.data');
     Route::get('courses/{course}/exams/create', [ExamController::class, 'create'])->name('courses.exams.create');
     Route::post('courses/{course}/exams', [ExamController::class, 'store'])->name('courses.exams.store');
     Route::get('courses/{course}/exams/{exam}', [ExamController::class, 'show'])->name('courses.exams.show');

@@ -20,7 +20,6 @@
           <div class="user-line"><strong>{{ auth()->user()->display_name }}</strong><form method="POST" action="{{ route('logout') }}" class="inline-form">@csrf<button class="signout" type="submit">Sign Out</button></form></div>
           <a href="https://intellidata.tech/wellsharp/support1/" class="support-link" target="_blank" rel="noopener">Database/Program Assistance?</a>
           <a href="https://intellidata.tech/wellsharp/support2/" class="support-link" target="_blank" rel="noopener">Proctor Assistance?</a>
-          <a href="{{ route('student.certificates') }}" class="support-link">My Certificates</a>
         </div>
       </header>
 

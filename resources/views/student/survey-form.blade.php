@@ -15,15 +15,17 @@
     <form class="survey-form" method="POST" action="{{ route('student.survey.store', $schedule) }}">
       @csrf
       @foreach($questions as $question)
-        <div class="question-row {{ $loop->odd ? 'shade' : '' }} {{ $question['type'] === 'textarea' ? 'tall' : '' }}">
-          <label for="survey-{{ $question['key'] }}">{{ $question['label'] }}@if($question['required']) <span aria-hidden="true">*</span>@endif</label>
+        <div class="question-row {{ $loop->odd ? 'shade' : '' }} {{ $question['type'] === 'textarea' ? 'comment-row' : '' }}">
+          @if($question['type'] !== 'textarea')
+            <label for="survey-{{ $question['key'] }}">{{ $question['label'] }}@if($question['required']) <span aria-hidden="true">*</span>@endif</label>
+          @endif
           @if($question['type'] === 'select')
             <select id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]" {{ $question['required'] ? 'required' : '' }}>
               <option value="">Select an Option</option>
               @foreach($question['options'] as $option)<option value="{{ $option }}" @selected(old('answers.'.$question['key']) === $option)>{{ $option }}</option>@endforeach
             </select>
           @elseif($question['type'] === 'textarea')
-            <textarea id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]" placeholder="Additional Comments:">{{ old('answers.'.$question['key']) }}</textarea>
+            <textarea id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]" placeholder="{{ $question['label'] }}:" aria-label="{{ $question['label'] }}" rows="4">{{ old('answers.'.$question['key']) }}</textarea>
           @else
             <input id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]" value="{{ old('answers.'.$question['key']) }}" {{ $question['required'] ? 'required' : '' }} />
           @endif

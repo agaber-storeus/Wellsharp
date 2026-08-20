@@ -34,7 +34,7 @@
             @if($question->question_image_path)
               <img class="exam-question-image" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($question->question_image_path) }}" alt="Question image" />
             @endif
-            <small>{{ $question->public_id }}</small>
+            <small>{{ substr($question->public_id, 0, 5) }}</small>
           </div>
         </div>
         @if($question->type === \App\Enums\QuestionType::Mcq)
@@ -59,7 +59,7 @@
             <input type="text" class="exam-text-answer" value="{{ $attemptQuestion->answer }}" x-model="answers['{{ $questionKey }}']" x-on:input.debounce.400ms="save('{{ $questionKey }}', $event.target.value)" x-bind:disabled="expired" aria-label="Answer for question {{ $attemptQuestion->display_order }}" />
           </div>
         @endif
-        <small class="answer-save-state" x-cloak x-show="saving['{{ $questionKey }}'] || errors['{{ $questionKey }}'] || saved['{{ $questionKey }}']" x-text="errors['{{ $questionKey }}'] || (saving['{{ $questionKey }}'] ? 'Saving…' : 'Saved')"></small>
+        <small class="answer-save-state" x-cloak x-show="errors['{{ $questionKey }}']" x-text="errors['{{ $questionKey }}']"></small>
       </section>
     @empty
       <section class="exam-question"><h2>No questions are available for this attempt.</h2></section>

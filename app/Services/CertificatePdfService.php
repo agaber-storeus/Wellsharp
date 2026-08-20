@@ -5,14 +5,27 @@ namespace App\Services;
 use App\Enums\CertificateDocumentType;
 use App\Models\Certificate;
 use App\Models\CertificateDocument;
+use setasign\Fpdi\Fpdi;
 
 /**
- * Builds the small, print-ready certificate documents without an external PDF
- * package. The browser view remains the authoritative interactive version;
- * this service provides a dependable downloadable PDF for each document.
+ * Stamps real certificate data onto the official IADC WellSharp certificate
+ * template (resources/pdf-templates/certificate-of-completion.pdf) using
+ * FPDI: the template's own pages (banner artwork, logo, labels, underlines,
+ * wallet-card layout) are imported as-is and reused unchanged for every
+ * certificate, and only the per-student values are drawn on top at the same
+ * coordinates the template's own sample values occupy. This is the same
+ * physical document trainees receive, not a recreation of it.
  */
 class CertificatePdfService
 {
+    private const TEMPLATE_PATH = 'pdf-templates/certificate-of-completion.pdf';
+
+    private const PAGE1_HEIGHT_PT = 792.0;
+
+    private const PAGE2_HEIGHT_PT = 841.89;
+
+    private const FONT = 'Helvetica';
+
     public function render(CertificateDocument $document): string
     {
         $certificate = $document->certificate()->with([
@@ -22,180 +35,192 @@ class CertificatePdfService
             'trainingClass.provider',
         ])->firstOrFail();
 
-        return match ($document->type) {
-            CertificateDocumentType::KnowledgeAssessmentReport => $this->renderReport($certificate),
-            CertificateDocumentType::CompletionCardFront => $this->renderCompletionCard($certificate, false),
-            CertificateDocumentType::CompletionCardBack => $this->renderCompletionCard($certificate, true),
-        };
-    }
+        $pdf = new Fpdi('P', 'pt');
+        $pdf->SetAutoPageBreak(false);
+        $pdf->SetMargins(0, 0, 0);
 
-    private function renderReport(Certificate $certificate): string
-    {
-        return $this->pdfPage(
-            'Knowledge Assessment Report',
-            [
-                ['Trainee name', $certificate->student_name],
-                ['Assessment', $certificate->exam_name],
-                ['Subject', $certificate->subject_name],
-                ['Class', $certificate->class_number ?: 'Not configured'],
-                ['Provider', $certificate->provider_name ?: $certificate->trainingClass?->provider?->name ?: 'Not configured'],
-                ['Instructor', $certificate->instructor_name ?: 'Not configured'],
-                ['Assessment date', $this->date($certificate->issued_at, 'F j, Y g:i A')],
-                ['Score', number_format((float) $certificate->score, 2).'%'],
-                ['Passing score', $certificate->passing_score.'%'],
-                ['Certificate number', $certificate->certificate_number],
-                ['Valid through', $this->date($certificate->expires_at, 'F j, Y')],
-            ],
-            [
-                'This trainee successfully completed the IADC Well Control Knowledge Assessment.',
-                'The assessment was completed for '.$certificate->subject_name.'. Keep this report with the Course Completion Card.',
-            ],
-            612,
-            792,
-        );
-    }
+        if ($document->type === CertificateDocumentType::KnowledgeAssessmentReport) {
+            $pdf->SetTitle('Knowledge Assessment Report');
+            $this->renderReportPage($pdf, $certificate);
 
-    private function renderCompletionCard(Certificate $certificate, bool $back): string
-    {
-        if ($back) {
-            return $this->pdfPage(
-                'Course Completion Card - Back',
-                [],
-                [
-                    'This individual has successfully completed a well control course at an institution accredited by the International Association of Drilling Contractors.',
-                    'For scheduling training or replacement of a lost card, please call the training provider with the information provided on this completion card.',
-                    'To verify validity, please visit the IADC website:',
-                    'www.iadc.org/wellsharp',
-                ],
-                792,
-                612,
-            );
+            return $pdf->Output('S');
         }
 
+        $data = $this->fieldValues($certificate);
+        $templatePath = resource_path(self::TEMPLATE_PATH);
+        $pdf->SetTitle($data['courseName']);
+        $pdf->setSourceFile($templatePath);
+
+        $this->stampPage($pdf, 1, self::PAGE1_HEIGHT_PT, $this->page1Fields($data));
+        $this->stampPage($pdf, 2, self::PAGE2_HEIGHT_PT, $this->page2Fields($data));
+
+        return $pdf->Output('S');
+    }
+
+    /**
+     * The Knowledge Assessment Report has no counterpart page in the official
+     * completion-card template (that template only covers the wallet card
+     * front/back), so it's drawn as its own plain page rather than stamped
+     * onto imported template artwork.
+     */
+    private function renderReportPage(Fpdi $pdf, Certificate $certificate): void
+    {
+        $pdf->AddPage('P', [612, 792]);
+
+        $pdf->SetFillColor(13, 41, 64);
+        $pdf->Rect(0, 0, 612, 112, 'F');
+        $pdf->SetFillColor(214, 10, 31);
+        $pdf->Rect(0, 112, 612, 6, 'F');
+
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont(self::FONT, 'B', 17);
+        $pdf->Text(44, 63, 'IADC WELLSHARP');
+        $pdf->SetFont(self::FONT, 'B', 22);
+        $pdf->Text(44, 97, 'Knowledge Assessment Report');
+
+        $rows = [
+            ['Trainee name', $certificate->student_name],
+            ['Assessment', $certificate->exam_name],
+            ['Subject', $certificate->subject_name],
+            ['Class', $certificate->class_number ?: 'Not configured'],
+            ['Provider', $certificate->provider_name ?: $certificate->trainingClass?->provider?->name ?: 'Not configured'],
+            ['Instructor', $certificate->instructor_name ?: 'Not configured'],
+            ['Assessment date', $certificate->issued_at?->format('F j, Y g:i A') ?: 'Not configured'],
+            ['Score', $certificate->score !== null ? number_format((float) $certificate->score, 2).'%' : 'Not configured'],
+            ['Passing score', $certificate->passing_score !== null ? $certificate->passing_score.'%' : 'Not configured'],
+            ['Certificate number', $certificate->certificate_number],
+            ['Valid through', $certificate->expires_at?->format('F j, Y') ?: 'Not configured'],
+        ];
+
+        $y = 158;
+        foreach ($rows as [$label, $value]) {
+            $pdf->SetFont(self::FONT, '', 8);
+            $pdf->SetTextColor(92, 117, 138);
+            $pdf->Text(48, $y, strtoupper((string) $label));
+            $pdf->SetFont(self::FONT, '', 13);
+            $pdf->SetTextColor(31, 41, 55);
+            $pdf->Text(48, $y + 20, (string) $value);
+            $y += 42;
+        }
+
+        $pdf->SetFont(self::FONT, '', 10);
+        $pdf->SetTextColor(75, 85, 99);
+        $footerY = $y + 12;
+        foreach ([
+            'This trainee successfully completed the IADC Well Control Knowledge Assessment.',
+            'The assessment was completed for '.$certificate->subject_name.'. Keep this report with the Course Completion Card.',
+        ] as $paragraph) {
+            $pdf->SetXY(44, $footerY);
+            $pdf->MultiCell(524, 14, $paragraph);
+            $footerY += 30;
+        }
+    }
+
+    /** @param array<int, array{y: float, fontSize: float, align: string, text: string, box: array{0: float, 1: float}}> $fields */
+    private function stampPage(Fpdi $pdf, int $pageNumber, float $pageHeightPt, array $fields): void
+    {
+        $templateId = $pdf->importPage($pageNumber);
+        $size = $pdf->getTemplateSize($templateId);
+        $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+        $pdf->useTemplate($templateId);
+
+        foreach ($fields as $field) {
+            $this->stampField($pdf, $pageHeightPt, $field);
+        }
+    }
+
+    /** @param array{y: float, fontSize: float, align: string, text: string, box: array{0: float, 1: float}} $field */
+    private function stampField(Fpdi $pdf, float $pageHeightPt, array $field): void
+    {
+        [$boxLeft, $boxRight] = $field['box'];
+        $fontSize = $this->fitFontSize($pdf, $field['text'], $field['fontSize'], $boxRight - $boxLeft);
+
+        // Mask the template's own sample value with white before stamping the real one,
+        // covering from just above the underline to comfortably above the text ascent.
+        // The mask itself is padded slightly beyond the alignment box to avoid a visible
+        // hairline seam at its edge, without changing where text is actually positioned.
+        $pdf->SetFillColor(255, 255, 255);
+        $pdf->Rect($boxLeft - 1.5, $pageHeightPt - $field['y'] - $field['fontSize'] - 3, ($boxRight - $boxLeft) + 3, $field['fontSize'] + 6, 'F');
+
+        $pdf->SetFont(self::FONT, '', $fontSize);
+        $pdf->SetTextColor(31, 41, 55);
+
+        $textWidth = $pdf->GetStringWidth($field['text']);
+        $x = match ($field['align']) {
+            'C' => $boxLeft + (($boxRight - $boxLeft) - $textWidth) / 2,
+            'R' => $boxRight - $textWidth,
+            default => $boxLeft,
+        };
+
+        $pdf->Text($x, $pageHeightPt - $field['y'], $field['text']);
+    }
+
+    /** Shrinks the font until the text fits the box, matching the template's single-line fields. */
+    private function fitFontSize(Fpdi $pdf, string $text, float $fontSize, float $maxWidth): float
+    {
+        $pdf->SetFont(self::FONT, '', $fontSize);
+        while ($fontSize > 6.0 && $pdf->GetStringWidth($text) > $maxWidth) {
+            $fontSize -= 0.5;
+            $pdf->SetFont(self::FONT, '', $fontSize);
+        }
+
+        return $fontSize;
+    }
+
+    /** @return array<int, array{y: float, fontSize: float, align: string, text: string, box: array{0: float, 1: float}}> */
+    private function page1Fields(array $data): array
+    {
+        return [
+            ['y' => 466.02, 'fontSize' => 16, 'align' => 'C', 'text' => $data['traineeName'], 'box' => [56.69, 555.31]],
+            ['y' => 416.41, 'fontSize' => 12, 'align' => 'L', 'text' => $data['courseName'], 'box' => [65.20, 555.31]],
+            ['y' => 368.22, 'fontSize' => 12, 'align' => 'L', 'text' => $data['supplementName'], 'box' => [65.20, 555.31]],
+            ['y' => 318.61, 'fontSize' => 12, 'align' => 'L', 'text' => $data['completionDate'], 'box' => [65.20, 300.00]],
+            ['y' => 318.61, 'fontSize' => 12, 'align' => 'L', 'text' => $data['expirationDate'], 'box' => [314.65, 555.31]],
+            ['y' => 270.43, 'fontSize' => 12, 'align' => 'L', 'text' => $data['providerName'], 'box' => [65.20, 300.00]],
+            ['y' => 270.43, 'fontSize' => 12, 'align' => 'L', 'text' => $data['providerNumber'], 'box' => [314.65, 555.31]],
+            ['y' => 222.24, 'fontSize' => 12, 'align' => 'L', 'text' => $data['providerPhone'], 'box' => [65.20, 555.31]],
+            ['y' => 174.05, 'fontSize' => 12, 'align' => 'L', 'text' => $data['instructorName'], 'box' => [65.20, 555.31]],
+            ['y' => 74.83, 'fontSize' => 10, 'align' => 'R', 'text' => $data['certificateNumber'], 'box' => [476.00, 566.00]],
+        ];
+    }
+
+    /** @return array<int, array{y: float, fontSize: float, align: string, text: string, box: array{0: float, 1: float}}> */
+    private function page2Fields(array $data): array
+    {
+        return [
+            ['y' => 740.41, 'fontSize' => 8, 'align' => 'L', 'text' => $data['traineeName'], 'box' => [365.67, 565.00]],
+            ['y' => 728.50, 'fontSize' => 8, 'align' => 'L', 'text' => $data['courseName'], 'box' => [362.83, 565.00]],
+            ['y' => 716.88, 'fontSize' => 7, 'align' => 'L', 'text' => $data['supplementName'], 'box' => [379.84, 565.00]],
+            ['y' => 704.41, 'fontSize' => 7, 'align' => 'L', 'text' => $data['completionDate'], 'box' => [374.17, 428.00]],
+            ['y' => 704.41, 'fontSize' => 7, 'align' => 'L', 'text' => $data['expirationDate'], 'box' => [487.56, 565.00]],
+            ['y' => 691.65, 'fontSize' => 8, 'align' => 'L', 'text' => $data['providerName'], 'box' => [345.83, 565.00]],
+            ['y' => 678.90, 'fontSize' => 8, 'align' => 'L', 'text' => $data['providerNumber'], 'box' => [354.33, 415.00]],
+            ['y' => 678.90, 'fontSize' => 8, 'align' => 'L', 'text' => $data['providerPhone'], 'box' => [459.21, 565.00]],
+            ['y' => 666.14, 'fontSize' => 8, 'align' => 'L', 'text' => $data['instructorName'], 'box' => [374.17, 565.00]],
+            ['y' => 651.97, 'fontSize' => 8, 'align' => 'R', 'text' => $data['certificateNumber'], 'box' => [459.00, 565.00]],
+        ];
+    }
+
+    /** @return array<string, string> */
+    private function fieldValues(Certificate $certificate): array
+    {
         $subject = $certificate->exam?->subject;
-        $courseName = collect([
-            $certificate->subject_name,
-            $subject?->level?->name,
-            $subject?->stacks?->pluck('name')->join(', '),
-        ])->filter()->join(', ');
+        $courseName = collect([$certificate->subject_name, $subject?->level?->name, $subject?->stacks?->pluck('name')->join(', ')])
+            ->filter()
+            ->join(', ');
         $provider = $certificate->trainingClass?->provider;
 
-        return $this->pdfPage(
-            'Course Completion Card - Front',
-            [
-                ['Trainee name', $certificate->student_name],
-                ['Course name', $courseName ?: $certificate->exam_name],
-                ['Supplement name', $subject?->supplements?->pluck('name')->join(', ') ?: 'Not configured'],
-                ['Completion date', $this->date($certificate->issued_at, 'j F Y')],
-                ['Expiration date', $this->date($certificate->expires_at ?: $certificate->issued_at?->copy()->addYears(2), 'j F Y')],
-                ['Provider', $certificate->provider_name ?: $provider?->name ?: 'Not configured'],
-                ['Provider number', $provider?->provider_number ?: 'Not configured'],
-                ['Phone number', $provider?->phone ?: 'Not configured'],
-                ['Instructor name', $certificate->instructor_name ?: 'Not configured'],
-                ['Certificate number', $certificate->certificate_number],
-            ],
-            [],
-            792,
-            612,
-        );
-    }
-
-    /** @param array<int, array{0: string, 1: string}> $fields
-     * @param  array<int, string>  $paragraphs
-     */
-    private function pdfPage(string $title, array $fields, array $paragraphs, int $width, int $height): string
-    {
-        $commands = [];
-        $commands[] = '1 1 1 rg 0 0 '.$width.' '.$height.' re f';
-        $commands[] = '.05 .16 .25 rg 0 '.($height - 112).' '.$width.' 112 re f';
-        $commands[] = '.84 .04 .12 rg 0 '.($height - 118).' '.$width.' 6 re f';
-        $commands[] = $this->text('IADC WELLSHARP', 44, $height - 49, 17, 'F2', '1 1 1');
-        $commands[] = $this->text($title, 44, $height - 83, 22, 'F2', '1 1 1');
-
-        $y = $height - 158;
-        if ($fields !== []) {
-            foreach ($fields as [$label, $value]) {
-                $wrapped = $this->wrap((string) $value, $width > 700 ? 60 : 48);
-                $commands[] = $this->text(strtoupper($label), 48, $y, 8, 'F2', '.36 .46 .54');
-                foreach ($wrapped as $lineIndex => $line) {
-                    $commands[] = $this->text($line, 190, $y - ($lineIndex * 14), 12, 'F1', '.08 .18 .27');
-                }
-                $y -= max(28, count($wrapped) * 14 + 10);
-                $commands[] = '.84 .88 .91 RG 48 '.$y.' '.($width - 96).' .6 re f';
-                $y -= 15;
-            }
-        }
-
-        if ($paragraphs !== []) {
-            $y = min($y, $height - 180);
-            foreach ($paragraphs as $paragraph) {
-                foreach ($this->wrap($paragraph, $width > 700 ? 92 : 78) as $line) {
-                    $commands[] = $this->text($line, 48, $y, 12, 'F1', '.20 .30 .37');
-                    $y -= 18;
-                }
-                $y -= 12;
-            }
-        }
-
-        $commands[] = '.96 .97 .98 rg 0 24 '.$width.' 38 re f';
-        $commands[] = $this->text('Generated by WellSharp', 44, 39, 9, 'F1', '.38 .47 .54');
-
-        return $this->assemble(implode("\n", $commands), $width, $height);
-    }
-
-    private function text(string $value, int $x, int $y, int $size, string $font, string $color): string
-    {
-        $value = $this->pdfText($value);
-        $value = str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $value);
-
-        return sprintf('%s rg BT /%s %d Tf %d %d Td (%s) Tj ET', $color, $font, $size, $x, $y, $value);
-    }
-
-    /** @return array<int, string> */
-    private function wrap(string $value, int $length): array
-    {
-        $value = $this->pdfText($value);
-
-        return $value === '' ? ['Not configured'] : (array) wordwrap($value, $length, "\n", true);
-    }
-
-    private function pdfText(string $value): string
-    {
-        $converted = function_exists('iconv') ? @iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', $value) : false;
-
-        return $converted !== false && $converted !== null ? $converted : (string) preg_replace('/[^\x20-\x7E]/', '?', $value);
-    }
-
-    private function date(mixed $date, string $format): string
-    {
-        return $date?->format($format) ?: 'Not configured';
-    }
-
-    private function assemble(string $stream, int $width, int $height): string
-    {
-        $objects = [
-            '<< /Type /Catalog /Pages 2 0 R >>',
-            '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '.$width.' '.$height.'] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
-            '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-            '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
-            '<< /Length '.strlen($stream).' >>\nstream\n'.$stream."\nendstream",
+        return [
+            'traineeName' => $certificate->student_name,
+            'courseName' => $courseName ?: $certificate->exam_name,
+            'supplementName' => $subject?->supplements?->pluck('name')->join(', ') ?: '',
+            'completionDate' => $certificate->issued_at?->format('j F Y') ?: 'Not configured',
+            'expirationDate' => ($certificate->expires_at ?: $certificate->issued_at?->copy()->addYears(2))?->format('j F Y') ?: 'Not configured',
+            'providerName' => $certificate->provider_name ?: $provider?->name ?: 'Not configured',
+            'providerNumber' => $provider?->provider_number ?: 'Not configured',
+            'providerPhone' => $provider?->phone ?: 'Not configured',
+            'instructorName' => $certificate->instructor_name ?: 'Not configured',
+            'certificateNumber' => $certificate->certificate_number,
         ];
-        $pdf = "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
-        $offsets = [0];
-
-        foreach ($objects as $number => $object) {
-            $offsets[] = strlen($pdf);
-            $pdf .= ($number + 1)." 0 obj\n".$object."\nendobj\n";
-        }
-
-        $xref = strlen($pdf);
-        $pdf .= "xref\n0 ".(count($objects) + 1)."\n0000000000 65535 f \n";
-        foreach (array_slice($offsets, 1) as $offset) {
-            $pdf .= sprintf("%010d 00000 n \n", $offset);
-        }
-        $pdf .= "trailer\n<< /Size ".(count($objects) + 1)." /Root 1 0 R >>\nstartxref\n".$xref."\n%%EOF";
-
-        return $pdf;
     }
 }

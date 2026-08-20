@@ -95,14 +95,22 @@ class CertificateManagementTest extends TestCase
             ->assertSee($document->title)
             ->assertSee('Download PDF');
 
+        $pdfBytesByType = [];
         foreach ($certificate->documents as $downloadDocument) {
             $pdf = $this->actingAs($admin)->withSession(['auth.session_version' => $admin->session_version])
                 ->get(route('certificates.documents.download', [$certificate, $downloadDocument]));
             $pdf->assertOk()
                 ->assertHeader('Content-Type', 'application/pdf')
                 ->assertHeader('Content-Disposition', 'attachment; filename="'.str($certificate->student_name.'-'.$downloadDocument->title)->slug('-').'.pdf"');
-            $this->assertStringStartsWith('%PDF-1.4', $pdf->getContent());
+            $this->assertStringStartsWith('%PDF-', $pdf->getContent());
+            $pdfBytesByType[$downloadDocument->type->value] = $pdf->getContent();
         }
+
+        // The Knowledge Assessment Report has no template counterpart to the
+        // wallet-card front/back, so it must render distinct content, not a
+        // byte-for-byte copy of the completion card.
+        $this->assertNotSame($pdfBytesByType['knowledge_assessment_report'], $pdfBytesByType['completion_card_front']);
+        $this->assertNotSame($pdfBytesByType['knowledge_assessment_report'], $pdfBytesByType['completion_card_back']);
 
         $this->actingAs($admin)->withSession(['auth.session_version' => $admin->session_version])
             ->getJson(route('admin.certificates.data', [

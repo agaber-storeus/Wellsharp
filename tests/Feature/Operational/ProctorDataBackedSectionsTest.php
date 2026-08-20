@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Operational;
 
+use App\Enums\CertificateDocumentType;
 use App\Models\Certificate;
+use App\Models\CertificateDocument;
 use App\Models\ClassStaffAssignment;
 use App\Models\Course;
 use App\Models\Exam;
@@ -106,5 +108,66 @@ class ProctorDataBackedSectionsTest extends TestCase
         $this->get(route('proctor.certificate', ['certificate_id' => 'DOES-NOT-EXIST']))
             ->assertOk()
             ->assertSee('No certificate records match the selected search.');
+    }
+
+    public function test_certificate_options_column_preview_renders_the_real_branded_certificate_pdf(): void
+    {
+        $this->seedRoles();
+        $proctor = User::factory()->proctor()->create();
+        $student = User::factory()->student()->create();
+        $provider = TrainingProvider::factory()->create(['name' => 'Assigned Provider']);
+        $course = Course::factory()->create(['name' => 'Assigned Subject']);
+        $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'class_number' => 'CERT-002']);
+        ClassStaffAssignment::create(['class_id' => $class->id, 'user_id' => $proctor->id, 'assignment_role' => 'proctor', 'status' => 'active', 'assigned_at' => now()]);
+        $group = Group::create(['name' => 'Certificate Group 2', 'status' => 'active']);
+        $exam = Exam::create(['course_id' => $course->id, 'name' => 'Assigned Exam', 'passing_score' => 70, 'retake_score' => 60, 'question_order_mode' => 'static', 'status' => 'published']);
+        $schedule = ExamSchedule::create(['exam_id' => $exam->id, 'group_id' => $group->id, 'training_class_id' => $class->id, 'start_date' => now()->subDays(3)->toDateString(), 'end_date' => now()->subDay()->toDateString(), 'duration_minutes' => 60, 'status' => 'completed']);
+        $attempt = ExamAttempt::create(['exam_id' => $exam->id, 'exam_schedule_id' => $schedule->id, 'student_user_id' => $student->id, 'attempt_number' => 1, 'status' => 'submitted', 'started_at' => now()->subDays(2), 'submitted_at' => now()->subDay(), 'score' => 92, 'passed' => true]);
+        $certificate = Certificate::create([
+            'certificate_number' => 'WS-CERT-TEST-002', 'exam_attempt_id' => $attempt->id, 'student_user_id' => $student->id,
+            'exam_id' => $exam->id, 'exam_schedule_id' => $schedule->id, 'training_class_id' => $class->id,
+            'training_provider_id' => $provider->id, 'student_name' => 'Options Column Student', 'student_email' => $student->email,
+            'student_wellsharp_id' => $student->wellsharp_id, 'exam_name' => $exam->name, 'subject_name' => $course->name,
+            'class_number' => $class->class_number, 'provider_name' => $provider->name, 'score' => 92, 'passing_score' => 70,
+            'issued_at' => now()->subDay(), 'status' => 'issued',
+        ]);
+        $front = CertificateDocument::create(['certificate_id' => $certificate->id, 'type' => CertificateDocumentType::CompletionCardFront, 'title' => 'Completion Card - Front', 'issued_at' => $certificate->issued_at]);
+        CertificateDocument::create(['certificate_id' => $certificate->id, 'type' => CertificateDocumentType::CompletionCardBack, 'title' => 'Completion Card - Back', 'issued_at' => $certificate->issued_at]);
+        CertificateDocument::create(['certificate_id' => $certificate->id, 'type' => CertificateDocumentType::KnowledgeAssessmentReport, 'title' => 'Knowledge Assessment Report', 'issued_at' => $certificate->issued_at]);
+
+        $session = $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version]);
+
+        // The page itself: no "Clear" button, and the trainee name is no longer a details link.
+        $session->get(route('proctor.certificate'))
+            ->assertOk()
+            ->assertDontSee('Clear')
+            ->assertDontSee('certificate.show_url', false);
+
+        // The Options-column payload: preview/download point at the real completion card document, not the report or the details bundle.
+        $row = collect($session->getJson(route('proctor.certificate.data'))->assertOk()->json('data'))
+            ->firstWhere('certificate_number', 'WS-CERT-TEST-002');
+        $this->assertNotNull($row);
+        $this->assertArrayNotHasKey('show_url', $row);
+        $this->assertSame(route('certificates.documents.preview', [$certificate, $front]), $row['preview_url']);
+        $this->assertSame(route('certificates.documents.download', [$certificate, $front]), $row['download_url']);
+
+        // Preview streams the same branded Certificate of Completion + wallet card PDF as the download, just inline instead of as an attachment.
+        $preview = $session->get($row['preview_url'])->assertOk();
+        $preview->assertHeader('Content-Type', 'application/pdf');
+        $preview->assertHeader('Content-Disposition', 'inline; filename="'.str($certificate->student_name.'-'.$front->title)->slug('-').'.pdf"');
+        $this->assertStringStartsWith('%PDF-', $preview->getContent());
+
+        // The PDF's own /Title metadata carries the course name, so the browser's inline PDF viewer
+        // shows a real, per-student document title instead of the URL's generic "preview" segment.
+        $this->assertSame(1, preg_match('/\/Title\s*\((.*?)\)/s', $preview->getContent(), $titleMatch));
+        $decodedTitle = str_starts_with($titleMatch[1], "\xfe\xff")
+            ? mb_convert_encoding(substr($titleMatch[1], 2), 'UTF-8', 'UTF-16BE')
+            : $titleMatch[1];
+        $this->assertSame($course->name, $decodedTitle);
+
+        $download = $session->get($row['download_url'])->assertOk();
+        $download->assertHeader('Content-Type', 'application/pdf');
+        $download->assertHeader('Content-Disposition', 'attachment; filename="'.str($certificate->student_name.'-'.$front->title)->slug('-').'.pdf"');
+        $this->assertStringStartsWith('%PDF-', $download->getContent());
     }
 }

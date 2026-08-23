@@ -24,9 +24,10 @@ Source: `app/Policies/*.php` (`before()` pattern).
 **BR-006** — Only the Proctor role owns a Proctor's ID (`exam_control_credentials.control_id`); it is generated automatically the moment a user's active role becomes Proctor, and revoked the moment they leave the Proctor role (Instructor included — Instructors never own one). A Proctor starts/ends a Class directly, with no credential entry. An Instructor must supply a Proctor's ID belonging to a currently active, eligible Proctor; their own credential (they don't have one), another Instructor's, or a disabled/archived Proctor's is rejected with a validation error.
 Source: `app/Actions/Users/CreateUserAction`, `app/Actions/Users/ChangeUserRoleAction`, `app/Services/ProctorIdGenerator`, `app/Actions/Exams/ControlOperationalExamAction::executeManual`, `app/Services/ProctorIdVerifier`.
 
-**BR-007** — Any active Proctor or Instructor may control (start/end) **any** Class — control is not scoped to a specific assignment.
-Source: `app/Policies/TrainingClassPolicy::control()`.
-Confidence: CONFIRMED for the policy check; **UNCERTAIN** whether `class_staff_assignments` narrows this further elsewhere in the UI — not traced in this pass (see PROJECT_BRAIN.md §27).
+**BR-007** — *(Superseded 2026-08-23, see BR-007a)* Previously: any active Proctor or Instructor could control (start/end) any Class.
+
+**BR-007a** — Every Class has exactly one assigned Proctor (`classes.proctor_id`) and one assigned Instructor (`classes.instructor_id`), enforced as required on all Class/Exam-Schedule creation surfaces (Admin Classes form, Exam Schedule form, and the Exam form's inline first-schedule bundle). A Proctor/Instructor may only view, control (start/end), view Student passwords for, record Skills Score on, or view/release exam-attempt reports for a Class assigned to them — not any Class. Admin is unrestricted. `TrainingClass::scopeVisibleTo()` is the single query-level enforcement point; `TrainingClassPolicy::view()/control()/viewStudentPasswords()`, `EnrollmentPolicy::updateSkillsScore()`, and `OperationalReportingService::canViewAttempt()` are the corresponding per-action policy checks. Direct URL/ID access to another staff member's Class returns 403, not just omission from a list (IDOR-protected).
+Source: `app/Models/TrainingClass.php` (`scopeVisibleTo`), `app/Policies/TrainingClassPolicy.php`, `app/Policies/EnrollmentPolicy.php`, `app/Services/OperationalReportingService.php`. Both DB columns are nullable (existing Classes created before this rule cannot be deterministically backfilled) — required-ness is enforced at the Form Request layer, not a DB constraint. The pre-existing `class_staff_assignments` table/`ClassStaffAssignment` model/`AssignClassStaffAction` were never wired to any authorization check and are now fully superseded by `proctor_id`/`instructor_id` — left in place as unused legacy code, not deleted.
 
 ## Exam / Class Lifecycle (core domain rule)
 
@@ -195,6 +196,6 @@ Source: `UpdateUserAction::execute()`, `ChangeUserRoleAction::execute()`.
 
 ## Needs Business Confirmation
 
-- Whether `class_staff_assignments` / `AssignClassStaffAction` actually restricts *who* can be assigned/visible for a Class beyond the "any active Proctor/Instructor can control any Class" policy rule (BR-007). Not traced to a controller/route in this pass.
+- ~~Whether `class_staff_assignments` / `AssignClassStaffAction` actually restricts *who* can be assigned/visible for a Class~~ — **Resolved 2026-08-23**: it did not (never wired to any authorization check); see BR-007a. The table/model/Action remain as unused legacy code — removing them is a follow-up cleanup decision, not yet done.
 - Whether `ExamGroupAssignment` (`exam_group_assignments`) is a prerequisite gate before a Group can be scheduled via `exam_schedules.group_id`, or an independent audit/record-keeping trail. Both exist; relationship not fully traced.
 - Cancellation side-effects (`CancelExamScheduleAction`, `CancelTrainingClassAction`) — not read in this pass; before modifying cancellation behavior, read those two files first.

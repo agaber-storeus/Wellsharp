@@ -12,6 +12,7 @@ use App\Http\Requests\Admin\StoreClassRequest;
 use App\Http\Requests\Admin\UpdateClassRequest;
 use App\Models\Course;
 use App\Models\Enrollment;
+use App\Models\Role;
 use App\Models\TrainingClass;
 use App\Models\TrainingProvider;
 use App\Models\User;
@@ -91,7 +92,7 @@ class TrainingClassController extends Controller
     public function show(TrainingClass $trainingClass): View
     {
         $this->authorize('view', $trainingClass);
-        $trainingClass->load(['course', 'provider', 'enrollments.student.profile']);
+        $trainingClass->load(['course', 'provider', 'proctor.profile', 'instructor.profile', 'enrollments.student.profile']);
 
         return view('admin.classes.show', [
             'trainingClass' => $trainingClass,
@@ -142,7 +143,20 @@ class TrainingClassController extends Controller
 
     private function formData(): array
     {
-        return ['courses' => Course::query()->where('status', 'active')->whereNull('archived_at')->orderBy('code')->get(), 'providers' => TrainingProvider::query()->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get()];
+        return [
+            'courses' => Course::query()->where('status', 'active')->whereNull('archived_at')->orderBy('code')->get(),
+            'providers' => TrainingProvider::query()->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get(),
+            'proctors' => $this->activeStaff(Role::PROCTOR),
+            'instructors' => $this->activeStaff(Role::INSTRUCTOR),
+        ];
+    }
+
+    private function activeStaff(string $roleKey)
+    {
+        return User::query()->with('profile')
+            ->whereHas('currentRole', fn ($role) => $role->where('key', $roleKey))
+            ->where('status', 'active')->whereNull('archived_at')
+            ->orderBy('wellsharp_id')->get();
     }
 
     private function filteredQuery(Request $request)
@@ -152,7 +166,7 @@ class TrainingClassController extends Controller
         $courseId = $request->input('course_id');
         $providerId = $request->input('provider_id');
 
-        return TrainingClass::query()->with(['course', 'provider'])
+        return TrainingClass::query()->with(['course', 'provider', 'proctor.profile', 'instructor.profile'])
             ->when($search, fn ($query) => $query->where(function ($query) use ($search): void {
                 $query->where('classes.class_number', 'like', "%{$search}%")
                     ->orWhereHas('course', fn ($course) => $course->where('name', 'like', "%{$search}%"));
@@ -169,6 +183,8 @@ class TrainingClassController extends Controller
             'class_number' => $trainingClass->class_number,
             'course' => $trainingClass->course?->name ?: 'Not assigned',
             'provider' => $trainingClass->provider?->name ?: 'Not assigned',
+            'proctor' => $trainingClass->proctor?->display_name ?: 'Not assigned',
+            'instructor' => $trainingClass->instructor?->display_name ?: 'Not assigned',
             'starts_at' => $trainingClass->starts_at?->format('M j, Y H:i') ?: 'Not scheduled',
             'ends_at' => $trainingClass->ends_at?->format('M j, Y H:i') ?: '—',
             'status' => $trainingClass->status->value,

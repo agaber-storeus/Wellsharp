@@ -17,9 +17,11 @@ class OperationalReportingService
     public function accessibleClasses(User $user): Collection
     {
         return TrainingClass::query()
+            ->visibleTo($user)
             ->with([
                 'course.level',
-                'staffAssignments',
+                'proctor.profile',
+                'instructor.profile',
                 'enrollments',
                 'examSchedules.exam.subject',
                 'examSchedules.attempts.student.profile',
@@ -152,9 +154,31 @@ class OperationalReportingService
         return $numbers->isEmpty() ? '0%' : number_format($numbers->avg(), 2).'%';
     }
 
+    /**
+     * Scoped to the attempt's own Class assignment - a Proctor/Instructor may
+     * only view/release scores for a Class they are assigned to, matching the
+     * same ownership rule enforced by TrainingClassPolicy/EnrollmentPolicy.
+     */
     public function canViewAttempt(ExamAttempt $attempt, User $user): bool
     {
-        return $user->isActive() && ($user->hasRole('proctor') || $user->hasRole('instructor'));
+        if (! $user->isActive()) {
+            return false;
+        }
+
+        $trainingClass = $attempt->schedule?->trainingClass;
+        if (! $trainingClass) {
+            return false;
+        }
+
+        if ($user->hasRole('proctor')) {
+            return $trainingClass->proctor_id === $user->getKey();
+        }
+
+        if ($user->hasRole('instructor')) {
+            return $trainingClass->instructor_id === $user->getKey();
+        }
+
+        return false;
     }
 
     /** @return array<string, mixed> */

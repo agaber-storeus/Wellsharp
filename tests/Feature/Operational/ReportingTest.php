@@ -3,7 +3,6 @@
 namespace Tests\Feature\Operational;
 
 use App\Actions\Certificates\IssueCertificateAction;
-use App\Models\ClassStaffAssignment;
 use App\Models\Course;
 use App\Models\Exam;
 use App\Models\ExamAttempt;
@@ -45,7 +44,7 @@ class ReportingTest extends TestCase
             ->assertSee('Approved barrier controls');
     }
 
-    public function test_release_finalizes_current_attempt_for_any_operational_staff_user(): void
+    public function test_release_finalizes_current_attempt_for_the_assigned_proctor_only(): void
     {
         $fixture = $this->fixture();
         $otherProctor = User::factory()->proctor()->create();
@@ -62,9 +61,11 @@ class ReportingTest extends TestCase
         $this->assertSame($fixture['proctor']->id, $released->released_by_user_id);
         $this->assertDatabaseHas('audit_events', ['action' => 'exam_attempt.released']);
 
+        // IDOR regression: a Proctor not assigned to this attempt's Class must be
+        // rejected, not merely omitted from a list - see BUSINESS_RULES.md ownership rule.
         $this->actingAs($otherProctor)->withSession(['auth.session_version' => $otherProctor->session_version])
             ->get(route('proctor.analytics.attempts.show', $fixture['inProgressAttempt']))
-            ->assertOk();
+            ->assertForbidden();
     }
 
     /** @return array{proctor: User, failedAttempt: ExamAttempt, passedAttempt: ExamAttempt, inProgressAttempt: ExamAttempt} */
@@ -75,8 +76,7 @@ class ReportingTest extends TestCase
         $student = User::factory()->student()->create();
         $provider = TrainingProvider::factory()->create(['name' => 'Reporting Provider']);
         $course = Course::factory()->create(['name' => 'Reporting Subject']);
-        $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'class_number' => 'REPORT-001']);
-        ClassStaffAssignment::create(['class_id' => $class->id, 'user_id' => $proctor->id, 'assignment_role' => 'proctor', 'status' => 'active', 'assigned_at' => now()]);
+        $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'proctor_id' => $proctor->id, 'class_number' => 'REPORT-001']);
         $group = Group::create(['name' => 'Reporting Group', 'status' => 'active']);
         $exam = Exam::create(['course_id' => $course->id, 'name' => 'Drilling Assessment', 'passing_score' => 50, 'retake_score' => 40, 'question_order_mode' => 'static', 'status' => 'published']);
         $question = Question::create(['course_id' => $course->id, 'question_text' => 'Which barrier is approved?', 'type' => 'mcq', 'difficulty' => 'easy', 'default_marks' => 1, 'is_active' => true]);

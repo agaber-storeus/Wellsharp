@@ -5,7 +5,6 @@ namespace Tests\Feature\Operational;
 use App\Enums\CertificateDocumentType;
 use App\Models\Certificate;
 use App\Models\CertificateDocument;
-use App\Models\ClassStaffAssignment;
 use App\Models\Course;
 use App\Models\Exam;
 use App\Models\ExamAttempt;
@@ -79,8 +78,7 @@ class ProctorDataBackedSectionsTest extends TestCase
         $student = User::factory()->student()->create();
         $provider = TrainingProvider::factory()->create(['name' => 'Assigned Provider']);
         $course = Course::factory()->create(['name' => 'Assigned Subject']);
-        $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'class_number' => 'CERT-001']);
-        ClassStaffAssignment::create(['class_id' => $class->id, 'user_id' => $proctor->id, 'assignment_role' => 'proctor', 'status' => 'active', 'assigned_at' => now()]);
+        $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'proctor_id' => $proctor->id, 'class_number' => 'CERT-001']);
         $group = Group::create(['name' => 'Certificate Group', 'status' => 'active']);
         $exam = Exam::create(['course_id' => $course->id, 'name' => 'Assigned Exam', 'passing_score' => 70, 'retake_score' => 60, 'question_order_mode' => 'static', 'status' => 'published']);
         $schedule = ExamSchedule::create(['exam_id' => $exam->id, 'group_id' => $group->id, 'training_class_id' => $class->id, 'start_date' => now()->subDays(3)->toDateString(), 'end_date' => now()->subDay()->toDateString(), 'duration_minutes' => 60, 'status' => 'completed']);
@@ -117,8 +115,7 @@ class ProctorDataBackedSectionsTest extends TestCase
         $student = User::factory()->student()->create();
         $provider = TrainingProvider::factory()->create(['name' => 'Assigned Provider']);
         $course = Course::factory()->create(['name' => 'Assigned Subject']);
-        $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'class_number' => 'CERT-002']);
-        ClassStaffAssignment::create(['class_id' => $class->id, 'user_id' => $proctor->id, 'assignment_role' => 'proctor', 'status' => 'active', 'assigned_at' => now()]);
+        $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'proctor_id' => $proctor->id, 'class_number' => 'CERT-002']);
         $group = Group::create(['name' => 'Certificate Group 2', 'status' => 'active']);
         $exam = Exam::create(['course_id' => $course->id, 'name' => 'Assigned Exam', 'passing_score' => 70, 'retake_score' => 60, 'question_order_mode' => 'static', 'status' => 'published']);
         $schedule = ExamSchedule::create(['exam_id' => $exam->id, 'group_id' => $group->id, 'training_class_id' => $class->id, 'start_date' => now()->subDays(3)->toDateString(), 'end_date' => now()->subDay()->toDateString(), 'duration_minutes' => 60, 'status' => 'completed']);

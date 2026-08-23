@@ -68,7 +68,7 @@ class DemoDataSeeder extends Seeder
             $groups = $this->seedGroups($users['students'], $users['admin']);
             $exams = $this->seedExams($courses, $questions, $users['admin']);
             $this->seedExamGroupAssignments($exams, $groups, $users['admin']);
-            $classes = $this->seedClasses($courses, $providers);
+            $classes = $this->seedClasses($courses, $providers, $users);
             $schedules = $this->seedExamSchedules($exams, $groups, $classes, $users['admin'], $users);
 
             $this->seedEnrollments($classes, $users['students']);
@@ -605,9 +605,10 @@ class DemoDataSeeder extends Seeder
 
     /** @param array<int, Course> $courses
      * @param  array<int, TrainingProvider>  $providers
+     * @param  array{admin: User, proctors: array<int, User>, instructors: array<int, User>, students: array<int, User>}  $users
      * @return array<int, TrainingClass>
      */
-    private function seedClasses(array $courses, array $providers): array
+    private function seedClasses(array $courses, array $providers, array $users): array
     {
         $classes = [];
         $number = 0;
@@ -625,6 +626,8 @@ class DemoDataSeeder extends Seeder
                     [
                         'course_id' => $course->getKey(),
                         'training_provider_id' => $providers[$courseIndex % (count($providers) - 1)]->getKey(),
+                        'proctor_id' => $users['proctors'][$number % count($users['proctors'])]->getKey(),
+                        'instructor_id' => $users['instructors'][$number % count($users['instructors'])]->getKey(),
                         'status' => $status,
                         'starts_at' => $startsAt,
                         'ends_at' => $startsAt->copy()->addDays(2),

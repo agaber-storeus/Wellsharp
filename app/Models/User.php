@@ -83,6 +83,16 @@ class User extends Authenticatable
         return $this->hasMany(ClassStaffAssignment::class);
     }
 
+    public function proctoredClasses(): HasMany
+    {
+        return $this->hasMany(TrainingClass::class, 'proctor_id');
+    }
+
+    public function instructedClasses(): HasMany
+    {
+        return $this->hasMany(TrainingClass::class, 'instructor_id');
+    }
+
     public function groupMemberships(): HasMany
     {
         return $this->hasMany(GroupMembership::class, 'student_user_id');

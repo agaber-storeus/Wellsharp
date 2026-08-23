@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Operational;
 use App\Actions\Classes\UpdateEnrollmentSkillsScoreAction;
 use App\Actions\Users\UpdateOwnProfileAction;
 use App\Enums\CertificateDocumentType;
-use App\Enums\StaffAssignmentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Operational\UpdateProfileRequest;
 use App\Models\Certificate;
@@ -149,13 +148,13 @@ class NavigationController extends Controller
                 'course_level_id' => $trainingClass->course?->course_level_id,
                 'starts_at' => $trainingClass->starts_at?->toDateString(),
                 'enrollments_count' => (int) $trainingClass->enrollments_count,
-                'staff_roles' => $trainingClass->staffAssignments
-                    ->where('status', StaffAssignmentStatus::Active)
-                    ->pluck('assignment_role')
-                    ->map(fn ($role) => $role->value)
-                    ->unique()
-                    ->values()
-                    ->all(),
+                // Derived from the Class's own proctor_id/instructor_id assignment -
+                // the authoritative ownership fields - rather than the legacy,
+                // unused class_staff_assignments table.
+                'staff_roles' => collect([
+                    $trainingClass->proctor_id ? 'proctor' : null,
+                    $trainingClass->instructor_id ? 'instructor' : null,
+                ])->filter()->values()->all(),
             ];
         })->values();
 
@@ -241,8 +240,8 @@ class NavigationController extends Controller
 
     private function browseRow(TrainingClass $trainingClass, OperationalClassMapPointBuilder $mapPointBuilder): array
     {
-        $instructor = 'Any eligible Instructor';
-        $proctor = 'Any eligible Proctor';
+        $instructor = $trainingClass->instructor?->display_name ?: 'Not assigned';
+        $proctor = $trainingClass->proctor?->display_name ?: 'Not assigned';
         $location = $trainingClass->provider?->address ?: 'Not assigned';
         $retakes = $trainingClass->examSchedules
             ->flatMap(fn ($schedule) => $schedule->attempts)
@@ -272,7 +271,7 @@ class NavigationController extends Controller
             'state' => $state,
             'provider' => $trainingClass->provider?->name ?: 'Not assigned',
             'instructor' => $instructor,
-            'instructor_ids' => [],
+            'instructor_ids' => $trainingClass->instructor_id ? [$trainingClass->instructor_id] : [],
             'location' => $location,
             'subject' => $trainingClass->course->name,
             'course_id' => (string) $trainingClass->course_id,
@@ -463,7 +462,8 @@ class NavigationController extends Controller
     private function accessibleClasses()
     {
         return TrainingClass::query()
-            ->with(['course.languages', 'course.level', 'course.stacks', 'course.supplements', 'provider', 'enrollments.student.profile', 'examSchedules.exam', 'examSchedules.attempts.student.profile', 'examSchedules.attempts.exam'])
+            ->visibleTo(auth()->user())
+            ->with(['course.languages', 'course.level', 'course.stacks', 'course.supplements', 'provider', 'proctor.profile', 'instructor.profile', 'enrollments.student.profile', 'examSchedules.exam', 'examSchedules.attempts.student.profile', 'examSchedules.attempts.exam'])
             ->withCount('enrollments')
             ->latest()
             ->get();

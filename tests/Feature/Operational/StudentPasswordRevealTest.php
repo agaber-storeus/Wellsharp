@@ -96,7 +96,7 @@ class StudentPasswordRevealTest extends TestCase
         $proctor = User::factory()->proctor()->create();
         $student = $this->makeStudentWithPassword('roster-visible-password');
         $course = Course::factory()->create();
-        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id, 'proctor_id' => $proctor->id]);
         Enrollment::create([
             'class_id' => $trainingClass->id,
             'student_user_id' => $student->id,
@@ -125,7 +125,9 @@ class StudentPasswordRevealTest extends TestCase
     {
         $plaintext = 'A1b2C';
         $course = Course::factory()->create();
-        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id, 'proctor_id' => $proctor->id, 'instructor_id' => $instructor->id]);
         $student = $this->makeStudentWithPassword($plaintext);
         Enrollment::create([
             'class_id' => $trainingClass->id,
@@ -134,13 +136,11 @@ class StudentPasswordRevealTest extends TestCase
             'enrolled_at' => now(),
         ]);
 
-        $proctor = User::factory()->proctor()->create();
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->get(route('proctor.classes'))
             ->assertOk()
             ->assertDontSee($plaintext);
 
-        $instructor = User::factory()->instructor()->create();
         $this->actingAs($instructor)->withSession(['auth.session_version' => $instructor->session_version])
             ->get(route('instructor.classes'))
             ->assertOk()

@@ -61,7 +61,7 @@ class IssueCertificateAction
                 'exam.subject',
                 'schedule.group',
                 'schedule.trainingClass.provider',
-                'schedule.trainingClass.provider',
+                'schedule.trainingClass.instructor',
             ]);
             $trainingClass = $attempt->schedule?->trainingClass;
             $issuedAt = now();
@@ -73,7 +73,7 @@ class IssueCertificateAction
                 'exam_schedule_id' => $attempt->exam_schedule_id,
                 'training_class_id' => $trainingClass?->getKey(),
                 'training_provider_id' => $trainingClass?->training_provider_id,
-                'instructor_user_id' => null,
+                'instructor_user_id' => $trainingClass?->instructor_id,
                 'issued_by_user_id' => auth()->id(),
                 'student_name' => $attempt->student?->display_name ?: $attempt->student?->wellsharp_id,
                 'student_email' => $attempt->student?->email,
@@ -84,7 +84,7 @@ class IssueCertificateAction
                 'class_number' => $trainingClass?->class_number,
                 'group_name' => $attempt->schedule?->group?->name,
                 'provider_name' => $trainingClass?->provider?->name,
-                'instructor_name' => null,
+                'instructor_name' => $trainingClass?->instructor?->display_name,
                 // The certificate records the *effective* score - the one that
                 // actually cleared the passing threshold - so the printed
                 // "score / passing score" pair is always internally consistent.

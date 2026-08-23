@@ -11,6 +11,8 @@ use App\Http\Requests\Admin\UpdateExamRequest;
 use App\Models\Course;
 use App\Models\Exam;
 use App\Models\Group;
+use App\Models\Role;
+use App\Models\User;
 use App\Services\AuditRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -113,7 +115,7 @@ class ExamController extends Controller
         $this->authorize('create', Exam::class);
         $questions = $course->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get();
 
-        return view('admin.exams.create', ['course' => $course, 'subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()]);
+        return view('admin.exams.create', ['course' => $course, 'subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get(), ...$this->staffOptions()]);
     }
 
     public function createGlobal(): View
@@ -122,7 +124,7 @@ class ExamController extends Controller
         $course = Course::query()->find(request('course_id'));
         $questions = $course?->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get() ?? collect();
 
-        return view('admin.exams.create', ['course' => $course, 'subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => request('course_id'), 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()]);
+        return view('admin.exams.create', ['course' => $course, 'subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => request('course_id'), 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get(), ...$this->staffOptions()]);
     }
 
     public function store(StoreExamRequest $request, Course $course, SaveExamAction $action): RedirectResponse
@@ -166,7 +168,7 @@ class ExamController extends Controller
         $questions = $course->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get();
         $exam->load('examQuestions');
 
-        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()]);
+        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()] + $this->staffOptions());
     }
 
     public function editGlobal(Exam $exam): View
@@ -176,7 +178,15 @@ class ExamController extends Controller
         $questions = $course->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get();
         $exam->load('examQuestions');
 
-        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()]);
+        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()] + $this->staffOptions());
+    }
+
+    private function staffOptions(): array
+    {
+        return [
+            'proctors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::PROCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
+            'instructors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::INSTRUCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
+        ];
     }
 
     public function update(UpdateExamRequest $request, Course $course, Exam $exam, SaveExamAction $action): RedirectResponse

@@ -40,6 +40,8 @@ class ClassDashboardRosterTest extends TestCase
             'start_date' => now()->addDay()->toDateString(),
             'end_date' => now()->addDays(2)->toDateString(),
             'duration_minutes' => 60,
+            'proctor_id' => $overrides['proctor_id'] ?? User::factory()->proctor()->create()->id,
+            'instructor_id' => $overrides['instructor_id'] ?? User::factory()->instructor()->create()->id,
         ]);
     }
 
@@ -52,7 +54,7 @@ class ClassDashboardRosterTest extends TestCase
         $student->profile()->update(['first_name' => 'Rosa', 'last_name' => 'Enrolled']);
         GroupMembership::create(['group_id' => $group->id, 'student_user_id' => $student->id, 'status' => 'active', 'joined_at' => now()]);
 
-        $schedule = $this->scheduleExamForGroup($course, $group);
+        $schedule = $this->scheduleExamForGroup($course, $group, ['proctor_id' => $proctor->id]);
 
         $this->assertDatabaseHas('enrollments', ['class_id' => $schedule->training_class_id, 'student_user_id' => $student->id, 'status' => 'enrolled']);
 
@@ -72,7 +74,7 @@ class ClassDashboardRosterTest extends TestCase
         $student->profile()->update(['first_name' => 'Isaac', 'last_name' => 'Trainee']);
         GroupMembership::create(['group_id' => $group->id, 'student_user_id' => $student->id, 'status' => 'active', 'joined_at' => now()]);
 
-        $this->scheduleExamForGroup($course, $group);
+        $this->scheduleExamForGroup($course, $group, ['instructor_id' => $instructor->id]);
 
         $this->actingAs($instructor)
             ->withSession(['auth.session_version' => $instructor->session_version])
@@ -96,7 +98,7 @@ class ClassDashboardRosterTest extends TestCase
         $stranger->profile()->update(['first_name' => 'Unrelated', 'last_name' => 'Stranger']);
         GroupMembership::create(['group_id' => $otherGroup->id, 'student_user_id' => $stranger->id, 'status' => 'active', 'joined_at' => now()]);
 
-        $this->scheduleExamForGroup($course, $group);
+        $this->scheduleExamForGroup($course, $group, ['proctor_id' => $proctor->id]);
 
         $response = $this->actingAs($proctor)
             ->withSession(['auth.session_version' => $proctor->session_version])
@@ -134,6 +136,7 @@ class ClassDashboardRosterTest extends TestCase
     public function test_legacy_add_group_schedule_flow_still_populates_the_roster(): void
     {
         $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
         $admin = User::factory()->admin()->create();
         $course = Course::factory()->create(['name' => 'Legacy Flow Course']);
         $exam = Exam::create(['course_id' => $course->id, 'name' => 'Legacy Flow Exam', 'question_order_mode' => 'static', 'status' => 'published']);
@@ -151,6 +154,8 @@ class ClassDashboardRosterTest extends TestCase
                 'start_date' => now()->addDay()->format('Y-m-d'),
                 'end_date' => now()->addDays(2)->format('Y-m-d'),
                 'duration_minutes' => 60,
+                'proctor_id' => $proctor->id,
+                'instructor_id' => $instructor->id,
             ])->assertRedirect();
 
         $schedule = ExamSchedule::where('exam_id', $exam->id)->firstOrFail();
@@ -176,6 +181,7 @@ class ClassDashboardRosterTest extends TestCase
         // pair with no Enrollment rows, bypassing SaveExamScheduleAction entirely.
         $trainingClass = TrainingClass::factory()->create([
             'course_id' => $course->id,
+            'proctor_id' => $proctor->id,
             'status' => ClassStatus::Planned,
             'starts_at' => now()->addDay(),
             'ends_at' => now()->addDays(2),

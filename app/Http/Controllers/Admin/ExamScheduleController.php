@@ -11,6 +11,8 @@ use App\Models\Course;
 use App\Models\Exam;
 use App\Models\ExamSchedule;
 use App\Models\Group;
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -77,7 +79,7 @@ class ExamScheduleController extends Controller
         $exams = Exam::query()->with(['subject'])->withCount('questions')->where('status', 'published')->orderBy('name')->get();
         $groups = Group::query()->where('status', 'active')->orderBy('name')->get();
 
-        return view('admin.exam-schedules.create', ['exams' => $exams, 'groups' => $groups, 'selectedExamId' => request('exam_id') ?: $exam?->id, 'schedule' => new ExamSchedule]);
+        return view('admin.exam-schedules.create', ['exams' => $exams, 'groups' => $groups, 'selectedExamId' => request('exam_id') ?: $exam?->id, 'schedule' => new ExamSchedule, ...$this->staffOptions()]);
     }
 
     public function store(StoreExamScheduleRequest $request, SaveExamScheduleAction $action): RedirectResponse
@@ -94,7 +96,15 @@ class ExamScheduleController extends Controller
         $exams = Exam::query()->with('subject')->withCount('questions')->where('status', 'published')->orderBy('name')->get();
         $groups = Group::query()->where('status', 'active')->orderBy('name')->get();
 
-        return view('admin.exam-schedules.edit', ['exams' => $exams, 'groups' => $groups, 'schedule' => $schedule->load('exam.subject')]);
+        return view('admin.exam-schedules.edit', ['exams' => $exams, 'groups' => $groups, 'schedule' => $schedule->load('exam.subject', 'trainingClass'), ...$this->staffOptions()]);
+    }
+
+    private function staffOptions(): array
+    {
+        return [
+            'proctors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::PROCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
+            'instructors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::INSTRUCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
+        ];
     }
 
     public function update(UpdateExamScheduleRequest $request, ExamSchedule $schedule, SaveExamScheduleAction $action): RedirectResponse

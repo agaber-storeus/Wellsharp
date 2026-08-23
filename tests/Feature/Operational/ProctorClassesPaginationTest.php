@@ -33,6 +33,7 @@ class ProctorClassesPaginationTest extends TestCase
                 'class_number' => 'ONGOING-'.$i,
                 'course_id' => Course::factory()->create(['name' => 'Ongoing Course '.$i])->id,
                 'training_provider_id' => $provider->id,
+                'proctor_id' => $proctor->id,
                 'status' => 'active',
                 'starts_at' => now()->subDay(),
                 'ends_at' => now()->addDays(2),
@@ -44,6 +45,7 @@ class ProctorClassesPaginationTest extends TestCase
                 'class_number' => 'UPCOMING-'.$i,
                 'course_id' => Course::factory()->create(['name' => 'Upcoming Course '.$i])->id,
                 'training_provider_id' => $provider->id,
+                'proctor_id' => $proctor->id,
                 'status' => 'planned',
                 'starts_at' => now()->addDays(5),
                 'ends_at' => now()->addDays(7),
@@ -84,6 +86,7 @@ class ProctorClassesPaginationTest extends TestCase
             'class_number' => 'CAL-SOURCE-001',
             'course_id' => $course->id,
             'training_provider_id' => $provider->id,
+            'proctor_id' => $proctor->id,
             'status' => 'active',
             'starts_at' => now()->addDays(2),
             'ends_at' => now()->addDays(4),
@@ -112,6 +115,7 @@ class ProctorClassesPaginationTest extends TestCase
         $trainingClass = TrainingClass::factory()->create([
             'class_number' => 'TITLE-SOURCE-001',
             'course_id' => $course->id,
+            'proctor_id' => $proctor->id,
             'status' => 'planned',
             'starts_at' => now()->addDay(),
             'ends_at' => now()->addDays(2),
@@ -140,6 +144,7 @@ class ProctorClassesPaginationTest extends TestCase
         $trainingClass = TrainingClass::factory()->create([
             'class_number' => 'TITLE-FALLBACK-001',
             'course_id' => $course->id,
+            'proctor_id' => $proctor->id,
             'status' => 'planned',
             'starts_at' => now()->addDay(),
             'ends_at' => now()->addDays(2),
@@ -161,6 +166,7 @@ class ProctorClassesPaginationTest extends TestCase
         $active = TrainingClass::factory()->create([
             'class_number' => 'CAL-ACTIVE-001',
             'course_id' => Course::factory()->create(['name' => 'Active Calendar Course'])->id,
+            'proctor_id' => $proctor->id,
             'status' => 'active',
             'starts_at' => now()->subDay(),
             'ends_at' => now()->addDays(2),
@@ -168,6 +174,7 @@ class ProctorClassesPaginationTest extends TestCase
         $planned = TrainingClass::factory()->create([
             'class_number' => 'CAL-PLANNED-001',
             'course_id' => Course::factory()->create(['name' => 'Planned Calendar Course'])->id,
+            'proctor_id' => $proctor->id,
             'status' => 'planned',
             'starts_at' => now()->addDays(5),
             'ends_at' => now()->addDays(7),
@@ -175,6 +182,7 @@ class ProctorClassesPaginationTest extends TestCase
         $completed = TrainingClass::factory()->create([
             'class_number' => 'CAL-COMPLETED-001',
             'course_id' => Course::factory()->create(['name' => 'Completed Calendar Course'])->id,
+            'proctor_id' => $proctor->id,
             'status' => 'completed',
             'starts_at' => now()->subDays(10),
             'ends_at' => now()->subDays(8),
@@ -182,6 +190,7 @@ class ProctorClassesPaginationTest extends TestCase
         $cancelled = TrainingClass::factory()->create([
             'class_number' => 'CAL-CANCELLED-001',
             'course_id' => Course::factory()->create(['name' => 'Cancelled Calendar Course'])->id,
+            'proctor_id' => $proctor->id,
             'status' => 'cancelled',
             'starts_at' => now()->subDays(20),
             'ends_at' => now()->subDays(18),

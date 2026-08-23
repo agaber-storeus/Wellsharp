@@ -144,6 +144,7 @@ class SkillsScoreEffectiveScoreTest extends TestCase
     {
         $data = $this->makeSubmittedAttempt(passingScore: 70, correctCount: 5);
         $proctor = User::factory()->proctor()->create();
+        $data['trainingClass']->update(['proctor_id' => $proctor->id]);
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version]);
 
         $this->postJson(route('proctor.enrollments.skills-score', $data['enrollment']), ['skills_score' => 0])
@@ -170,6 +171,7 @@ class SkillsScoreEffectiveScoreTest extends TestCase
     {
         $data = $this->makeSubmittedAttempt(passingScore: 70, correctCount: 3); // 30%
         $proctor = User::factory()->proctor()->create();
+        $data['trainingClass']->update(['proctor_id' => $proctor->id]);
 
         $response = $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->postJson(route('proctor.enrollments.skills-score', $data['enrollment']), ['skills_score' => 75])
@@ -198,6 +200,7 @@ class SkillsScoreEffectiveScoreTest extends TestCase
         $this->assertNotNull($certificate);
 
         $proctor = User::factory()->proctor()->create();
+        $data['trainingClass']->update(['proctor_id' => $proctor->id]);
         $response = $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->postJson(route('proctor.enrollments.skills-score', $data['enrollment']), ['skills_score' => 50])
             ->assertOk();
@@ -227,6 +230,7 @@ class SkillsScoreEffectiveScoreTest extends TestCase
     {
         $data = $this->makeSubmittedAttempt(passingScore: 70, correctCount: 9); // 90%
         $proctor = User::factory()->proctor()->create();
+        $data['trainingClass']->update(['proctor_id' => $proctor->id]);
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version]);
 
         // No override yet: raw 90% already passes, so the first Skills Score
@@ -259,6 +263,7 @@ class SkillsScoreEffectiveScoreTest extends TestCase
     {
         $data = $this->makeSubmittedAttempt(passingScore: 70, correctCount: 3); // 30%
         $proctor = User::factory()->proctor()->create();
+        $data['trainingClass']->update(['proctor_id' => $proctor->id]);
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->postJson(route('proctor.enrollments.skills-score', $data['enrollment']), ['skills_score' => 75])
             ->assertOk();
@@ -283,6 +288,7 @@ class SkillsScoreEffectiveScoreTest extends TestCase
     {
         $data = $this->makeSubmittedAttempt(passingScore: 70, correctCount: 9); // 90%
         $proctor = User::factory()->proctor()->create();
+        $data['trainingClass']->update(['proctor_id' => $proctor->id]);
         $before = $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->postJson(route('proctor.enrollments.skills-score', $data['enrollment']), ['skills_score' => 50])
             ->assertOk();
@@ -307,6 +313,7 @@ class SkillsScoreEffectiveScoreTest extends TestCase
         $admin = User::factory()->admin()->create();
         $proctor = User::factory()->proctor()->create();
         $instructor = User::factory()->instructor()->create();
+        $data['trainingClass']->update(['proctor_id' => $proctor->id, 'instructor_id' => $instructor->id]);
 
         // Admin has no dedicated `admin.enrollments.skills-score` route today
         // (this endpoint only exists under the Proctor/Instructor operational
@@ -380,6 +387,7 @@ class SkillsScoreEffectiveScoreTest extends TestCase
     {
         $data = $this->makeSubmittedAttempt(passingScore: 70, correctCount: 5);
         $proctor = User::factory()->proctor()->create();
+        $data['trainingClass']->update(['proctor_id' => $proctor->id]);
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version]);
 
         $this->postJson(route('proctor.enrollments.skills-score', $data['enrollment']), ['skills_score' => 70])->assertOk();

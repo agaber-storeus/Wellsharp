@@ -88,7 +88,8 @@ class OperationalClassMapPointBuilder
                     ['Course Level:', $trainingClass->course->level?->name ?: 'Not assigned'],
                     ['Stacks Offered:', $trainingClass->course->stacks->pluck('name')->join(', ') ?: 'None'],
                     ['Supplement Offered:', $trainingClass->course->supplements->pluck('name')->join(', ') ?: 'None'],
-                    ['Instructor:', 'Any eligible Instructor'],
+                    ['Proctor:', $trainingClass->proctor?->display_name ?: 'Not assigned'],
+                    ['Instructor:', $trainingClass->instructor?->display_name ?: 'Not assigned'],
                     ['Class Language:', $trainingClass->course->languages->pluck('name')->join(', ') ?: 'Not assigned'],
                 ],
                 'codeRows' => $trainingClass->enrollments

@@ -2,8 +2,6 @@
 
 namespace Tests\Feature\Operational;
 
-use App\Enums\StaffAssignmentRole;
-use App\Models\ClassStaffAssignment;
 use App\Models\Course;
 use App\Models\CourseLevel;
 use App\Models\Enrollment;
@@ -34,11 +32,15 @@ class AnalyticsDashboardTest extends TestCase
         $foundationCourse = Course::factory()->create(['name' => 'Foundation Drilling', 'course_level_id' => $foundation->id]);
         $advancedCourse = Course::factory()->create(['name' => 'Advanced Drilling', 'course_level_id' => $advanced->id]);
 
-        $classWithInstructor = TrainingClass::factory()->create(['course_id' => $foundationCourse->id, 'starts_at' => now()->subWeeks(2), 'ends_at' => now()->subWeeks(2)->addDay()]);
-        ClassStaffAssignment::create(['class_id' => $classWithInstructor->id, 'user_id' => $instructorUser->id, 'assignment_role' => StaffAssignmentRole::Instructor, 'status' => 'active', 'assigned_at' => now()]);
+        // Every Class must have exactly one Proctor and one Instructor now, and this
+        // analytics dataset is scoped to the querying Proctor's own Classes - so both
+        // fixture Classes are assigned to the same $proctor (different Instructors)
+        // to keep both visible while still covering two different course levels.
+        $classWithInstructor = TrainingClass::factory()->create(['course_id' => $foundationCourse->id, 'proctor_id' => $proctor->id, 'instructor_id' => $instructorUser->id, 'starts_at' => now()->subWeeks(2), 'ends_at' => now()->subWeeks(2)->addDay()]);
 
-        $classWithProctor = TrainingClass::factory()->create(['course_id' => $advancedCourse->id, 'starts_at' => now()->subWeeks(6), 'ends_at' => now()->subWeeks(6)->addDay()]);
-        ClassStaffAssignment::create(['class_id' => $classWithProctor->id, 'user_id' => $proctor->id, 'assignment_role' => StaffAssignmentRole::Proctor, 'status' => 'active', 'assigned_at' => now()]);
+        // Explicit null instructor_id: a legacy/partially-assigned Class (DB
+        // column stays nullable), to keep covering the "proctor only" staff_roles case.
+        $classWithProctor = TrainingClass::factory()->create(['course_id' => $advancedCourse->id, 'proctor_id' => $proctor->id, 'instructor_id' => null, 'starts_at' => now()->subWeeks(6), 'ends_at' => now()->subWeeks(6)->addDay()]);
 
         $response = $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             // Filters in the URL only bootstrap Alpine's initial state now — the server always embeds
@@ -61,7 +63,7 @@ class AnalyticsDashboardTest extends TestCase
         $advancedRow = collect($rows)->firstWhere('course_level_id', $advanced->id);
         $this->assertNotNull($foundationRow, 'The foundation-level class should be present in the embedded dataset.');
         $this->assertNotNull($advancedRow, 'The advanced-level class should be present in the embedded dataset.');
-        $this->assertSame(['instructor'], $foundationRow['staff_roles']);
+        $this->assertSame(['proctor', 'instructor'], $foundationRow['staff_roles']);
         $this->assertSame(['proctor'], $advancedRow['staff_roles']);
 
         // Query-string filters are bootstrapped into Alpine's initial state, not applied server-side.
@@ -118,7 +120,7 @@ class AnalyticsDashboardTest extends TestCase
 
         for ($i = 1; $i <= 3; $i++) {
             $course = Course::factory()->create(['name' => "Scale Course {$i}"]);
-            $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'class_number' => "SCALE-00{$i}"]);
+            $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'proctor_id' => $proctor->id, 'class_number' => "SCALE-00{$i}"]);
             $group = Group::create(['name' => "Scale Group {$i}", 'status' => 'active']);
             $exam = Exam::create(['course_id' => $course->id, 'name' => "Scale Exam {$i}", 'passing_score' => 70, 'retake_score' => 60, 'question_order_mode' => 'static', 'status' => 'published']);
             $schedule = ExamSchedule::create(['exam_id' => $exam->id, 'group_id' => $group->id, 'training_class_id' => $class->id, 'start_date' => now()->subDay()->toDateString(), 'end_date' => now()->addDay()->toDateString(), 'duration_minutes' => 60, 'status' => 'completed']);
@@ -148,7 +150,7 @@ class AnalyticsDashboardTest extends TestCase
         $student = User::factory()->student()->create();
         $provider = TrainingProvider::factory()->create(['name' => 'Analytics Provider']);
         $course = Course::factory()->create(['name' => 'Analytics Subject']);
-        $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'class_number' => 'ANALYTICS-001']);
+        $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'proctor_id' => $proctor->id, 'class_number' => 'ANALYTICS-001']);
         Enrollment::create(['class_id' => $class->id, 'student_user_id' => $student->id, 'status' => 'enrolled', 'enrolled_at' => now()]);
         $group = Group::create(['name' => 'Analytics Group', 'status' => 'active']);
         $exam = Exam::create(['course_id' => $course->id, 'name' => 'Analytics Exam', 'passing_score' => 70, 'retake_score' => 60, 'question_order_mode' => 'static', 'status' => 'published']);

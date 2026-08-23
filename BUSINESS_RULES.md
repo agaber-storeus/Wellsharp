@@ -101,7 +101,7 @@ Confidence: CONFIRMED behavior; flag as a **risk** if a future request assumes s
 
 ## Certificates
 
-**BR-028** — A certificate is only ever created for a `submitted` attempt that scores `passed = true` when re-scored at issuance time; failing/unsubmitted attempts never produce one.
+**BR-028** — A certificate is only ever created for a `submitted` attempt whose **effective score** (BR-035) is `>=` the exam's passing score when re-evaluated at issuance time; failing/unsubmitted attempts never produce one.
 Source: `IssueCertificateAction::execute()`.
 
 **BR-029** — Certificate issuance is idempotent per attempt: `exam_attempt_id` is unique on `certificates`; a second issuance attempt for the same attempt returns the existing certificate (and ensures its 3 documents exist) rather than duplicating.
@@ -113,14 +113,20 @@ Source: `IssueCertificateAction::ensureDocuments()`, `CertificateDocumentType` e
 **BR-031** — Certificates carry a **denormalized snapshot** of student name/email/ID, exam name/code, subject name, class number, group name, provider name at issuance time — later renames of the student/exam/etc. do not retroactively change an issued certificate.
 Source: `certificates` migration columns, `IssueCertificateAction::execute()`.
 
-**BR-032** — Certificate expiration is hardcoded to `issued_at + 2 years`; not configurable per course/provider today.
-Source: `IssueCertificateAction::execute()` (`$issuedAt->copy()->addYears(2)`).
+**BR-032** — Certificate expiration is `issued_at + exams.certificate_validity_years` (nullable, per-Exam; falls back to the project's original 2-year default when an Exam has none configured). Expiration is computed once, at issuance, and snapshotted onto the certificate like the rest of BR-031 — changing an Exam's `certificate_validity_years` afterward never alters certificates already issued under the old value.
+Source: `IssueCertificateAction::execute()`/`expirationDate()` (`$issuedAt->copy()->addYears($validityYears ?? 2)`), `exams.certificate_validity_years` (migration `2026_08_23_000001`).
 
 **BR-033** — Certificate revocation (`CertificateStatus::Revoked`, `revoked_at`, `revocation_reason` columns) has no implementing workflow — schema-ready, feature-absent. Treat any "revoke a certificate" request as new feature work.
 Source: absence of any Action/controller writing `CertificateStatus::Revoked`; confirmed against README "Not implemented yet" list.
 
 **BR-034** — Certificate viewing: Admin can view all; Student can view only their own; active Proctor/Instructor can view certificates within their operational scope.
 Source: `docs/architecture.md` §Security boundaries.
+
+**BR-035** — `enrollments.skills_score` is a **manual override of the trainee's final/effective percentage**, not a second/parallel score. `effective_score = skills_score ?? knowledge_exam_score`; `passed = effective_score >= exam.passing_score`. It overrides in both directions — it can turn a failing Knowledge Exam into a pass, or a passing one into a fail. `null` means "no override, use the Knowledge Exam result"; it is a distinct, legal value from `0` (a real override). The raw Knowledge Exam result (`exam_attempts.score`/`passed`) is never modified by an override.
+Source: `App\Services\EffectiveScoreService::resolve()`, the single canonical implementation of this formula.
+
+**BR-036** — Setting or clearing a Skills Score reconciles certificate eligibility through the real `IssueCertificateAction` (never an ad-hoc write): `App\Actions\Classes\UpdateEnrollmentSkillsScoreAction` re-runs it against the enrollment's latest attempt after every change. An override that newly clears the passing threshold issues a certificate that didn't exist before. An override that drops a trainee below the threshold does **not** retract or modify an already-issued certificate — certificates are immutable snapshots once issued (BR-031) and this domain has no implemented revocation workflow (BR-033), so an already-issued certificate is left exactly as it was; only *future* eligibility decisions (e.g. a later re-issuance attempt) see the trainee as failing.
+Source: `App\Actions\Classes\UpdateEnrollmentSkillsScoreAction`, `IssueCertificateAction::execute()`.
 
 ## Question Bank
 

@@ -244,6 +244,7 @@ class ExamController extends Controller
             'subject' => $exam->subject?->name,
             'passing_score' => $exam->passing_score,
             'retake_score' => $exam->retake_score,
+            'certificate_validity_years' => $exam->certificate_validity_years,
             'questions_count' => $exam->questions_count,
             'schedules_count' => $exam->schedules_count,
             'question_order_mode_label' => $exam->question_order_mode->label(),

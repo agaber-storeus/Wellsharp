@@ -5,11 +5,15 @@ namespace App\Services;
 use App\Enums\CertificateDocumentType;
 use App\Enums\ClassStatus;
 use App\Models\Certificate;
+use App\Models\Enrollment;
+use App\Models\ExamAttempt;
 use App\Models\TrainingClass;
 use Illuminate\Support\Collection;
 
 class OperationalClassMapPointBuilder
 {
+    public function __construct(private readonly EffectiveScoreService $effectiveScore) {}
+
     /** @param Collection<int, TrainingClass> $classes */
     public function build(Collection $classes): array
     {
@@ -66,30 +70,8 @@ class OperationalClassMapPointBuilder
                         ->sortByDesc('attempt_number')
                         ->first();
                     $certificate = $attempt ? $certificates->get($attempt->id) : null;
-                    $documentsByType = $certificate?->documents->keyBy(fn ($document) => $document->type->value);
-                    $frontDocument = $documentsByType?->get(CertificateDocumentType::CompletionCardFront->value);
-                    $backDocument = $documentsByType?->get(CertificateDocumentType::CompletionCardBack->value);
-                    $state = $attempt ? match ($attempt->status->value) {
-                        'submitted' => 'complete',
-                        'expired' => 'noshow',
-                        default => 'inprogress',
-                    } : 'notstarted';
 
-                    return [
-                        'name' => $enrollment->student?->display_name ?: $enrollment->student?->wellsharp_id ?: 'Unknown trainee',
-                        'skillsScore' => $enrollment->skills_score,
-                        'skillsScoreUrl' => route(auth()->user()->hasRole('proctor') ? 'proctor.enrollments.skills-score' : 'instructor.enrollments.skills-score', $enrollment),
-                        'score' => $attempt && $attempt->score !== null ? (string) $attempt->score : null,
-                        'state' => $state,
-                        'attemptNumber' => $attempt?->attempt_number,
-                        'releasedAt' => $attempt?->released_at?->format('Y-m-d H:i'),
-                        'reportUrl' => $attempt ? route(auth()->user()->hasRole('proctor') ? 'proctor.analytics.attempts.summary' : 'instructor.analytics.attempts.summary', $attempt) : null,
-                        'releaseUrl' => $attempt ? route(auth()->user()->hasRole('proctor') ? 'proctor.analytics.attempts.release' : 'instructor.analytics.attempts.release', $attempt) : null,
-                        'certificateDownloadUrl' => $frontDocument ? route('certificates.documents.download', [$certificate, $frontDocument]) : null,
-                        'certificateFrontUrl' => $frontDocument ? route('certificates.documents.standalone', [$certificate, $frontDocument]) : null,
-                        'certificateBackUrl' => $backDocument ? route('certificates.documents.standalone', [$certificate, $backDocument]) : null,
-                        'certificateNumber' => $certificate?->certificate_number,
-                    ];
+                    return $this->scoreRow($enrollment, $attempt, $certificate);
                 })->values()->all();
 
             return [$trainingClass->public_id => [
@@ -131,6 +113,80 @@ class OperationalClassMapPointBuilder
                 ],
             ]];
         })->all();
+    }
+
+    /**
+     * Builds one Class Dashboard roster row for a single Enrollment - the
+     * authoritative shape both buildModalData() (bulk, preloaded attempts and
+     * certificates to avoid N+1) and scoreRowForEnrollment() (single
+     * Enrollment, used after a Skills Score save so the frontend can update
+     * the row's Certificate cell without a page reload) build from, so the
+     * two paths can never drift into different shapes.
+     */
+    private function scoreRow(Enrollment $enrollment, ?ExamAttempt $attempt, ?Certificate $certificate): array
+    {
+        $state = $attempt ? match ($attempt->status->value) {
+            'submitted' => 'complete',
+            'expired' => 'noshow',
+            default => 'inprogress',
+        } : 'notstarted';
+        $effective = ($attempt && $attempt->score !== null)
+            ? $this->effectiveScore->resolve((float) $attempt->score, $enrollment->skills_score, (int) ($attempt->exam?->passing_score ?? 0))
+            : null;
+        $passed = $effective['passed'] ?? false;
+
+        // A Certificate row is never deleted once issued (BR-031/BR-033), and a
+        // Skills Score override that later drops a trainee below the passing
+        // score never retracts it - but the Class Dashboard's Certificate
+        // column must always reflect the *current* effective result, so an
+        // already-issued Certificate is only surfaced here while the
+        // enrollment currently passes. It stays intact in the database either
+        // way for audit/history and reappears automatically once the trainee
+        // passes again (e.g. the override is raised or cleared).
+        $currentCertificate = $passed ? $certificate : null;
+        $documentsByType = $currentCertificate?->documents->keyBy(fn ($document) => $document->type->value);
+        $frontDocument = $documentsByType?->get(CertificateDocumentType::CompletionCardFront->value);
+        $backDocument = $documentsByType?->get(CertificateDocumentType::CompletionCardBack->value);
+        $isProctor = auth()->user()->hasRole('proctor');
+
+        return [
+            'name' => $enrollment->student?->display_name ?: $enrollment->student?->wellsharp_id ?: 'Unknown trainee',
+            'skillsScore' => $enrollment->skills_score,
+            'skillsScoreUrl' => route($isProctor ? 'proctor.enrollments.skills-score' : 'instructor.enrollments.skills-score', $enrollment),
+            'score' => $attempt && $attempt->score !== null ? (string) $attempt->score : null,
+            'effectiveScore' => $effective['score'] ?? null,
+            'passed' => $effective['passed'] ?? null,
+            'overridden' => $effective['overridden'] ?? false,
+            'state' => $state,
+            'attemptNumber' => $attempt?->attempt_number,
+            'releasedAt' => $attempt?->released_at?->format('Y-m-d H:i'),
+            'reportUrl' => $attempt ? route($isProctor ? 'proctor.analytics.attempts.summary' : 'instructor.analytics.attempts.summary', $attempt) : null,
+            'releaseUrl' => $attempt ? route($isProctor ? 'proctor.analytics.attempts.release' : 'instructor.analytics.attempts.release', $attempt) : null,
+            'certificateDownloadUrl' => $frontDocument ? route('certificates.documents.download', [$currentCertificate, $frontDocument]) : null,
+            'certificateFrontUrl' => $frontDocument ? route('certificates.documents.standalone', [$currentCertificate, $frontDocument]) : null,
+            'certificateBackUrl' => $backDocument ? route('certificates.documents.standalone', [$currentCertificate, $backDocument]) : null,
+            'certificateNumber' => $currentCertificate?->certificate_number,
+        ];
+    }
+
+    /**
+     * The single-Enrollment counterpart of scoreRow(), used to return the
+     * authoritative roster row state right after a Skills Score save so the
+     * Class Dashboard's Certificate cell can update reactively (Alpine.js)
+     * without a page reload or a second per-student request. Reuses
+     * EffectiveScoreService::latestAttemptFor() rather than re-deriving the
+     * "latest attempt_number wins" correlation a third time.
+     */
+    public function scoreRowForEnrollment(Enrollment $enrollment): array
+    {
+        $enrollment->loadMissing('student.profile');
+        $attempt = $this->effectiveScore->latestAttemptFor($enrollment);
+        $attempt?->loadMissing('exam');
+        $certificate = $attempt
+            ? Certificate::query()->with('documents')->where('exam_attempt_id', $attempt->id)->first()
+            : null;
+
+        return $this->scoreRow($enrollment, $attempt, $certificate);
     }
 
     private function dateRange(TrainingClass $trainingClass): string

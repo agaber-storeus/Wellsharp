@@ -276,6 +276,53 @@ class BusinessDomainTest extends TestCase
         $this->assertDatabaseMissing('exams', ['name' => 'Invalid Exam']);
     }
 
+    public function test_admin_can_set_and_update_certificate_validity_years_on_an_exam(): void
+    {
+        $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Validity question', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'answer']);
+
+        $this->post(route('admin.courses.exams.store', $this->subject), [
+            'name' => 'Validity Exam', 'code' => 'VALIDITY-001', 'question_order_mode' => 'static', 'status' => 'draft',
+            'certificate_validity_years' => 3,
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertRedirect();
+        $exam = Exam::where('code', 'VALIDITY-001')->firstOrFail();
+        $this->assertSame(3, $exam->certificate_validity_years);
+
+        $this->put(route('admin.courses.exams.update', [$this->subject, $exam]), [
+            'name' => 'Validity Exam', 'question_order_mode' => 'static', 'status' => 'draft',
+            'certificate_validity_years' => 5,
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertRedirect();
+        $this->assertSame(5, $exam->fresh()->certificate_validity_years);
+
+        // Leaving it blank clears it back to "use the default" rather than
+        // silently keeping a stale value, matching how passing_score/retake_score behave.
+        $this->put(route('admin.courses.exams.update', [$this->subject, $exam]), [
+            'name' => 'Validity Exam', 'question_order_mode' => 'static', 'status' => 'draft',
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertRedirect();
+        $this->assertNull($exam->fresh()->certificate_validity_years);
+    }
+
+    public function test_certificate_validity_years_rejects_out_of_range_values(): void
+    {
+        $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Range question', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'answer']);
+
+        $this->post(route('admin.courses.exams.store', $this->subject), [
+            'name' => 'Zero Validity Exam', 'question_order_mode' => 'static', 'status' => 'draft',
+            'certificate_validity_years' => 0,
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertSessionHasErrors('certificate_validity_years');
+        $this->assertDatabaseMissing('exams', ['name' => 'Zero Validity Exam']);
+
+        $this->post(route('admin.courses.exams.store', $this->subject), [
+            'name' => 'Huge Validity Exam', 'question_order_mode' => 'static', 'status' => 'draft',
+            'certificate_validity_years' => 100,
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertSessionHasErrors('certificate_validity_years');
+        $this->assertDatabaseMissing('exams', ['name' => 'Huge Validity Exam']);
+    }
+
     public function test_exam_shuffle_mode_keeps_one_common_question_set_and_each_group_gets_its_own_schedule(): void
     {
         $questions = collect(range(1, 3))->map(fn (int $number) => Question::create([

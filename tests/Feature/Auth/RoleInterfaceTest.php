@@ -141,8 +141,13 @@ class RoleInterfaceTest extends TestCase
             'class_number' => 'MAP-CLASS',
             'training_provider_id' => $provider->id,
             'status' => 'active',
-            'starts_at' => '2026-08-17 00:00:00',
-            'ends_at' => '2026-08-19 10:56:00',
+            // Relative to "now" (not fixed calendar dates) so this class is
+            // still genuinely ongoing whenever the test runs - the operational
+            // dashboard now auto-transitions an active Class whose ends_at has
+            // already passed (SyncDueClassStatuses middleware), so a fixed
+            // past date would flip this fixture to "completed" mid-test.
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->addDay()->setTime(10, 56),
         ]);
         ClassStaffAssignment::factory()->create(['class_id' => $class->id, 'user_id' => $proctor->id, 'assignment_role' => 'proctor']);
 

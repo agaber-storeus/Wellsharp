@@ -50,7 +50,7 @@ Route::get('/home', function () {
 })->middleware(['auth', 'active.user', 'session.version'])->name('home');
 
 foreach (['proctor', 'instructor'] as $operationalRole) {
-    Route::prefix($operationalRole)->name($operationalRole.'.')->middleware(['auth', 'active.user', 'session.version', 'current.role:'.$operationalRole])->group(function (): void {
+    Route::prefix($operationalRole)->name($operationalRole.'.')->middleware(['auth', 'active.user', 'session.version', 'current.role:'.$operationalRole, 'sync.due-classes'])->group(function (): void {
         Route::get('/profile', [NavigationController::class, 'profile'])->name('profile');
         Route::patch('/profile', [NavigationController::class, 'updateProfile'])->name('profile.update');
         Route::get('/analytics', [NavigationController::class, 'analytics'])->name('analytics');

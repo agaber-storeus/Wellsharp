@@ -2,7 +2,7 @@
   <div class="panel-title">{{ $title }}</div>
   <div class="data-panel-body">
     <div class="table-tools"><label>Show <select x-model.number="pageSize" x-on:change="resetPage()"><option value="10">10</option><option value="25">25</option><option value="50">50</option></select> entries</label><label>Search: <input type="search" x-model="search" x-on:input="resetPage()" aria-label="Search {{ strtolower($title) }}" autocomplete="off" /></label></div>
-    <table class="home-data-table {{ !empty($past) ? 'striped' : '' }}">
+    <table class="home-data-table {{ !empty($striped) ? 'striped' : '' }}">
       <thead><tr><th>Class Title</th><th>Class Location</th><th>Start Date</th><th>End Date</th><th>{{ $roleLabel === 'Instructor' ? 'Instructor' : 'Instructor' }}</th><th>{{ !empty($past) ? 'Concluded' : 'Language' }}</th></tr></thead>
       <tbody>
         @forelse($classes as $trainingClass)

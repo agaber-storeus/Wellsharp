@@ -79,7 +79,7 @@ Provider directory; coordinates added later (map display). Status: `ProviderStat
 PK `id`, `public_id`, `class_number` (unique), `course_id` → courses (restrict delete), `training_provider_id` (nullable, null on provider delete), `status` (`ClassStatus`), `starts_at`/`ends_at` (nullable, indexed), `notes`. Later migration adds `actual_started_at`/`actual_ended_at` (manual-control timestamps, distinct from configured `starts_at`/`ends_at`).
 
 ### `enrollments`
-`class_id`, `student_user_id`, `status` (`EnrollmentStatus`), `enrolled_at`, `withdrawn_at`. Unique on `(class_id, student_user_id)` — a student enrolls in a given Class at most once (across its whole lifetime, not per-status).
+`class_id`, `student_user_id`, `status` (`EnrollmentStatus`), `enrolled_at`, `withdrawn_at`. Unique on `(class_id, student_user_id)` — a student enrolls in a given Class at most once (across its whole lifetime, not per-status). A later migration adds `skills_score` (nullable unsigned tinyint) — a manual override of the trainee's final/effective percentage, not an independent score; see BR-035/BR-036.
 
 ### `class_staff_assignments`
 `class_id`, `user_id`, `assignment_role` (`StaffAssignmentRole`: proctor/instructor), `status` (`StaffAssignmentStatus`), `assigned_by_user_id`, `assigned_at`, `ended_at`. Unique on `(class_id, user_id, assignment_role)`. **Not confirmed whether this restricts Class control** — policy layer (`TrainingClassPolicy::control`) allows any active Proctor/Instructor regardless of assignment (see BUSINESS_RULES.md BR-007).
@@ -91,7 +91,7 @@ PK `id`, `public_id`, `class_number` (unique), `course_id` → courses (restrict
 `group_id`, `student_user_id`, `status` (`GroupMembershipStatus`), `joined_at`, `removed_at`. Unique on `(group_id, student_user_id, status)` — allows re-adding a student after removal (new row) since status is part of the unique key.
 
 ### `exams`
-`course_id`, `name`, `code` (nullable unique), `description`, `question_order_mode` (`ExamQuestionOrderMode`: static/shuffle), `status` (`ExamStatus`: draft/published/archived), audit columns. A later migration adds `passing_score` (unsigned tinyint) — referenced throughout scoring (`ExamScoringService`) though not in the original `create_groups_exams_and_schedules_tables` migration shown; confirm exact migration filename if modifying that column directly.
+`course_id`, `name`, `code` (nullable unique), `description`, `question_order_mode` (`ExamQuestionOrderMode`: static/shuffle), `status` (`ExamStatus`: draft/published/archived), audit columns. A later migration adds `passing_score` (unsigned tinyint) — referenced throughout scoring (`ExamScoringService`) though not in the original `create_groups_exams_and_schedules_tables` migration shown; confirm exact migration filename if modifying that column directly. Migration `2026_08_23_000001` adds `certificate_validity_years` (nullable unsigned tinyint) — years a certificate earned from this Exam stays valid; see BR-032.
 
 ### `exam_questions`
 Join of Exam ↔ Question with `display_order` and `points`. Unique on `(exam_id, question_id)` and `(exam_id, display_order)` — no duplicate questions, no duplicate order slots.

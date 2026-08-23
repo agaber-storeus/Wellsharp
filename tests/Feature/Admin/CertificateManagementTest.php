@@ -18,6 +18,7 @@ use App\Models\TrainingClass;
 use App\Models\TrainingProvider;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class CertificateManagementTest extends TestCase
@@ -156,8 +157,81 @@ class CertificateManagementTest extends TestCase
             ->assertSee($data['student']->display_name);
     }
 
+    public function test_certificate_expiration_uses_the_exam_certificate_validity_years(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-15 10:00:00'));
+        try {
+            $data = $this->makeAttempt('submitted', true, certificateValidityYears: 3);
+
+            $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+
+            $this->assertNotNull($certificate);
+            $this->assertTrue($certificate->issued_at->equalTo(Carbon::parse('2026-04-15 10:00:00')));
+            $this->assertTrue($certificate->expires_at->equalTo(Carbon::parse('2029-04-15 10:00:00')));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_certificate_expiration_defaults_to_two_years_when_exam_has_no_validity_configured(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-15 10:00:00'));
+        try {
+            $data = $this->makeAttempt('submitted', true, certificateValidityYears: null);
+
+            $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+
+            $this->assertNotNull($certificate);
+            $this->assertTrue($certificate->expires_at->equalTo(Carbon::parse('2028-04-15 10:00:00')));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_certificate_expiration_correctly_handles_a_leap_day_passing_date(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2028-02-29 09:00:00'));
+        try {
+            $data = $this->makeAttempt('submitted', true, certificateValidityYears: 4);
+
+            $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+
+            // 2028 and 2032 are both leap years, so a validity of exactly 4 years
+            // lands on another Feb 29 rather than drifting to Mar 1 - proof the
+            // calculation uses calendar-aware Carbon arithmetic, not a fixed
+            // "365 * years" day count that would corrupt this date.
+            $this->assertNotNull($certificate);
+            $this->assertTrue($certificate->expires_at->equalTo(Carbon::parse('2032-02-29 09:00:00')));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_changing_an_exams_validity_years_does_not_alter_an_already_issued_certificates_expiration(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-15 10:00:00'));
+        try {
+            $data = $this->makeAttempt('submitted', true, certificateValidityYears: 3);
+            $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+            $this->assertTrue($certificate->expires_at->equalTo(Carbon::parse('2029-04-15 10:00:00')));
+
+            // The exam's duration changes after the certificate was already issued
+            // (e.g. an admin edit). The certificate is a point-in-time snapshot, so
+            // re-issuing for the same attempt must keep returning the original
+            // certificate untouched rather than recomputing its expiration.
+            $data['attempt']->exam->update(['certificate_validity_years' => 5]);
+
+            $reissued = app(IssueCertificateAction::class)->execute($data['attempt']->fresh());
+
+            $this->assertSame($certificate->id, $reissued->id);
+            $this->assertTrue($reissued->expires_at->equalTo(Carbon::parse('2029-04-15 10:00:00')));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     /** @return array{attempt: ExamAttempt, student: User, course: Course, trainingClass: TrainingClass, provider: TrainingProvider} */
-    private function makeAttempt(string $status, bool $correct): array
+    private function makeAttempt(string $status, bool $correct, ?int $certificateValidityYears = null): array
     {
         $this->seedRoles();
         $student = User::factory()->student()->create();
@@ -179,6 +253,7 @@ class CertificateManagementTest extends TestCase
             'code' => 'CERT-EXAM-001',
             'passing_score' => 50,
             'retake_score' => 40,
+            'certificate_validity_years' => $certificateValidityYears,
             'question_order_mode' => 'static',
             'status' => 'published',
         ]);

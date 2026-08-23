@@ -80,6 +80,21 @@
     };
   };
 
+  // Applies a Skills Score save response onto a roster row. Shared by
+  // saveScore() (the Alpine component's own, ephemeral row copy) and the
+  // classModalData cache sync below, so both always receive identical
+  // fields.
+  function applyScoreRowResult(row, data) {
+    row.skillsScore = data.skills_score;
+    row.effectiveScore = data.effective_score;
+    row.passed = data.passed;
+    row.overridden = data.overridden;
+    row.certificateDownloadUrl = data.certificate_download_url;
+    row.certificateFrontUrl = data.certificate_front_url;
+    row.certificateBackUrl = data.certificate_back_url;
+    row.certificateNumber = data.certificate_number;
+  }
+
   window.classScoresTable = function (rows) {
     return {
       rows: rows || [],
@@ -119,8 +134,31 @@
             return;
           }
 
-          row.skillsScore = result.data.skills_score;
+          // The backend is the sole authority on pass/fail and certificate
+          // state (see EffectiveScoreService / UpdateEnrollmentSkillsScoreAction) -
+          // apply its full response onto the row so the Certificate cell,
+          // which is already Alpine-bound to these same row.* properties,
+          // updates reactively without any markup change or page reload.
+          applyScoreRowResult(row, result.data);
           row.editing = false;
+
+          // `row` here belongs to THIS Alpine component's own copy of `rows`,
+          // parsed from a JSON snapshot of classModalData[...].scoreRows taken
+          // when the modal was opened (see classScoresMarkup/attrJson) - it is
+          // a disconnected object, not a reference into that cache. Closing
+          // and reopening the Class Dashboard rebuilds the modal FROM that
+          // cache (getClassConfig -> renderScores -> classScoresMarkup), so
+          // without this, a save would appear to "revert" on reopen even
+          // though the database already has the latest value. Keep the one
+          // canonical cached row in sync instead of leaving it stale.
+          if (currentClassId && classModalData[currentClassId] && classModalData[currentClassId].scoreRows) {
+            var cachedRow = classModalData[currentClassId].scoreRows.find(function (candidate) {
+              return candidate.skillsScoreUrl === row.skillsScoreUrl;
+            });
+            if (cachedRow) {
+              applyScoreRowResult(cachedRow, result.data);
+            }
+          }
         }).catch(function () {
           row.error = "The Skills Score could not be saved. Try again.";
         }).finally(function () {

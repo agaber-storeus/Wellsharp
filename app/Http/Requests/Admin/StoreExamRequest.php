@@ -24,6 +24,7 @@ class StoreExamRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'passing_score' => ['nullable', 'integer', 'min:0', 'max:100'],
             'retake_score' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'certificate_validity_years' => ['nullable', 'integer', 'min:1', 'max:99'],
             'question_order_mode' => ['required', 'in:static,shuffle'],
             'status' => ['required', 'in:draft,published,archived'],
             'question_ids' => ['required', 'array', 'min:1'],

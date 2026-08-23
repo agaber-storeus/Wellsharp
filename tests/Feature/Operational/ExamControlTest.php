@@ -237,6 +237,38 @@ class ExamControlTest extends TestCase
         $this->assertSame(1, AuditEvent::where('action', 'class.automatic_end')->count());
     }
 
+    public function test_visiting_the_proctor_dashboard_auto_transitions_a_due_class_without_the_scheduler(): void
+    {
+        // Reproduces the scenario where `wellsharp:process-exam-schedules` never
+        // ran (no cron/schedule:work configured): a Class whose starts_at has
+        // already arrived must not stay "planned" forever just because nobody
+        // visited it before the request that finally loads the dashboard.
+        $class = TrainingClass::factory()->create(['starts_at' => now()->subMinute(), 'ends_at' => now()->addDay()]);
+        $proctor = User::factory()->proctor()->create();
+
+        $this->assertDatabaseHas('classes', ['id' => $class->id, 'status' => ClassStatus::Planned->value]);
+
+        $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
+            ->get(route('proctor.dashboard'))
+            ->assertOk();
+
+        $this->assertDatabaseHas('classes', ['id' => $class->id, 'status' => ClassStatus::Active->value]);
+        $this->assertDatabaseHas('audit_events', ['action' => 'class.automatic_start']);
+    }
+
+    public function test_visiting_the_instructor_dashboard_auto_transitions_a_due_class_without_the_scheduler(): void
+    {
+        $class = TrainingClass::factory()->active()->create(['starts_at' => now()->subDay(), 'ends_at' => now()->subMinute()]);
+        $instructor = User::factory()->instructor()->create();
+
+        $this->actingAs($instructor)->withSession(['auth.session_version' => $instructor->session_version])
+            ->get(route('instructor.dashboard'))
+            ->assertOk();
+
+        $this->assertDatabaseHas('classes', ['id' => $class->id, 'status' => ClassStatus::Completed->value]);
+        $this->assertDatabaseHas('audit_events', ['action' => 'class.automatic_end']);
+    }
+
     public function test_process_command_leaves_future_classes_planned(): void
     {
         $class = TrainingClass::factory()->create(['starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);

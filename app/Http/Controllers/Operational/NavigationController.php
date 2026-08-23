@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Operational;
 
+use App\Actions\Classes\UpdateEnrollmentSkillsScoreAction;
 use App\Actions\Users\UpdateOwnProfileAction;
 use App\Enums\CertificateDocumentType;
 use App\Enums\StaffAssignmentStatus;
@@ -103,16 +104,39 @@ class NavigationController extends Controller
         return response()->json(['students' => $payload])->header('Cache-Control', 'no-store');
     }
 
-    public function updateSkillsScore(Request $request, Enrollment $enrollment, AuditRecorder $audit): JsonResponse
+    /**
+     * `skills_score` is a manual override of the trainee's final/effective
+     * percentage (see EffectiveScoreService), not a second informational
+     * score - `null` explicitly means "no override, use the Knowledge Exam
+     * result," so it must stay a legal, distinct value from `0` (a real
+     * score) and from omitting the field entirely. Delegates to
+     * UpdateEnrollmentSkillsScoreAction, which is also responsible for
+     * reconciling certificate eligibility through the real certificate
+     * domain rather than this controller touching it directly.
+     */
+    public function updateSkillsScore(Request $request, Enrollment $enrollment, UpdateEnrollmentSkillsScoreAction $action, OperationalClassMapPointBuilder $mapPointBuilder): JsonResponse
     {
         $this->authorize('updateSkillsScore', $enrollment);
-        $validated = $request->validate(['skills_score' => ['required', 'integer', 'min:0', 'max:100']]);
+        $validated = $request->validate(['skills_score' => ['nullable', 'integer', 'min:0', 'max:100']]);
 
-        $before = ['skills_score' => $enrollment->skills_score];
-        $enrollment->update(['skills_score' => $validated['skills_score']]);
-        $audit->record('enrollment.skills_score_updated', $enrollment, $before, ['skills_score' => $enrollment->skills_score]);
+        $enrollment = $action->execute($enrollment, $validated['skills_score'] ?? null);
 
-        return response()->json(['skills_score' => $enrollment->skills_score]);
+        // Returns the same authoritative row shape the Class Dashboard's
+        // initial payload uses, so the roster's Certificate cell can update
+        // reactively via Alpine.js instead of the frontend re-deriving
+        // pass/fail or certificate state itself.
+        $row = $mapPointBuilder->scoreRowForEnrollment($enrollment);
+
+        return response()->json([
+            'skills_score' => $row['skillsScore'],
+            'effective_score' => $row['effectiveScore'],
+            'passed' => $row['passed'],
+            'overridden' => $row['overridden'],
+            'certificate_download_url' => $row['certificateDownloadUrl'],
+            'certificate_front_url' => $row['certificateFrontUrl'],
+            'certificate_back_url' => $row['certificateBackUrl'],
+            'certificate_number' => $row['certificateNumber'],
+        ]);
     }
 
     public function analytics(Request $request, OperationalReportingService $reports): View
@@ -439,7 +463,7 @@ class NavigationController extends Controller
     private function accessibleClasses()
     {
         return TrainingClass::query()
-            ->with(['course.languages', 'course.level', 'course.stacks', 'course.supplements', 'provider', 'enrollments.student.profile', 'examSchedules.exam', 'examSchedules.attempts.student.profile'])
+            ->with(['course.languages', 'course.level', 'course.stacks', 'course.supplements', 'provider', 'enrollments.student.profile', 'examSchedules.exam', 'examSchedules.attempts.student.profile', 'examSchedules.attempts.exam'])
             ->withCount('enrollments')
             ->latest()
             ->get();

@@ -1,6 +1,6 @@
 /* Fixed desktop navigation with a content offset; mobile remains a drawer. */
 .admin-shell{display:block}
-.admin-sidebar{position:fixed;z-index:20;top:0;bottom:0;left:0;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(176,219,237,.35) transparent}
+.admin-sidebar{position:fixed;z-index:20;top:0;bottom:0;left:0;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(230,215,189,.3) transparent}
 .admin-main{margin-left:252px;transition:margin-left .22s cubic-bezier(.2,.7,.2,1)}
 .admin-shell.sidebar-collapsed .admin-sidebar{width:76px;flex-basis:76px}
 .admin-shell.sidebar-collapsed .admin-main{margin-left:76px}

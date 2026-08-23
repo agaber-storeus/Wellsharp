@@ -64,7 +64,7 @@ class SurveyResponsesTest extends TestCase
             ->assertOk()
             ->assertSee('<meta name="robots" content="noindex, nofollow, noarchive">', false)
             ->assertSee('admin-drawer-backdrop', false)
-            ->assertSee('Active subjects')
+            ->assertSee('Class lifecycle')
             ->assertSee('Student Survey Answers')
             ->assertSee('Please rate the classroom facilities.')
             ->assertSee('4: Good')

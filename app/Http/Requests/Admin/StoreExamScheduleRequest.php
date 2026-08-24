@@ -4,7 +4,10 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\Exam;
 use App\Models\Group;
+use App\Models\Role;
+use App\Rules\ActiveStaffWithRole;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreExamScheduleRequest extends FormRequest
@@ -29,6 +32,8 @@ class StoreExamScheduleRequest extends FormRequest
             'start_date' => ['required', 'date_format:Y-m-d'],
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
+            'proctor_id' => ['required', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::PROCTOR, 'Proctor')],
+            'instructor_id' => ['required', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::INSTRUCTOR, 'Instructor')],
         ];
     }
 

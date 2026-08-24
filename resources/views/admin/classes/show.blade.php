@@ -12,13 +12,15 @@
         <div class="admin-meta-grid">
             <div class="admin-meta-item"><span class="muted">Subject</span><strong>{{ $trainingClass->course->code }} - {{ $trainingClass->course->name }}</strong></div>
             <div class="admin-meta-item"><span class="muted">Provider</span><strong>{{ $trainingClass->provider?->name ?: 'Not assigned' }}</strong></div>
+            <div class="admin-meta-item"><span class="muted">Proctor</span><strong>{{ $trainingClass->proctor?->display_name ?: 'Not assigned' }}</strong></div>
+            <div class="admin-meta-item"><span class="muted">Instructor</span><strong>{{ $trainingClass->instructor?->display_name ?: 'Not assigned' }}</strong></div>
             <div class="admin-meta-item"><span class="muted">Schedule</span><strong>{{ $trainingClass->starts_at?->format('M j, Y H:i') ?: 'Not scheduled' }} @if($trainingClass->ends_at)- {{ $trainingClass->ends_at->format('M j, Y H:i') }}@endif</strong></div>
         </div>
     </div>
 
     <div class="admin-bento-card">
         <div class="admin-card-head"><span class="admin-card-icon cool">🛡️</span><h3>Class control</h3></div>
-        <p class="admin-card-note">Any active Proctor may start or end this Class directly. An active Instructor may do so by entering an active Proctor's ID. The Class is not assigned to a specific staff member.</p>
+        <p class="admin-card-note">Only this Class's assigned Proctor ({{ $trainingClass->proctor?->display_name ?: 'not assigned' }}) may start or end it directly. Its assigned Instructor ({{ $trainingClass->instructor?->display_name ?: 'not assigned' }}) may do so by entering an active Proctor's ID.</p>
     </div>
 
     <div class="admin-bento-card admin-bento-card--wide">

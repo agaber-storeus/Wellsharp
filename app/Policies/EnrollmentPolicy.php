@@ -29,12 +29,29 @@ class EnrollmentPolicy
     }
 
     /**
-     * Admin, and active Proctor/Instructor, may record a trainee's hands-on
-     * Skills Score. Business rule mirrors UserPolicy::viewPassword — staff
-     * running the class need to enter this live, not just the class owner.
+     * A trainee's hands-on Skills Score may only be recorded by the Class's own
+     * assigned Proctor/Instructor — this is a class-management action tied to
+     * the enrollment's Class, not a general "any active staff" permission.
      */
     public function updateSkillsScore(User $actor, Enrollment $enrollment): bool
     {
-        return $actor->isActive() && ($actor->hasRole(Role::PROCTOR) || $actor->hasRole(Role::INSTRUCTOR));
+        if (! $actor->isActive()) {
+            return false;
+        }
+
+        $trainingClass = $enrollment->trainingClass;
+        if (! $trainingClass) {
+            return false;
+        }
+
+        if ($actor->hasRole(Role::PROCTOR)) {
+            return $trainingClass->proctor_id === $actor->getKey();
+        }
+
+        if ($actor->hasRole(Role::INSTRUCTOR)) {
+            return $trainingClass->instructor_id === $actor->getKey();
+        }
+
+        return false;
     }
 }

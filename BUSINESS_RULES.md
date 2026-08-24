@@ -24,9 +24,10 @@ Source: `app/Policies/*.php` (`before()` pattern).
 **BR-006** — Only the Proctor role owns a Proctor's ID (`exam_control_credentials.control_id`); it is generated automatically the moment a user's active role becomes Proctor, and revoked the moment they leave the Proctor role (Instructor included — Instructors never own one). A Proctor starts/ends a Class directly, with no credential entry. An Instructor must supply a Proctor's ID belonging to a currently active, eligible Proctor; their own credential (they don't have one), another Instructor's, or a disabled/archived Proctor's is rejected with a validation error.
 Source: `app/Actions/Users/CreateUserAction`, `app/Actions/Users/ChangeUserRoleAction`, `app/Services/ProctorIdGenerator`, `app/Actions/Exams/ControlOperationalExamAction::executeManual`, `app/Services/ProctorIdVerifier`.
 
-**BR-007** — Any active Proctor or Instructor may control (start/end) **any** Class — control is not scoped to a specific assignment.
-Source: `app/Policies/TrainingClassPolicy::control()`.
-Confidence: CONFIRMED for the policy check; **UNCERTAIN** whether `class_staff_assignments` narrows this further elsewhere in the UI — not traced in this pass (see PROJECT_BRAIN.md §27).
+**BR-007** — *(Superseded 2026-08-23, see BR-007a)* Previously: any active Proctor or Instructor could control (start/end) any Class.
+
+**BR-007a** — Every Class has exactly one assigned Proctor (`classes.proctor_id`) and one assigned Instructor (`classes.instructor_id`), enforced as required on all Class/Exam-Schedule creation surfaces (Admin Classes form, Exam Schedule form, and the Exam form's inline first-schedule bundle). A Proctor/Instructor may only view, control (start/end), view Student passwords for, record Skills Score on, or view/release exam-attempt reports for a Class assigned to them — not any Class. Admin is unrestricted. `TrainingClass::scopeVisibleTo()` is the single query-level enforcement point; `TrainingClassPolicy::view()/control()/viewStudentPasswords()`, `EnrollmentPolicy::updateSkillsScore()`, and `OperationalReportingService::canViewAttempt()` are the corresponding per-action policy checks. Direct URL/ID access to another staff member's Class returns 403, not just omission from a list (IDOR-protected).
+Source: `app/Models/TrainingClass.php` (`scopeVisibleTo`), `app/Policies/TrainingClassPolicy.php`, `app/Policies/EnrollmentPolicy.php`, `app/Services/OperationalReportingService.php`. Both DB columns are nullable (existing Classes created before this rule cannot be deterministically backfilled) — required-ness is enforced at the Form Request layer, not a DB constraint. The pre-existing `class_staff_assignments` table/`ClassStaffAssignment` model/`AssignClassStaffAction` were never wired to any authorization check and are now fully superseded by `proctor_id`/`instructor_id` — left in place as unused legacy code, not deleted.
 
 ## Exam / Class Lifecycle (core domain rule)
 
@@ -101,7 +102,7 @@ Confidence: CONFIRMED behavior; flag as a **risk** if a future request assumes s
 
 ## Certificates
 
-**BR-028** — A certificate is only ever created for a `submitted` attempt that scores `passed = true` when re-scored at issuance time; failing/unsubmitted attempts never produce one.
+**BR-028** — A certificate is only ever created for a `submitted` attempt whose **effective score** (BR-035) is `>=` the exam's passing score when re-evaluated at issuance time; failing/unsubmitted attempts never produce one.
 Source: `IssueCertificateAction::execute()`.
 
 **BR-029** — Certificate issuance is idempotent per attempt: `exam_attempt_id` is unique on `certificates`; a second issuance attempt for the same attempt returns the existing certificate (and ensures its 3 documents exist) rather than duplicating.
@@ -113,14 +114,20 @@ Source: `IssueCertificateAction::ensureDocuments()`, `CertificateDocumentType` e
 **BR-031** — Certificates carry a **denormalized snapshot** of student name/email/ID, exam name/code, subject name, class number, group name, provider name at issuance time — later renames of the student/exam/etc. do not retroactively change an issued certificate.
 Source: `certificates` migration columns, `IssueCertificateAction::execute()`.
 
-**BR-032** — Certificate expiration is hardcoded to `issued_at + 2 years`; not configurable per course/provider today.
-Source: `IssueCertificateAction::execute()` (`$issuedAt->copy()->addYears(2)`).
+**BR-032** — Certificate expiration is `issued_at + exams.certificate_validity_years` (nullable, per-Exam; falls back to the project's original 2-year default when an Exam has none configured). Expiration is computed once, at issuance, and snapshotted onto the certificate like the rest of BR-031 — changing an Exam's `certificate_validity_years` afterward never alters certificates already issued under the old value.
+Source: `IssueCertificateAction::execute()`/`expirationDate()` (`$issuedAt->copy()->addYears($validityYears ?? 2)`), `exams.certificate_validity_years` (migration `2026_08_23_000001`).
 
 **BR-033** — Certificate revocation (`CertificateStatus::Revoked`, `revoked_at`, `revocation_reason` columns) has no implementing workflow — schema-ready, feature-absent. Treat any "revoke a certificate" request as new feature work.
 Source: absence of any Action/controller writing `CertificateStatus::Revoked`; confirmed against README "Not implemented yet" list.
 
 **BR-034** — Certificate viewing: Admin can view all; Student can view only their own; active Proctor/Instructor can view certificates within their operational scope.
 Source: `docs/architecture.md` §Security boundaries.
+
+**BR-035** — `enrollments.skills_score` is a **manual override of the trainee's final/effective percentage**, not a second/parallel score. `effective_score = skills_score ?? knowledge_exam_score`; `passed = effective_score >= exam.passing_score`. It overrides in both directions — it can turn a failing Knowledge Exam into a pass, or a passing one into a fail. `null` means "no override, use the Knowledge Exam result"; it is a distinct, legal value from `0` (a real override). The raw Knowledge Exam result (`exam_attempts.score`/`passed`) is never modified by an override.
+Source: `App\Services\EffectiveScoreService::resolve()`, the single canonical implementation of this formula.
+
+**BR-036** — Setting or clearing a Skills Score reconciles certificate eligibility through the real `IssueCertificateAction` (never an ad-hoc write): `App\Actions\Classes\UpdateEnrollmentSkillsScoreAction` re-runs it against the enrollment's latest attempt after every change. An override that newly clears the passing threshold issues a certificate that didn't exist before. An override that drops a trainee below the threshold does **not** retract or modify an already-issued certificate — certificates are immutable snapshots once issued (BR-031) and this domain has no implemented revocation workflow (BR-033), so an already-issued certificate is left exactly as it was; only *future* eligibility decisions (e.g. a later re-issuance attempt) see the trainee as failing.
+Source: `App\Actions\Classes\UpdateEnrollmentSkillsScoreAction`, `IssueCertificateAction::execute()`.
 
 ## Question Bank
 
@@ -189,6 +196,6 @@ Source: `UpdateUserAction::execute()`, `ChangeUserRoleAction::execute()`.
 
 ## Needs Business Confirmation
 
-- Whether `class_staff_assignments` / `AssignClassStaffAction` actually restricts *who* can be assigned/visible for a Class beyond the "any active Proctor/Instructor can control any Class" policy rule (BR-007). Not traced to a controller/route in this pass.
+- ~~Whether `class_staff_assignments` / `AssignClassStaffAction` actually restricts *who* can be assigned/visible for a Class~~ — **Resolved 2026-08-23**: it did not (never wired to any authorization check); see BR-007a. The table/model/Action remain as unused legacy code — removing them is a follow-up cleanup decision, not yet done.
 - Whether `ExamGroupAssignment` (`exam_group_assignments`) is a prerequisite gate before a Group can be scheduled via `exam_schedules.group_id`, or an independent audit/record-keeping trail. Both exist; relationship not fully traced.
 - Cancellation side-effects (`CancelExamScheduleAction`, `CancelTrainingClassAction`) — not read in this pass; before modifying cancellation behavior, read those two files first.

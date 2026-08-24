@@ -28,6 +28,7 @@ class SaveExamAction
                     'description' => $data['description'] ?? null,
                     'passing_score' => $data['passing_score'] ?? null,
                     'retake_score' => $data['retake_score'] ?? null,
+                    'certificate_validity_years' => $data['certificate_validity_years'] ?? null,
                     'question_order_mode' => $data['question_order_mode'],
                     'status' => $data['status'] ?? ExamStatus::Draft,
                     'created_by_user_id' => auth()->id(),
@@ -47,6 +48,7 @@ class SaveExamAction
                     'description' => $data['description'] ?? null,
                     'passing_score' => $data['passing_score'] ?? null,
                     'retake_score' => $data['retake_score'] ?? null,
+                    'certificate_validity_years' => $data['certificate_validity_years'] ?? null,
                     'question_order_mode' => $data['question_order_mode'],
                     'status' => $data['status'] ?? $exam->status,
                     'updated_by_user_id' => auth()->id(),
@@ -90,6 +92,8 @@ class SaveExamAction
             'start_date' => $data['start_date'],
             'end_date' => $data['end_date'],
             'duration_minutes' => $data['duration_minutes'] ?? null,
+            'proctor_id' => $data['proctor_id'] ?? null,
+            'instructor_id' => $data['instructor_id'] ?? null,
         ]);
     }
 

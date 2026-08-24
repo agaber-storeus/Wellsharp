@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Course;
 use App\Models\TrainingClass;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class TrainingClassFactory extends Factory
@@ -16,6 +17,12 @@ class TrainingClassFactory extends Factory
             'class_number' => 'CLASS-'.fake()->unique()->numerify('#####'),
             'course_id' => Course::factory(),
             'training_provider_id' => null,
+            // Every Class must have exactly one Proctor and one Instructor - default
+            // to a freshly-made one each (like course_id => Course::factory()) so
+            // every factory-created Class is valid under that rule without every
+            // call site having to wire up staff explicitly.
+            'proctor_id' => User::factory()->proctor(),
+            'instructor_id' => User::factory()->instructor(),
             'status' => 'planned',
             'starts_at' => now()->addDay(),
             'ends_at' => now()->addDays(2),

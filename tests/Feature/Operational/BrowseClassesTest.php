@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Operational;
 
-use App\Models\ClassStaffAssignment;
 use App\Models\TrainingClass;
 use App\Models\TrainingProvider;
 use App\Models\User;
@@ -19,7 +18,7 @@ class BrowseClassesTest extends TestCase
         $this->seedRoles();
     }
 
-    public function test_proctor_browse_page_loads_all_real_classes_into_alpine(): void
+    public function test_proctor_browse_page_loads_assigned_classes_into_alpine(): void
     {
         $proctor = User::factory()->proctor()->create();
         $provider = TrainingProvider::factory()->create([
@@ -29,20 +28,10 @@ class BrowseClassesTest extends TestCase
         $assigned = TrainingClass::factory()->create([
             'class_number' => 'BROWSE-REAL-001',
             'training_provider_id' => $provider->id,
+            'proctor_id' => $proctor->id,
         ]);
-        $otherAssigned = TrainingClass::factory()->create(['class_number' => 'BROWSE-REAL-002']);
+        $otherAssigned = TrainingClass::factory()->create(['class_number' => 'BROWSE-REAL-002', 'proctor_id' => $proctor->id]);
         $unassigned = TrainingClass::factory()->create(['class_number' => 'BROWSE-HIDDEN-001']);
-
-        ClassStaffAssignment::factory()->create([
-            'class_id' => $assigned->id,
-            'user_id' => $proctor->id,
-            'assignment_role' => 'proctor',
-        ]);
-        ClassStaffAssignment::factory()->create([
-            'class_id' => $otherAssigned->id,
-            'user_id' => $proctor->id,
-            'assignment_role' => 'proctor',
-        ]);
 
         $response = $this->actingAs($proctor)
             ->withSession(['auth.session_version' => $proctor->session_version])
@@ -55,7 +44,7 @@ class BrowseClassesTest extends TestCase
             ->assertSee('BROWSE-REAL-002')
             ->assertSee('Browse Training Center')
             ->assertSee('Cairo, Egypt')
-            ->assertSee('BROWSE-HIDDEN-001')
+            ->assertDontSee('BROWSE-HIDDEN-001')
             ->assertSee('data-class-modal="details"', false)
             ->assertSee('browse-sort-button', false)
             ->assertSee('browse-table-scroll', false)
@@ -85,12 +74,7 @@ class BrowseClassesTest extends TestCase
     public function test_browse_page_wires_up_has_searched_from_the_query_string_filters(): void
     {
         $proctor = User::factory()->proctor()->create();
-        $assigned = TrainingClass::factory()->create(['class_number' => 'BROWSE-HIDDEN-TABLE-001']);
-        ClassStaffAssignment::factory()->create([
-            'class_id' => $assigned->id,
-            'user_id' => $proctor->id,
-            'assignment_role' => 'proctor',
-        ]);
+        $assigned = TrainingClass::factory()->create(['class_number' => 'BROWSE-HIDDEN-TABLE-001', 'proctor_id' => $proctor->id]);
 
         // hasSearched is computed client-side from the initial filters object handed to Alpine
         // (hasProvidedFilterValue), so what's verifiable server-side is that: (a) the results
@@ -117,12 +101,7 @@ class BrowseClassesTest extends TestCase
     public function test_instructor_browse_results_uses_the_same_database_backed_alpine_table(): void
     {
         $instructor = User::factory()->instructor()->create();
-        $trainingClass = TrainingClass::factory()->create(['class_number' => 'INSTRUCTOR-BROWSE-001']);
-        ClassStaffAssignment::factory()->create([
-            'class_id' => $trainingClass->id,
-            'user_id' => $instructor->id,
-            'assignment_role' => 'instructor',
-        ]);
+        $trainingClass = TrainingClass::factory()->create(['class_number' => 'INSTRUCTOR-BROWSE-001', 'instructor_id' => $instructor->id]);
 
         $this->actingAs($instructor)
             ->withSession(['auth.session_version' => $instructor->session_version])

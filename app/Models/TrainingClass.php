@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ClassStatus;
 use App\Models\Concerns\HasPublicUlid;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +16,7 @@ class TrainingClass extends Model
 
     protected $table = 'classes';
 
-    protected $fillable = ['class_number', 'course_id', 'training_provider_id', 'status', 'starts_at', 'ends_at', 'actual_started_at', 'actual_ended_at', 'notes'];
+    protected $fillable = ['class_number', 'course_id', 'training_provider_id', 'proctor_id', 'instructor_id', 'status', 'starts_at', 'ends_at', 'actual_started_at', 'actual_ended_at', 'notes'];
 
     protected function casts(): array
     {
@@ -30,6 +31,16 @@ class TrainingClass extends Model
     public function provider(): BelongsTo
     {
         return $this->belongsTo(TrainingProvider::class, 'training_provider_id');
+    }
+
+    public function proctor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'proctor_id');
+    }
+
+    public function instructor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'instructor_id');
     }
 
     public function enrollments(): HasMany
@@ -69,5 +80,29 @@ class TrainingClass extends Model
     public function getRouteKeyName(): string
     {
         return 'public_id';
+    }
+
+    /**
+     * Central ownership scope: Admin sees every Class; a Proctor/Instructor sees
+     * only Classes assigned to them. Every Proctor/Instructor-facing dashboard,
+     * browse, analytics, and certificate query must go through this instead of
+     * re-deriving the ownership filter, so there is exactly one place that
+     * decides "which Classes can this user see."
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        if ($user->hasRole(Role::PROCTOR)) {
+            return $query->where('proctor_id', $user->getKey());
+        }
+
+        if ($user->hasRole(Role::INSTRUCTOR)) {
+            return $query->where('instructor_id', $user->getKey());
+        }
+
+        return $query->whereRaw('1 = 0');
     }
 }

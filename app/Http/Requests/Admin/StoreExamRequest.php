@@ -4,6 +4,8 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\Course;
 use App\Models\Group;
+use App\Models\Role;
+use App\Rules\ActiveStaffWithRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -24,6 +26,7 @@ class StoreExamRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'passing_score' => ['nullable', 'integer', 'min:0', 'max:100'],
             'retake_score' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'certificate_validity_years' => ['nullable', 'integer', 'min:1', 'max:99'],
             'question_order_mode' => ['required', 'in:static,shuffle'],
             'status' => ['required', 'in:draft,published,archived'],
             'question_ids' => ['required', 'array', 'min:1'],
@@ -37,6 +40,8 @@ class StoreExamRequest extends FormRequest
             'start_date' => ['nullable', 'date_format:Y-m-d'],
             'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
+            'proctor_id' => ['nullable', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::PROCTOR, 'Proctor')],
+            'instructor_id' => ['nullable', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::INSTRUCTOR, 'Instructor')],
         ];
     }
 
@@ -61,7 +66,7 @@ class StoreExamRequest extends FormRequest
             // Group/date fields are an optional inline bundle: fill them in to schedule
             // this Exam's first Class in the same save, or leave them blank and schedule
             // later (or schedule additional Groups) from the Exam Schedules screen.
-            $touchedSchedule = collect(['group_id', 'start_date', 'end_date', 'duration_minutes'])->contains(fn (string $field): bool => $this->filled($field));
+            $touchedSchedule = collect(['group_id', 'start_date', 'end_date', 'duration_minutes', 'proctor_id', 'instructor_id'])->contains(fn (string $field): bool => $this->filled($field));
             if (! $touchedSchedule) {
                 return;
             }
@@ -81,6 +86,12 @@ class StoreExamRequest extends FormRequest
             }
             if (! $this->filled('duration_minutes')) {
                 $validator->errors()->add('duration_minutes', 'Provide the time allowed for each student.');
+            }
+            if (! $this->filled('proctor_id')) {
+                $validator->errors()->add('proctor_id', 'Select a Proctor to schedule this Exam\'s first Class.');
+            }
+            if (! $this->filled('instructor_id')) {
+                $validator->errors()->add('instructor_id', 'Select an Instructor to schedule this Exam\'s first Class.');
             }
         });
     }

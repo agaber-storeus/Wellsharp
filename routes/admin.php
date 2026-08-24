@@ -15,7 +15,7 @@ use App\Http\Controllers\Admin\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'session.version', 'current.role:admin'])->group(function (): void {
-    Route::get('/', DashboardController::class)->name('dashboard');
+    Route::get('/', DashboardController::class)->name('dashboard')->middleware('sync.due-classes');
     Route::get('certificates', [CertificateController::class, 'index'])->name('certificates.index');
     Route::get('certificates/data', [CertificateController::class, 'data'])->name('certificates.data');
     Route::get('certificates/{certificate}', [CertificateController::class, 'show'])->name('certificates.show');

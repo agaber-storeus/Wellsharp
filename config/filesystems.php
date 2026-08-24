@@ -41,7 +41,9 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            // Keep browser URLs same-origin by default so local development
+            // also works when the app is served on a non-default port.
+            'url' => env('FILESYSTEM_URL', '/storage'),
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

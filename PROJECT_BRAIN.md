@@ -46,8 +46,8 @@ Four roles, stored in `roles` table with string keys, referenced via `App\Models
 | Role | Purpose | Create | Read | Update | Delete | Key Restrictions |
 |---|---|---|---|---|---|---|
 | **Admin** | Full back-office configuration and oversight | Users, Providers, Subjects/Courses, Question banks, Exams, Exam Schedules, Groups, Classes (implicitly via schedule sync), Certificates (view/issue-adjacent) | Everything | Everything | Archive/disable (soft — see §8) | Every Policy's `before()` grants Admin unconditional access (`return $actor->isAdmin() ? true : null;`) |
-| **Proctor** | Runs live Class sessions, reporting | Nothing admin-side | Classes (all), reports, certificates (operational scope) | Class lifecycle via exam-control (`start`/`end`) directly — owns a Proctor's ID but does not need to enter it | Nothing | `TrainingClassPolicy::control()` (`ControlOperationalExamAction`/`ProctorIdVerifier`) |
-| **Instructor** | Same operational surface as Proctor | same as Proctor | same as Proctor | Class lifecycle via exam-control (`start`/`end`), gated on entering an active, eligible Proctor's ID (Instructors never own one themselves) | Nothing | `TrainingClassPolicy::control()` — own/another Instructor's credential always rejected (`ControlOperationalExamAction`/`ProctorIdVerifier`) |
+| **Proctor** | Runs live Class sessions, reporting | Nothing admin-side | Classes assigned to them only (`classes.proctor_id`), reports, certificates (operational scope) | Class lifecycle via exam-control (`start`/`end`) directly on their own assigned Classes — owns a Proctor's ID but does not need to enter it | Nothing | `TrainingClassPolicy::control()`/`view()` (`ControlOperationalExamAction`/`ProctorIdVerifier`), scoped via `TrainingClass::scopeVisibleTo()` |
+| **Instructor** | Same operational surface as Proctor | same as Proctor | Classes assigned to them only (`classes.instructor_id`) | Class lifecycle via exam-control (`start`/`end`) on their own assigned Classes, gated on entering an active, eligible Proctor's ID (Instructors never own one themselves) | Nothing | `TrainingClassPolicy::control()` — own/another Instructor's credential always rejected; own/another Instructor's *Class* also rejected (`ControlOperationalExamAction`/`ProctorIdVerifier`), scoped via `TrainingClass::scopeVisibleTo()` |
 | **Student** | Takes exams, views own certificates | Survey answers, attempt answers (autosave) | Own enrollments/attempts/certificates only | Own attempt answers while `in_progress` and unexpired | Nothing | `EnrollmentPolicy::view()` restricted to `student_user_id === actor`; attempt ownership checked in Actions (`abort_unless($attempt->student_user_id === $student->getKey(), 403)`) |
 
 Role crossing is blocked by the `current.role:<role>` middleware (docs/architecture.md) — a signed-in user cannot browse another role's workspace even if role-history exists. **CONFIRMED**.
@@ -58,9 +58,9 @@ Almost every domain Policy (`CoursePolicy`, `ExamPolicy`, `ExamSchedulePolicy`, 
 
 The one policy with real multi-role logic is `TrainingClassPolicy`:
 - `viewAny`: Proctor, Instructor, or Student.
-- `view`: Proctor/Instructor see any Class; Student sees a Class only if they have an `enrolled`-status enrollment in it.
-- `control` (start/end): Proctor or Instructor (any active one — not scoped to an assignment).
-- `create`/`update`/`delete`: always `false` (Classes are never directly authored — see §9 core rule).
+- `view`: Proctor/Instructor see only a Class assigned to them (`proctor_id`/`instructor_id`, via `TrainingClass::scopeVisibleTo()`); Student sees a Class only if they have an `enrolled`-status enrollment in it.
+- `control` (start/end), `viewStudentPasswords`: only the Class's own assigned Proctor/Instructor (BUSINESS_RULES.md BR-007a, added 2026-08-23 — was previously "any active one," see BR-007).
+- `create`/`update`/`delete`: always `false` for Proctor/Instructor/Student (Classes are never directly authored by them — see §9 core rule); Admin bypasses via `before()` and does directly author Classes (`TrainingClassController::store/update`, and the Exam Schedule flow via `ExamClassSynchronizer::sync()`).
 
 `AuditPolicy` denies `viewAny`/`view` to everyone including via the general ability check — audit is Admin-only through `before()`, with no operational role given access. **CONFIRMED**.
 
@@ -190,7 +190,8 @@ TrainingClass (operational)
  │           └── Certificate (1:1, only if passed)
  │                 └── CertificateDocument (3 per certificate)
  ├── Enrollment (per student)
- └── ClassStaffAssignment (Proctor/Instructor link — see §Needs Confirmation)
+ ├── proctor_id / instructor_id (direct FK columns → User — the real staff-assignment mechanism, BR-007a)
+ └── ClassStaffAssignment (unused legacy table, never wired to authorization — superseded by proctor_id/instructor_id)
 ```
 
 Changing the Exam/Class synchronization rule, the attempt-question snapshot model, or the certificate 1:1-per-attempt constraint would ripple through most of the codebase — treat these as load-bearing invariants.
@@ -210,7 +211,7 @@ No duplicated/conflicting sources of truth were found for these concepts. **CONF
 
 ## 24. Known Technical Debt
 
-From README "Not implemented yet": certificate revocation workflow, advanced reporting, domain queue jobs. Also observed: `class_staff_assignments` table/model exists but no Action in `app/Actions/Classes/AssignClassStaffAction.php`... — wait, it does exist (`AssignClassStaffAction.php`). Its actual usage/route wiring was not traced in this pass — **flagged in §28**.
+From README "Not implemented yet": certificate revocation workflow, advanced reporting, domain queue jobs. Also: `class_staff_assignments` table/`ClassStaffAssignment` model/`AssignClassStaffAction` — confirmed 2026-08-23 to be fully unused/unwired (see BUSINESS_RULES.md BR-007a); superseded by `classes.proctor_id`/`instructor_id`. Left in place, not deleted — a candidate for removal in a future cleanup pass.
 
 ## 25. Security Considerations
 
@@ -224,7 +225,7 @@ Documented thoroughly in docs/architecture.md §Security boundaries. Notable add
 
 ## 27. Needs Business Confirmation
 
-- **`class_staff_assignments` / `AssignClassStaffAction` usage**: the table and Action exist, but this pass did not trace which controller/route calls it, nor whether "any active Proctor/Instructor can control any Class" (confirmed in `TrainingClassPolicy::control()`) is actually further restricted by a staff assignment somewhere in the UI. Confirm before assuming assignment-based scoping exists or doesn't.
+- ~~`class_staff_assignments` / `AssignClassStaffAction` usage~~ — **Resolved 2026-08-23**: confirmed unused/unwired; see BUSINESS_RULES.md BR-007a. The real ownership rule (mandatory one Proctor + one Instructor per Class, access scoped accordingly) is implemented via `classes.proctor_id`/`instructor_id`.
 - **Certificate revocation**: table/enum support it, no workflow implemented — confirm whether this is planned near-term before designing around it.
 - Exact use of `ExamGroupAssignment` vs. `ExamSchedule.group_id` — both a Group↔Exam link (`exam_group_assignments`) and a Group column directly on `exam_schedules` exist. Not fully traced whether `exam_group_assignments` is a prerequisite gate for scheduling or an independent record-keeping table. **CONFLICT-shaped risk** — worth resolving before touching Group/Exam assignment logic.
 

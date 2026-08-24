@@ -45,7 +45,7 @@ class ClassRosterStudentPasswordsTest extends TestCase
     {
         $proctor = User::factory()->proctor()->create();
         $course = Course::factory()->create();
-        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id, 'proctor_id' => $proctor->id]);
         $studentA = $this->makeStudentWithPassword('roster-password-a');
         $studentB = $this->makeStudentWithPassword('roster-password-b');
         $this->enroll($trainingClass, $studentA);
@@ -64,7 +64,7 @@ class ClassRosterStudentPasswordsTest extends TestCase
     {
         $instructor = User::factory()->instructor()->create();
         $course = Course::factory()->create();
-        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id, 'instructor_id' => $instructor->id]);
         $student = $this->makeStudentWithPassword('instructor-batch-password');
         $this->enroll($trainingClass, $student);
 
@@ -81,7 +81,7 @@ class ClassRosterStudentPasswordsTest extends TestCase
         $proctor = User::factory()->proctor()->create();
         $course = Course::factory()->create();
 
-        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id, 'proctor_id' => $proctor->id]);
         $member = $this->makeStudentWithPassword('belongs-here-password');
         $this->enroll($trainingClass, $member);
 
@@ -158,7 +158,7 @@ class ClassRosterStudentPasswordsTest extends TestCase
     {
         $proctor = User::factory()->proctor()->create();
         $course = Course::factory()->create();
-        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id, 'proctor_id' => $proctor->id]);
 
         // Legacy Student: has a login password hash but no recoverable
         // ciphertext (created before this feature, or role-changed away and
@@ -181,7 +181,7 @@ class ClassRosterStudentPasswordsTest extends TestCase
     {
         $proctor = User::factory()->proctor()->create();
         $course = Course::factory()->create();
-        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id, 'proctor_id' => $proctor->id]);
         $studentA = $this->makeStudentWithPassword('audit-safety-a');
         $studentB = $this->makeStudentWithPassword('audit-safety-b');
         $this->enroll($trainingClass, $studentA);
@@ -209,7 +209,7 @@ class ClassRosterStudentPasswordsTest extends TestCase
     {
         $proctor = User::factory()->proctor()->create();
         $course = Course::factory()->create();
-        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $trainingClass = TrainingClass::factory()->create(['course_id' => $course->id, 'proctor_id' => $proctor->id]);
 
         $response = $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->postJson(route('proctor.classes.student-passwords', $trainingClass))
@@ -223,12 +223,12 @@ class ClassRosterStudentPasswordsTest extends TestCase
         $proctor = User::factory()->proctor()->create();
         $course = Course::factory()->create();
 
-        $smallClass = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $smallClass = TrainingClass::factory()->create(['course_id' => $course->id, 'proctor_id' => $proctor->id]);
         foreach (range(1, 3) as $i) {
             $this->enroll($smallClass, $this->makeStudentWithPassword("small-{$i}"));
         }
 
-        $largeClass = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $largeClass = TrainingClass::factory()->create(['course_id' => $course->id, 'proctor_id' => $proctor->id]);
         foreach (range(1, 15) as $i) {
             $this->enroll($largeClass, $this->makeStudentWithPassword("large-{$i}"));
         }

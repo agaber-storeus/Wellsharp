@@ -27,6 +27,7 @@ class ExamFactory extends Factory
             'description' => fake()->sentence(),
             'passing_score' => 75,
             'retake_score' => 60,
+            'certificate_validity_years' => 2,
             'question_order_mode' => ExamQuestionOrderMode::Static,
             'status' => ExamStatus::Draft,
             'created_by_user_id' => null,

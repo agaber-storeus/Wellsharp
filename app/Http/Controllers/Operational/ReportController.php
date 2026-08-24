@@ -6,6 +6,7 @@ use App\Actions\Certificates\IssueCertificateAction;
 use App\Actions\Exams\ReleaseExamAttemptAction;
 use App\Http\Controllers\Controller;
 use App\Models\ExamAttempt;
+use App\Services\EffectiveScoreService;
 use App\Services\ExamScoringService;
 use App\Services\OperationalReportingService;
 use Illuminate\Http\JsonResponse;
@@ -28,6 +29,9 @@ class ReportController extends Controller
         $classes = $reports->accessibleClasses(auth()->user());
         $attempts = $reports->allAttempts($classes)->filter(fn (ExamAttempt $attempt): bool => $attempt->score !== null);
 
+        // `passed`/`score` here are the effective (Skills Score-aware) figures -
+        // this page reports Class results, so it must agree with the CSV export
+        // and certificate eligibility on what "passed" means for a trainee.
         $attemptsJson = $attempts->map(function (ExamAttempt $attempt): array {
             return [
                 'exam_id' => $attempt->exam_id,
@@ -36,8 +40,8 @@ class ReportController extends Controller
                 'course_id' => $attempt->exam?->course_id,
                 'student_user_id' => $attempt->student_user_id,
                 'attempt_number' => $attempt->attempt_number,
-                'passed' => $attempt->passed,
-                'score' => $attempt->score !== null ? (float) $attempt->score : null,
+                'passed' => $attempt->effective_passed,
+                'score' => $attempt->effective_score,
                 'occurred_at' => ($attempt->submitted_at ?: $attempt->started_at)?->toDateTimeString(),
             ];
         })->values();
@@ -100,7 +104,7 @@ class ReportController extends Controller
      * Reports tab — a short, trainee-facing summary (unlike show(), which
      * renders the full internal question-by-question breakdown page).
      */
-    public function summary(ExamAttempt $attempt, OperationalReportingService $reports, ExamScoringService $scoring): JsonResponse
+    public function summary(ExamAttempt $attempt, OperationalReportingService $reports, ExamScoringService $scoring, EffectiveScoreService $effectiveScore): JsonResponse
     {
         abort_unless($reports->canViewAttempt($attempt, auth()->user()), 403);
         $attempt->load(['student.profile', 'exam.subject.stacks']);
@@ -114,13 +118,20 @@ class ReportController extends Controller
                 'note' => $solutionsByQuestionId->get($question['question_id']) ?: 'Review this topic with your instructor.',
             ])->values()->all();
 
+        // Result/score shown here are the *effective* (Skills Score-aware) figures,
+        // since this is the "did the trainee pass" summary - not the raw Knowledge
+        // Exam calculation, which stays available separately for transparency.
+        $effective = $attempt->score === null ? null : $effectiveScore->forAttempt($attempt);
+
         return response()->json([
             'name' => $attempt->student?->display_name ?: $attempt->student?->wellsharp_id ?: 'Unknown trainee',
             'assessment' => $attempt->exam?->subject?->name ?: ($attempt->exam?->name ?: 'Assessment'),
             'stack' => $attempt->exam?->subject?->stacks->pluck('name')->join(', ') ?: 'Not configured',
             'assessmentDate' => $attempt->submitted_at?->format('F j, Y g:i A') ?: 'Not submitted',
-            'score' => $attempt->score !== null ? number_format((float) $attempt->score, 0) : null,
-            'passed' => $attempt->passed,
+            'knowledgeScore' => $attempt->score !== null ? number_format((float) $attempt->score, 0) : null,
+            'score' => $effective !== null ? number_format($effective['score'], 0) : null,
+            'passed' => $effective['passed'] ?? null,
+            'overridden' => $effective['overridden'] ?? false,
             'topics' => $topics,
         ]);
     }

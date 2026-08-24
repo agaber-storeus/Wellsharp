@@ -18,9 +18,9 @@
 </script>
 @endpush
 
-  @include('operational._class-table', ['title' => 'Ongoing Classes', 'classes' => $ongoingClasses, 'roleLabel' => $roleLabel, 'emptyMessage' => 'No ongoing Classes are available right now.', 'emptyHint' => 'Ongoing means the Class is Active. Any eligible Proctor or Instructor can control it.', 'compact' => false])
-  @include('operational._class-table', ['title' => 'Upcoming Classes', 'classes' => $upcomingClasses, 'roleLabel' => $roleLabel, 'emptyMessage' => 'No upcoming Classes are available right now.', 'emptyHint' => 'Upcoming means the Class is Planned and has not started yet.', 'compact' => true])
-  @include('operational._class-table', ['title' => 'Past Classes', 'classes' => $pastClasses, 'roleLabel' => $roleLabel, 'emptyMessage' => 'No past Classes are available right now.', 'emptyHint' => 'Past includes Classes marked Completed or Cancelled.', 'past' => true])
+  @include('operational._class-table', ['title' => 'Ongoing Classes', 'classes' => $ongoingClasses, 'roleLabel' => $roleLabel, 'emptyMessage' => 'No ongoing Classes are available right now.', 'emptyHint' => 'Ongoing means the Class is Active. Any eligible Proctor or Instructor can control it.', 'compact' => false, 'striped' => true])
+  @include('operational._class-table', ['title' => 'Upcoming Classes', 'classes' => $upcomingClasses, 'roleLabel' => $roleLabel, 'emptyMessage' => 'No upcoming Classes are available right now.', 'emptyHint' => 'Upcoming means the Class is Planned and has not started yet.', 'compact' => true, 'striped' => true])
+  @include('operational._class-table', ['title' => 'Past Classes', 'classes' => $pastClasses, 'roleLabel' => $roleLabel, 'emptyMessage' => 'No past Classes are available right now.', 'emptyHint' => 'Past includes Classes marked Completed or Cancelled.', 'past' => true, 'striped' => true])
 
   <section class="panel data-panel compact-panel client-questions">
     <div class="panel-title">Client Questions</div>

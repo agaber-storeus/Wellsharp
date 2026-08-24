@@ -276,6 +276,94 @@ class BusinessDomainTest extends TestCase
         $this->assertDatabaseMissing('exams', ['name' => 'Invalid Exam']);
     }
 
+    public function test_global_exam_create_loads_selected_subject_questions_and_saves_status(): void
+    {
+        $subjectQuestion = Question::create([
+            'course_id' => $this->subject->id,
+            'question_text' => 'Selected subject question',
+            'type' => 'input',
+            'difficulty' => 'easy',
+            'correct_answer_text' => 'answer',
+        ]);
+        Question::create([
+            'course_id' => $this->otherSubject->id,
+            'question_text' => 'Other subject question',
+            'type' => 'input',
+            'difficulty' => 'easy',
+            'correct_answer_text' => 'answer',
+        ]);
+
+        $this->get(route('admin.exams.create', ['course_id' => $this->subject->id]))
+            ->assertOk()
+            ->assertSee('Selected subject question')
+            ->assertSee('Other subject question')
+            ->assertSee('x-on:change="changeSubject"', false)
+            ->assertSee('x-model.debounce.200ms="search"', false)
+            ->assertSee('x-on:click="sortBy(\'text\')"', false)
+            ->assertDontSee('window.location=', false);
+
+        $this->post(route('admin.exams.store'), [
+            'course_id' => $this->subject->id,
+            'name' => 'Global Subject Exam',
+            'question_order_mode' => 'static',
+            'status' => 'published',
+            'question_ids' => [$subjectQuestion->id],
+            'display_orders' => [$subjectQuestion->id => 1],
+        ])->assertRedirect();
+
+        $exam = Exam::query()->where('name', 'Global Subject Exam')->firstOrFail();
+        $this->assertSame($this->subject->id, $exam->course_id);
+        $this->assertSame('published', $exam->status->value);
+        $this->assertSame([$subjectQuestion->id], $exam->examQuestions()->pluck('question_id')->all());
+    }
+
+    public function test_admin_can_set_and_update_certificate_validity_years_on_an_exam(): void
+    {
+        $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Validity question', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'answer']);
+
+        $this->post(route('admin.courses.exams.store', $this->subject), [
+            'name' => 'Validity Exam', 'code' => 'VALIDITY-001', 'question_order_mode' => 'static', 'status' => 'draft',
+            'certificate_validity_years' => 3,
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertRedirect();
+        $exam = Exam::where('code', 'VALIDITY-001')->firstOrFail();
+        $this->assertSame(3, $exam->certificate_validity_years);
+
+        $this->put(route('admin.courses.exams.update', [$this->subject, $exam]), [
+            'name' => 'Validity Exam', 'question_order_mode' => 'static', 'status' => 'draft',
+            'certificate_validity_years' => 5,
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertRedirect();
+        $this->assertSame(5, $exam->fresh()->certificate_validity_years);
+
+        // Leaving it blank clears it back to "use the default" rather than
+        // silently keeping a stale value, matching how passing_score/retake_score behave.
+        $this->put(route('admin.courses.exams.update', [$this->subject, $exam]), [
+            'name' => 'Validity Exam', 'question_order_mode' => 'static', 'status' => 'draft',
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertRedirect();
+        $this->assertNull($exam->fresh()->certificate_validity_years);
+    }
+
+    public function test_certificate_validity_years_rejects_out_of_range_values(): void
+    {
+        $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Range question', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'answer']);
+
+        $this->post(route('admin.courses.exams.store', $this->subject), [
+            'name' => 'Zero Validity Exam', 'question_order_mode' => 'static', 'status' => 'draft',
+            'certificate_validity_years' => 0,
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertSessionHasErrors('certificate_validity_years');
+        $this->assertDatabaseMissing('exams', ['name' => 'Zero Validity Exam']);
+
+        $this->post(route('admin.courses.exams.store', $this->subject), [
+            'name' => 'Huge Validity Exam', 'question_order_mode' => 'static', 'status' => 'draft',
+            'certificate_validity_years' => 100,
+            'question_ids' => [$question->id], 'display_orders' => [$question->id => 1],
+        ])->assertSessionHasErrors('certificate_validity_years');
+        $this->assertDatabaseMissing('exams', ['name' => 'Huge Validity Exam']);
+    }
+
     public function test_exam_shuffle_mode_keeps_one_common_question_set_and_each_group_gets_its_own_schedule(): void
     {
         $questions = collect(range(1, 3))->map(fn (int $number) => Question::create([
@@ -284,6 +372,8 @@ class BusinessDomainTest extends TestCase
         ]));
         $group = Group::create(['name' => 'Exam Group', 'status' => 'active']);
         $secondGroup = Group::create(['name' => 'Second Exam Group', 'status' => 'active']);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
         $this->post(route('admin.courses.exams.store', $this->subject), [
             'name' => 'Shuffle Exam', 'question_order_mode' => 'shuffle', 'status' => 'published',
             'question_ids' => $questions->pluck('id')->all(),
@@ -296,6 +386,8 @@ class BusinessDomainTest extends TestCase
                 'start_date' => now()->addDays(3 + $index)->format('Y-m-d'),
                 'end_date' => now()->addDays(5 + $index)->format('Y-m-d'),
                 'duration_minutes' => 90,
+                'proctor_id' => $proctor->id,
+                'instructor_id' => $instructor->id,
             ])->assertRedirect();
         }
         $this->assertDatabaseCount('exam_schedules', 2);
@@ -307,6 +399,7 @@ class BusinessDomainTest extends TestCase
         $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Inline schedule question', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'answer']);
         $group = Group::create(['name' => 'Inline Schedule Group', 'status' => 'active']);
         $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
 
         $this->post(route('admin.courses.exams.store', $this->subject), [
             'name' => 'Immediate Visibility Exam', 'question_order_mode' => 'static', 'status' => 'published',
@@ -315,6 +408,8 @@ class BusinessDomainTest extends TestCase
             'start_date' => now()->addDay()->format('Y-m-d'),
             'end_date' => now()->addDays(3)->format('Y-m-d'),
             'duration_minutes' => 45,
+            'proctor_id' => $proctor->id,
+            'instructor_id' => $instructor->id,
         ])->assertRedirect();
 
         $exam = Exam::where('name', 'Immediate Visibility Exam')->firstOrFail();
@@ -369,6 +464,8 @@ class BusinessDomainTest extends TestCase
             'exam_id' => $exam->id, 'group_id' => $group->id,
             'start_date' => now()->addDays(5)->format('Y-m-d'), 'end_date' => now()->addDays(6)->format('Y-m-d'),
             'duration_minutes' => 60,
+            'proctor_id' => User::factory()->proctor()->create()->id,
+            'instructor_id' => User::factory()->instructor()->create()->id,
         ];
 
         $this->post(route('admin.exam-schedules.store'), $payload)->assertRedirect();
@@ -384,12 +481,15 @@ class BusinessDomainTest extends TestCase
     {
         $exam = Exam::create(['course_id' => $this->subject->id, 'name' => 'Scheduled Exam', 'question_order_mode' => 'static', 'status' => 'published']);
         $group = Group::create(['name' => 'Scheduled Group', 'status' => 'active']);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
         $startDate = now()->addDays(2)->format('Y-m-d');
         $endDate = now()->addDays(4)->format('Y-m-d');
         $this->post(route('admin.exam-schedules.store'), [
             'exam_id' => $exam->id, 'group_id' => $group->id,
             'start_date' => $startDate, 'end_date' => $endDate,
             'duration_minutes' => 60,
+            'proctor_id' => $proctor->id, 'instructor_id' => $instructor->id,
         ])->assertRedirect();
         $schedule = ExamSchedule::firstOrFail();
         $this->assertSame('scheduled', $schedule->status->value);
@@ -403,10 +503,12 @@ class BusinessDomainTest extends TestCase
             'exam_id' => $exam->id, 'group_id' => $group->id,
             'start_date' => now()->addDays(3)->format('Y-m-d'), 'end_date' => now()->addDays(5)->format('Y-m-d'),
             'duration_minutes' => 60,
+            'proctor_id' => $proctor->id, 'instructor_id' => $instructor->id,
         ])->assertRedirect();
         $this->post(route('admin.exam-schedules.store'), [
             'exam_id' => $exam->id, 'group_id' => $group->id,
             'start_date' => $endDate, 'end_date' => $startDate, 'duration_minutes' => 60,
+            'proctor_id' => $proctor->id, 'instructor_id' => $instructor->id,
         ])->assertSessionHasErrors('end_date');
         $this->patch(route('admin.exam-schedules.cancel', $schedule))->assertRedirect();
         $this->assertDatabaseHas('exam_schedules', ['id' => $schedule->id, 'status' => 'cancelled']);

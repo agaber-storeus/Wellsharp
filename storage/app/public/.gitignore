@@ -1,2 +1,7 @@
 *
 !.gitignore
+!questions/
+!questions/iadc/
+!questions/iadc/2026/
+!questions/iadc/2026/*.png
+!questions/iadc/2026/*.jpg

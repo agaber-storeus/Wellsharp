@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Models\ClassStaffAssignment;
 use App\Models\Enrollment;
 use App\Models\Exam;
 use App\Models\ExamSchedule;
@@ -70,8 +69,7 @@ class RoleInterfaceTest extends TestCase
             ->assertDontSee('Operational workspace');
 
         $proctor = User::factory()->proctor()->create();
-        $proctorClass = TrainingClass::factory()->create(['class_number' => 'PROCTOR-ONLY']);
-        ClassStaffAssignment::factory()->create(['class_id' => $proctorClass->id, 'user_id' => $proctor->id, 'assignment_role' => 'proctor']);
+        $proctorClass = TrainingClass::factory()->create(['class_number' => 'PROCTOR-ONLY', 'proctor_id' => $proctor->id]);
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->get(route('proctor.dashboard'))
             ->assertOk()
@@ -83,8 +81,7 @@ class RoleInterfaceTest extends TestCase
             ->assertDontSee('Administration console');
 
         $instructor = User::factory()->instructor()->create();
-        $instructorClass = TrainingClass::factory()->create(['class_number' => 'INSTRUCTOR-ONLY']);
-        ClassStaffAssignment::factory()->create(['class_id' => $instructorClass->id, 'user_id' => $instructor->id, 'assignment_role' => 'instructor']);
+        $instructorClass = TrainingClass::factory()->create(['class_number' => 'INSTRUCTOR-ONLY', 'instructor_id' => $instructor->id]);
         $this->actingAs($instructor)->withSession(['auth.session_version' => $instructor->session_version])
             ->get(route('instructor.dashboard'))
             ->assertOk()
@@ -108,17 +105,16 @@ class RoleInterfaceTest extends TestCase
             ->assertDontSee('Administration console');
     }
 
-    public function test_operational_dashboards_expose_all_classes_while_students_remain_enrollment_scoped(): void
+    public function test_operational_dashboards_are_scoped_to_assigned_classes_while_students_remain_enrollment_scoped(): void
     {
         $proctor = User::factory()->proctor()->create();
-        $assigned = TrainingClass::factory()->create(['class_number' => 'ASSIGNED-CLASS']);
+        $assigned = TrainingClass::factory()->create(['class_number' => 'ASSIGNED-CLASS', 'proctor_id' => $proctor->id]);
         $unassigned = TrainingClass::factory()->create(['class_number' => 'UNASSIGNED-CLASS']);
-        ClassStaffAssignment::factory()->create(['class_id' => $assigned->id, 'user_id' => $proctor->id, 'assignment_role' => 'proctor']);
 
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->get(route('proctor.dashboard'))
             ->assertSee('ASSIGNED-CLASS')
-            ->assertSee('UNASSIGNED-CLASS');
+            ->assertDontSee('UNASSIGNED-CLASS');
 
         $student = User::factory()->student()->create();
         $own = TrainingClass::factory()->create(['class_number' => 'OWN-CLASS']);
@@ -140,11 +136,16 @@ class RoleInterfaceTest extends TestCase
         $class = TrainingClass::factory()->create([
             'class_number' => 'MAP-CLASS',
             'training_provider_id' => $provider->id,
+            'proctor_id' => $proctor->id,
             'status' => 'active',
-            'starts_at' => '2026-08-17 00:00:00',
-            'ends_at' => '2026-08-19 10:56:00',
+            // Relative to "now" (not fixed calendar dates) so this class is
+            // still genuinely ongoing whenever the test runs - the operational
+            // dashboard now auto-transitions an active Class whose ends_at has
+            // already passed (SyncDueClassStatuses middleware), so a fixed
+            // past date would flip this fixture to "completed" mid-test.
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->addDay()->setTime(10, 56),
         ]);
-        ClassStaffAssignment::factory()->create(['class_id' => $class->id, 'user_id' => $proctor->id, 'assignment_role' => 'proctor']);
 
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->get(route('proctor.dashboard'))
@@ -161,11 +162,11 @@ class RoleInterfaceTest extends TestCase
         $proctor = User::factory()->proctor()->create();
         $trainingClass = TrainingClass::factory()->create([
             'class_number' => 'SCHEDULE-DATES',
+            'proctor_id' => $proctor->id,
             'status' => 'planned',
             'starts_at' => '2026-08-17 00:00:00',
             'ends_at' => '2026-08-19 10:56:00',
         ]);
-        ClassStaffAssignment::factory()->create(['class_id' => $trainingClass->id, 'user_id' => $proctor->id, 'assignment_role' => 'proctor']);
         $exam = Exam::create([
             'course_id' => $trainingClass->course_id,
             'name' => 'Schedule Date Exam',

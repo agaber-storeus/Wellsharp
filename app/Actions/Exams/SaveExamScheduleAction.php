@@ -64,7 +64,10 @@ class SaveExamScheduleAction
             } else {
                 $schedule->update($attributes);
             }
-            $this->classSynchronizer->sync($schedule);
+            $this->classSynchronizer->sync($schedule, [
+                'proctor_id' => $data['proctor_id'] ?? null,
+                'instructor_id' => $data['instructor_id'] ?? null,
+            ]);
             $this->audit->record($creating ? 'exam_schedule.created' : 'exam_schedule.updated', $schedule, $before, $schedule->fresh()->toArray());
 
             return $schedule->fresh(['exam', 'group', 'trainingClass']);

@@ -11,13 +11,18 @@ use Illuminate\Support\Collection;
 
 class OperationalReportingService
 {
+    public function __construct(private readonly EffectiveScoreService $effectiveScore) {}
+
     /** @return Collection<int, TrainingClass> */
     public function accessibleClasses(User $user): Collection
     {
         return TrainingClass::query()
+            ->visibleTo($user)
             ->with([
                 'course.level',
-                'staffAssignments',
+                'proctor.profile',
+                'instructor.profile',
+                'enrollments',
                 'examSchedules.exam.subject',
                 'examSchedules.attempts.student.profile',
                 'examSchedules.attempts.exam.subject',
@@ -41,7 +46,22 @@ class OperationalReportingService
             ->flatMap(function (TrainingClass $trainingClass): Collection {
                 return $trainingClass->examSchedules->flatMap(function ($schedule) use ($trainingClass): Collection {
                     return $schedule->attempts->map(function (ExamAttempt $attempt) use ($schedule, $trainingClass): ExamAttempt {
-                        return $attempt->setRelation('schedule', $schedule)->setRelation('trainingClass', $trainingClass);
+                        $attempt->setRelation('schedule', $schedule)->setRelation('trainingClass', $trainingClass);
+
+                        // Decorate with the effective (Skills Score-aware) result so every
+                        // consumer of this collection (analytics rows, CSV export) reports
+                        // "did this trainee pass" consistently with certificate eligibility,
+                        // instead of each one re-deriving it from the raw attempt separately.
+                        $skillsScore = $trainingClass->enrollments->firstWhere('student_user_id', $attempt->student_user_id)?->skills_score;
+                        $passingScore = (int) ($attempt->exam?->passing_score ?? 0);
+                        $effective = $attempt->score !== null
+                            ? $this->effectiveScore->resolve((float) $attempt->score, $skillsScore, $passingScore)
+                            : null;
+                        $attempt->setAttribute('effective_score', $effective['score'] ?? null);
+                        $attempt->setAttribute('effective_passed', $effective['passed'] ?? null);
+                        $attempt->setAttribute('effective_overridden', $effective['overridden'] ?? false);
+
+                        return $attempt;
                     });
                 });
             })
@@ -134,9 +154,31 @@ class OperationalReportingService
         return $numbers->isEmpty() ? '0%' : number_format($numbers->avg(), 2).'%';
     }
 
+    /**
+     * Scoped to the attempt's own Class assignment - a Proctor/Instructor may
+     * only view/release scores for a Class they are assigned to, matching the
+     * same ownership rule enforced by TrainingClassPolicy/EnrollmentPolicy.
+     */
     public function canViewAttempt(ExamAttempt $attempt, User $user): bool
     {
-        return $user->isActive() && ($user->hasRole('proctor') || $user->hasRole('instructor'));
+        if (! $user->isActive()) {
+            return false;
+        }
+
+        $trainingClass = $attempt->schedule?->trainingClass;
+        if (! $trainingClass) {
+            return false;
+        }
+
+        if ($user->hasRole('proctor')) {
+            return $trainingClass->proctor_id === $user->getKey();
+        }
+
+        if ($user->hasRole('instructor')) {
+            return $trainingClass->instructor_id === $user->getKey();
+        }
+
+        return false;
     }
 
     /** @return array<string, mixed> */
@@ -150,14 +192,14 @@ class OperationalReportingService
             'name' => $name,
             'subject' => $subject,
             'trainees' => $examAttempts->pluck('student_user_id')->unique()->count(),
-            'passed' => $examAttempts->where('passed', true)->count(),
-            'failed' => $examAttempts->where('passed', false)->count(),
-            'rate' => $this->rate($examAttempts->where('passed', true)->count(), $examAttempts->whereIn('passed', [true, false])->count()),
+            'passed' => $examAttempts->where('effective_passed', true)->count(),
+            'failed' => $examAttempts->where('effective_passed', false)->count(),
+            'rate' => $this->rate($examAttempts->where('effective_passed', true)->count(), $examAttempts->whereIn('effective_passed', [true, false])->count()),
             'average' => $this->average($examAttempts),
             'retaking' => $retakes->pluck('student_user_id')->unique()->count(),
-            'retake_passed' => $retakes->where('passed', true)->count(),
-            'retake_failed' => $retakes->where('passed', false)->count(),
-            'retake_rate' => $this->rate($retakes->where('passed', true)->count(), $retakes->whereIn('passed', [true, false])->count()),
+            'retake_passed' => $retakes->where('effective_passed', true)->count(),
+            'retake_failed' => $retakes->where('effective_passed', false)->count(),
+            'retake_rate' => $this->rate($retakes->where('effective_passed', true)->count(), $retakes->whereIn('effective_passed', [true, false])->count()),
             'retake_average' => $this->average($retakes),
             'attempts' => $examAttempts->sortBy([['attempt_number', 'asc'], ['submitted_at', 'desc']])->values(),
             'initial_attempts' => $firstAttempts->count(),
@@ -166,7 +208,7 @@ class OperationalReportingService
 
     private function average(Collection $attempts): string
     {
-        $scores = $attempts->pluck('score')->filter(fn ($score): bool => $score !== null);
+        $scores = $attempts->pluck('effective_score')->filter(fn ($score): bool => $score !== null);
 
         return $scores->isEmpty() ? '0%' : number_format((float) $scores->avg(), 2).'%';
     }

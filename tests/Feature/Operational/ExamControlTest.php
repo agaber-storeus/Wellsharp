@@ -51,8 +51,12 @@ class ExamControlTest extends TestCase
     public function test_instructor_can_use_an_active_proctor_id_to_start_and_end_a_linked_class(): void
     {
         $course = Course::factory()->create();
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
         $trainingClass = TrainingClass::factory()->create([
             'course_id' => $course->id,
+            'proctor_id' => $proctor->id,
+            'instructor_id' => $instructor->id,
             'status' => ClassStatus::Planned,
             'starts_at' => now()->addMonth(),
             'ends_at' => now()->addMonth()->addDays(2),
@@ -83,8 +87,6 @@ class ExamControlTest extends TestCase
             'status' => GroupMembershipStatus::Active,
             'joined_at' => now(),
         ]);
-        $proctor = User::factory()->proctor()->create();
-        $instructor = User::factory()->instructor()->create();
         StudentSurvey::create([
             'student_user_id' => $student->id,
             'exam_schedule_id' => $schedule->id,
@@ -135,8 +137,8 @@ class ExamControlTest extends TestCase
 
     public function test_legacy_non_proctor_owned_credentials_never_verify(): void
     {
-        $class = TrainingClass::factory()->create(['starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);
         $instructor = User::factory()->instructor()->create();
+        $class = TrainingClass::factory()->create(['instructor_id' => $instructor->id, 'starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);
         $otherInstructor = User::factory()->instructor()->create();
         $admin = User::factory()->admin()->create();
         $student = User::factory()->student()->create();
@@ -162,8 +164,8 @@ class ExamControlTest extends TestCase
 
     public function test_instructor_cannot_use_an_unknown_or_disabled_proctors_credential(): void
     {
-        $class = TrainingClass::factory()->create(['starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);
         $instructor = User::factory()->instructor()->create();
+        $class = TrainingClass::factory()->create(['instructor_id' => $instructor->id, 'starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);
         $disabledProctor = User::factory()->proctor()->create(['status' => 'disabled']);
 
         $this->actingAs($instructor)->withSession(['auth.session_version' => $instructor->session_version]);
@@ -181,8 +183,8 @@ class ExamControlTest extends TestCase
 
     public function test_instructor_must_provide_a_proctor_id(): void
     {
-        $class = TrainingClass::factory()->create(['starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);
         $instructor = User::factory()->instructor()->create();
+        $class = TrainingClass::factory()->create(['instructor_id' => $instructor->id, 'starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);
 
         $this->actingAs($instructor)->withSession(['auth.session_version' => $instructor->session_version])
             ->postJson(route('instructor.classes.exam-control', $class), ['action' => 'start'])
@@ -192,8 +194,8 @@ class ExamControlTest extends TestCase
 
     public function test_proctor_can_start_and_end_directly_with_no_credential(): void
     {
-        $class = TrainingClass::factory()->create(['starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);
         $proctor = User::factory()->proctor()->create();
+        $class = TrainingClass::factory()->create(['proctor_id' => $proctor->id, 'starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);
 
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->postJson(route('proctor.classes.exam-control', $class), ['action' => 'start'])
@@ -235,6 +237,38 @@ class ExamControlTest extends TestCase
         $this->artisan('wellsharp:process-exam-schedules')->assertSuccessful();
         $this->assertSame(1, AuditEvent::where('action', 'class.automatic_start')->count());
         $this->assertSame(1, AuditEvent::where('action', 'class.automatic_end')->count());
+    }
+
+    public function test_visiting_the_proctor_dashboard_auto_transitions_a_due_class_without_the_scheduler(): void
+    {
+        // Reproduces the scenario where `wellsharp:process-exam-schedules` never
+        // ran (no cron/schedule:work configured): a Class whose starts_at has
+        // already arrived must not stay "planned" forever just because nobody
+        // visited it before the request that finally loads the dashboard.
+        $class = TrainingClass::factory()->create(['starts_at' => now()->subMinute(), 'ends_at' => now()->addDay()]);
+        $proctor = User::factory()->proctor()->create();
+
+        $this->assertDatabaseHas('classes', ['id' => $class->id, 'status' => ClassStatus::Planned->value]);
+
+        $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
+            ->get(route('proctor.dashboard'))
+            ->assertOk();
+
+        $this->assertDatabaseHas('classes', ['id' => $class->id, 'status' => ClassStatus::Active->value]);
+        $this->assertDatabaseHas('audit_events', ['action' => 'class.automatic_start']);
+    }
+
+    public function test_visiting_the_instructor_dashboard_auto_transitions_a_due_class_without_the_scheduler(): void
+    {
+        $class = TrainingClass::factory()->active()->create(['starts_at' => now()->subDay(), 'ends_at' => now()->subMinute()]);
+        $instructor = User::factory()->instructor()->create();
+
+        $this->actingAs($instructor)->withSession(['auth.session_version' => $instructor->session_version])
+            ->get(route('instructor.dashboard'))
+            ->assertOk();
+
+        $this->assertDatabaseHas('classes', ['id' => $class->id, 'status' => ClassStatus::Completed->value]);
+        $this->assertDatabaseHas('audit_events', ['action' => 'class.automatic_end']);
     }
 
     public function test_process_command_leaves_future_classes_planned(): void
@@ -288,8 +322,8 @@ class ExamControlTest extends TestCase
 
     public function test_cancelled_class_cannot_be_started(): void
     {
-        $class = TrainingClass::factory()->create(['status' => ClassStatus::Cancelled, 'starts_at' => now()->subMinute()]);
         $proctor = User::factory()->proctor()->create();
+        $class = TrainingClass::factory()->create(['proctor_id' => $proctor->id, 'status' => ClassStatus::Cancelled, 'starts_at' => now()->subMinute()]);
 
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
             ->postJson(route('proctor.classes.exam-control', $class), ['action' => 'start'])
@@ -299,8 +333,8 @@ class ExamControlTest extends TestCase
 
     public function test_repeated_manual_transitions_are_idempotent(): void
     {
-        $class = TrainingClass::factory()->create();
         $proctor = User::factory()->proctor()->create();
+        $class = TrainingClass::factory()->create(['proctor_id' => $proctor->id]);
         $payload = ['action' => 'start'];
 
         $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])

@@ -2,22 +2,28 @@
     $selected = old('question_ids', $exam->examQuestions?->pluck('question_id')->all() ?: []);
     $orders = old('display_orders', $exam->examQuestions?->pluck('display_order', 'question_id')->all() ?: []);
     $currentSubject = old('course_id', $selectedCourseId ?? $course?->id);
+    $allowSubjectChange = $allowSubjectChange ?? false;
     $hasSchedule = $exam->exists && $exam->schedules()->exists();
     $orderDefaults = [];
     foreach ($questions as $index => $question) {
         $orderDefaults[(string) $question->id] = $orders[$question->id] ?? ($index + 1);
     }
-    $questionMeta = $questions->map(fn ($question): array => [
-        'id' => (string) $question->id,
-        'difficulty' => $question->difficulty?->value,
-        'type' => $question->type?->value,
-    ])->values();
+    $questionBanks = $questionBanks ?? [
+        (string) $currentSubject => $questions->map(fn ($question): array => [
+            'id' => (string) $question->id,
+            'text' => $question->question_text,
+            'subject' => $question->course?->name,
+            'type' => $question->type?->value,
+            'difficulty' => $question->difficulty?->value,
+            'image_url' => $question->question_image_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($question->question_image_path) : null,
+        ])->values()->all(),
+    ];
 @endphp
-<div class="admin-bento">
+<div class="admin-bento" x-data="examQuestionPicker(@js($questionBanks), @js((string) $currentSubject), @js(array_map('strval', $selected)), @js($orderDefaults))">
     <div class="admin-bento-card admin-bento-card--wide">
         <div class="admin-card-head"><span class="admin-card-icon">📝</span><h3>Exam details</h3></div>
         <div class="admin-field-grid">
-            <div class="field full"><x-admin.label for="course_id" required>Subject</x-admin.label><select id="course_id" name="course_id" required><option value="">Select a Subject</option>@foreach($subjects as $subject)<option value="{{ $subject->id }}" @selected((string) $currentSubject === (string) $subject->id)>{{ $subject->name }} ({{ $subject->code }})</option>@endforeach</select><small class="muted">The Subject owns the reusable question bank for this exam.</small></div>
+            <div class="field full"><x-admin.label for="course_id" required>Subject</x-admin.label><select id="course_id" name="course_id" required @if($allowSubjectChange && !$exam->exists) x-model="subjectId" x-on:change="changeSubject" @endif><option value="">Select a Subject</option>@foreach($subjects as $subject)<option value="{{ $subject->id }}" @selected((string) $currentSubject === (string) $subject->id)>{{ $subject->name }} ({{ $subject->code }})</option>@endforeach</select><small class="muted">{{ $allowSubjectChange && !$exam->exists ? 'Changing the Subject updates its active question bank instantly.' : 'Questions are selected from the current Subject.' }}</small></div>
             <div class="field"><x-admin.label for="name" required>Exam name</x-admin.label><input id="name" name="name" value="{{ old('name', $exam->name) }}" required></div>
             <div class="field"><x-admin.label for="code">Exam code</x-admin.label><input id="code" name="code" value="{{ old('code', $exam->code) }}" {{ $exam->exists ? 'readonly' : '' }}>@unless($exam->exists)<small class="muted"><span class="admin-badge-generated">Auto-generated</span> Leave blank to auto-generate a unique code.</small>@endunless</div>
             <div class="field"><x-admin.label for="question_order_mode" required>Question order</x-admin.label><select id="question_order_mode" name="question_order_mode" required>@foreach(['static' => 'Static', 'shuffle' => 'Shuffle'] as $value => $label)<option value="{{ $value }}" @selected(old('question_order_mode', $exam->question_order_mode?->value) === $value)>{{ $label }}</option>@endforeach</select></div>
@@ -49,10 +55,29 @@
         </div>
     @endif
 
-    <div class="admin-bento-card admin-bento-card--wide" x-data="examQuestionPicker(@js($questionMeta), @js(array_map('strval', $selected)), @js($orderDefaults))">
+    <div class="admin-bento-card admin-bento-card--wide">
         <div class="admin-card-head"><span class="admin-card-icon">❓</span><h3>Questions<span class="required-mark" aria-hidden="true">*</span></h3></div>
         <span class="sr-only">Required</span>
-        <p class="admin-card-note">Select questions from the chosen Subject, or auto-select a random set below ({{ $questions->count() }} active question{{ $questions->count() === 1 ? '' : 's' }} available).</p>
+        <p class="admin-card-note">Select questions from the chosen Subject, or auto-select a random set below (<span x-text="subjectQuestions().length"></span> active questions available).</p>
+
+        <div class="question-tools" role="search" aria-label="Question bank tools">
+            <label class="question-search"><span class="sr-only">Search questions</span><input type="search" x-model.debounce.200ms="search" placeholder="Search questions..."></label>
+            <select x-model="filterType" aria-label="Filter by question type">
+                <option value="">All types</option>
+                <option value="mcq">Multiple choice</option>
+                <option value="true_false">True / False</option>
+                <option value="input">Text input</option>
+            </select>
+            <select x-model="filterDifficulty" aria-label="Filter by difficulty">
+                <option value="">All difficulties</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+            <button type="button" class="btn secondary small" x-on:click="sortBy('text')">Sort question <span x-text="sortIcon('text')"></span></button>
+            <button type="button" class="btn secondary small" x-on:click="sortBy('difficulty')">Sort difficulty <span x-text="sortIcon('difficulty')"></span></button>
+            <span class="muted" x-text="filteredQuestions().length + ' shown · ' + selected.length + ' selected'"></span>
+        </div>
 
         <div class="auto-select-panel">
             <div class="admin-section-head" style="margin-bottom:8px">
@@ -101,7 +126,24 @@
             <p class="auto-select-warning" x-show="warning" x-text="warning" x-cloak></p>
         </div>
 
-        <div class="table-wrap"><table class="table"><thead><tr><th>Select</th><th>Order</th><th>Question</th><th>Subject</th><th>Type</th><th>Difficulty</th></tr></thead><tbody>@forelse($questions as $question)<tr><td><input type="checkbox" name="question_ids[]" value="{{ $question->id }}" x-model="selected"></td><td><input style="width:80px" type="number" name="display_orders[{{ $question->id }}]" x-model.number="orders['{{ $question->id }}']" min="1"></td><td><div class="admin-question-cell">@if($question->question_image_path)<img class="admin-question-thumb" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($question->question_image_path) }}" alt="Question image">@endif<div><span>{{ $question->question_text }}</span>@if($question->options->whereNotNull('image_path')->isNotEmpty() || $question->correct_answer_image_path)<small class="image-count">{{ $question->options->whereNotNull('image_path')->count() + ($question->correct_answer_image_path ? 1 : 0) }} answer image{{ $question->options->whereNotNull('image_path')->count() + ($question->correct_answer_image_path ? 1 : 0) === 1 ? '' : 's' }}</small>@endif</div></div></td><td>{{ $question->course?->name }}</td><td>{{ $question->type->label() }}</td><td>{{ $question->difficulty->label() }}</td></tr>@empty<tr><td colspan="6" class="muted">Choose a Subject with active questions first.</td></tr>@endforelse</tbody></table></div>
+        <template x-for="questionId in hiddenSelectedIds()" :key="'hidden-selected-' + questionId">
+            <input type="hidden" name="question_ids[]" :value="questionId">
+            <input type="hidden" :name="'display_orders[' + questionId + ']'" :value="orders[questionId] || ''">
+        </template>
+
+        <div class="table-wrap"><table class="table"><thead><tr><th>Select</th><th>Order</th><th>Question</th><th>Subject</th><th>Type</th><th>Difficulty</th></tr></thead><tbody>
+            <template x-for="question in filteredQuestions()" :key="question.id">
+                <tr>
+                    <td><input type="checkbox" name="question_ids[]" :value="question.id" x-model="selected"></td>
+                    <td><input style="width:80px" type="number" :name="'display_orders[' + question.id + ']'" x-model.number="orders[question.id]" min="1"></td>
+                    <td><div class="admin-question-cell"><template x-if="question.image_url"><img class="admin-question-thumb" :src="question.image_url" alt="Question image"></template><div><span x-text="question.text"></span></div></div></td>
+                    <td x-text="question.subject"></td>
+                    <td x-text="question.type === 'mcq' ? 'Multiple choice' : (question.type === 'true_false' ? 'True / False' : 'Text input')"></td>
+                    <td x-text="question.difficulty ? question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1) : ''"></td>
+                </tr>
+            </template>
+            <tr x-show="filteredQuestions().length === 0"><td colspan="6" class="muted" x-text="subjectQuestions().length ? 'No questions match the current filters.' : 'Choose a Subject with active questions first.'"></td></tr>
+        </tbody></table></div>
     </div>
 </div>
 <div class="actions" style="margin-top:20px"><button class="btn">Save exam</button><a class="btn secondary" href="{{ $exam->exists ? route('admin.exams.show', $exam) : route('admin.exams.index') }}">Cancel</a></div>
@@ -111,17 +153,68 @@
 .auto-select-panel .radio-row{display:flex;gap:20px;align-items:center;margin-top:2px}
 .auto-select-panel .radio-row label{font-weight:400;display:flex;align-items:center;gap:6px}
 .auto-select-warning{margin:12px 0 0;padding:9px 12px;border-radius:6px;background:#fff4e5;color:#8a5a00;font-size:13px}
+.question-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 18px}
+.question-tools select,.question-search input{min-width:150px;padding:9px 10px;border:1px solid var(--admin-line);border-radius:6px;background:#fff}
+.question-search{flex:1 1 260px}
+.question-search input{width:100%}
 </style>
 
 @push('scripts')
 <script>
-function examQuestionPicker(questions, initialSelected, initialOrders) {
+function examQuestionPicker(questionBanks, initialSubject, initialSelected, initialOrders) {
     return {
-        questions,
+        questionBanks,
+        subjectId: initialSubject,
         selected: initialSelected.slice(),
         orders: { ...initialOrders },
+        search: '',
+        filterType: '',
+        filterDifficulty: '',
+        sortField: 'text',
+        sortDirection: 'asc',
         auto: { mode: 'total', total: null, easy: null, medium: null, hard: null, type: '', replace: true },
         warning: '',
+        subjectQuestions() {
+            return this.questionBanks[String(this.subjectId)] || [];
+        },
+        hiddenSelectedIds() {
+            const visibleIds = new Set(this.filteredQuestions().map((question) => question.id));
+            return this.selected.filter((questionId) => !visibleIds.has(questionId));
+        },
+        filteredQuestions() {
+            const search = this.search.trim().toLowerCase();
+            const filtered = this.subjectQuestions().filter((question) => {
+                const matchesSearch = !search || (question.text + ' ' + question.subject).toLowerCase().includes(search);
+                const matchesType = !this.filterType || question.type === this.filterType;
+                const matchesDifficulty = !this.filterDifficulty || question.difficulty === this.filterDifficulty;
+                return matchesSearch && matchesType && matchesDifficulty;
+            });
+            return filtered.sort((left, right) => {
+                const leftValue = String(left[this.sortField] || '').toLowerCase();
+                const rightValue = String(right[this.sortField] || '').toLowerCase();
+                const result = leftValue.localeCompare(rightValue, undefined, { numeric: true });
+                return this.sortDirection === 'asc' ? result : -result;
+            });
+        },
+        changeSubject() {
+            this.selected = [];
+            this.orders = {};
+            this.search = '';
+            this.filterType = '';
+            this.filterDifficulty = '';
+            this.warning = '';
+        },
+        sortBy(field) {
+            if (this.sortField === field) {
+                this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.sortField = field;
+                this.sortDirection = 'asc';
+            }
+        },
+        sortIcon(field) {
+            return this.sortField === field ? (this.sortDirection === 'asc' ? '↑' : '↓') : '↕';
+        },
         shuffle(list) {
             const copy = list.slice();
             for (let i = copy.length - 1; i > 0; i--) {
@@ -132,7 +225,7 @@ function examQuestionPicker(questions, initialSelected, initialOrders) {
         },
         autoSelect() {
             this.warning = '';
-            let pool = this.questions;
+            let pool = this.subjectQuestions();
             if (this.auto.type) {
                 pool = pool.filter((question) => question.type === this.auto.type);
             }

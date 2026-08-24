@@ -17,6 +17,8 @@ use App\Services\AuditRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class ExamController extends Controller
@@ -113,18 +115,20 @@ class ExamController extends Controller
     public function create(Course $course): View
     {
         $this->authorize('create', Exam::class);
+        $subjects = $this->examSubjects();
         $questions = $course->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get();
 
-        return view('admin.exams.create', ['course' => $course, 'subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get(), ...$this->staffOptions()]);
+        return view('admin.exams.create', ['course' => $course, 'subjects' => $subjects, 'selectedCourseId' => $course->id, 'questionBanks' => $this->questionBanks($subjects), 'allowSubjectChange' => false, 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get(), ...$this->staffOptions()]);
     }
 
     public function createGlobal(): View
     {
         $this->authorize('create', Exam::class);
+        $subjects = $this->examSubjects();
         $course = Course::query()->find(request('course_id'));
         $questions = $course?->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get() ?? collect();
 
-        return view('admin.exams.create', ['course' => $course, 'subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => request('course_id'), 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get(), ...$this->staffOptions()]);
+        return view('admin.exams.create', ['course' => $course, 'subjects' => $subjects, 'selectedCourseId' => request('course_id'), 'questionBanks' => $this->questionBanks($subjects), 'allowSubjectChange' => true, 'exam' => new Exam(['question_order_mode' => ExamQuestionOrderMode::Static, 'status' => ExamStatus::Draft]), 'questions' => $questions, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get(), ...$this->staffOptions()]);
     }
 
     public function store(StoreExamRequest $request, Course $course, SaveExamAction $action): RedirectResponse
@@ -165,20 +169,22 @@ class ExamController extends Controller
     {
         $this->ensureCourseExam($course, $exam);
         $this->authorize('update', $exam);
+        $subjects = $this->examSubjects();
         $questions = $course->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get();
         $exam->load('examQuestions');
 
-        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()] + $this->staffOptions());
+        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => $subjects, 'questionBanks' => $this->questionBanks($subjects), 'selectedCourseId' => $course->id, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()] + $this->staffOptions());
     }
 
     public function editGlobal(Exam $exam): View
     {
         $this->authorize('update', $exam);
         $course = $exam->subject;
+        $subjects = $this->examSubjects();
         $questions = $course->questions()->with(['course', 'options'])->where('is_active', true)->orderBy('question_text')->get();
         $exam->load('examQuestions');
 
-        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => Course::query()->where('status', 'active')->orderBy('name')->get(), 'selectedCourseId' => $course->id, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()] + $this->staffOptions());
+        return view('admin.exams.edit', compact('course', 'exam', 'questions') + ['subjects' => $subjects, 'questionBanks' => $this->questionBanks($subjects), 'selectedCourseId' => $course->id, 'groups' => Group::query()->where('status', 'active')->orderBy('name')->get()] + $this->staffOptions());
     }
 
     private function staffOptions(): array
@@ -187,6 +193,29 @@ class ExamController extends Controller
             'proctors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::PROCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
             'instructors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::INSTRUCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
         ];
+    }
+
+    private function examSubjects(): Collection
+    {
+        return Course::query()
+            ->where('status', 'active')
+            ->with(['questions' => fn ($query) => $query->where('is_active', true)->orderBy('question_text')])
+            ->orderBy('name')
+            ->get();
+    }
+
+    private function questionBanks(Collection $subjects): array
+    {
+        return $subjects->mapWithKeys(fn (Course $subject): array => [
+            (string) $subject->id => $subject->questions->map(fn ($question): array => [
+                'id' => (string) $question->id,
+                'text' => $question->question_text,
+                'subject' => $subject->name,
+                'type' => $question->type?->value,
+                'difficulty' => $question->difficulty?->value,
+                'image_url' => $question->question_image_path ? Storage::disk('public')->url($question->question_image_path) : null,
+            ])->values()->all(),
+        ])->all();
     }
 
     public function update(UpdateExamRequest $request, Course $course, Exam $exam, SaveExamAction $action): RedirectResponse

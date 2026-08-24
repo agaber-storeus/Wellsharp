@@ -276,6 +276,47 @@ class BusinessDomainTest extends TestCase
         $this->assertDatabaseMissing('exams', ['name' => 'Invalid Exam']);
     }
 
+    public function test_global_exam_create_loads_selected_subject_questions_and_saves_status(): void
+    {
+        $subjectQuestion = Question::create([
+            'course_id' => $this->subject->id,
+            'question_text' => 'Selected subject question',
+            'type' => 'input',
+            'difficulty' => 'easy',
+            'correct_answer_text' => 'answer',
+        ]);
+        Question::create([
+            'course_id' => $this->otherSubject->id,
+            'question_text' => 'Other subject question',
+            'type' => 'input',
+            'difficulty' => 'easy',
+            'correct_answer_text' => 'answer',
+        ]);
+
+        $this->get(route('admin.exams.create', ['course_id' => $this->subject->id]))
+            ->assertOk()
+            ->assertSee('Selected subject question')
+            ->assertSee('Other subject question')
+            ->assertSee('x-on:change="changeSubject"', false)
+            ->assertSee('x-model.debounce.200ms="search"', false)
+            ->assertSee('x-on:click="sortBy(\'text\')"', false)
+            ->assertDontSee('window.location=', false);
+
+        $this->post(route('admin.exams.store'), [
+            'course_id' => $this->subject->id,
+            'name' => 'Global Subject Exam',
+            'question_order_mode' => 'static',
+            'status' => 'published',
+            'question_ids' => [$subjectQuestion->id],
+            'display_orders' => [$subjectQuestion->id => 1],
+        ])->assertRedirect();
+
+        $exam = Exam::query()->where('name', 'Global Subject Exam')->firstOrFail();
+        $this->assertSame($this->subject->id, $exam->course_id);
+        $this->assertSame('published', $exam->status->value);
+        $this->assertSame([$subjectQuestion->id], $exam->examQuestions()->pluck('question_id')->all());
+    }
+
     public function test_admin_can_set_and_update_certificate_validity_years_on_an_exam(): void
     {
         $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Validity question', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'answer']);

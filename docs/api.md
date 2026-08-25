@@ -299,6 +299,7 @@ State-changing browser forms use Laravel's CSRF token and return redirects with 
 - Exam and Class are two interface labels for the same operational domain; do not create a second bridge record.
 - Schedule availability is date-based; per-student duration starts when the attempt starts.
 - Static Exam order is shared; shuffle order is persisted per student attempt.
+- Manual-selection Exams keep a persisted, shared question bank; random-selection Exams keep none and draw `question_count` active Subject questions per student at attempt start (forcing static order), fixed for that attempt once created.
 - Students must confirm contact information and complete the survey before starting.
 - Only the Proctor role owns a Proctor's ID; a Proctor controls a Class directly, an Instructor must supply an active Proctor's ID belonging to someone else.
 - Passing submitted attempts are scored and receive three certificate documents; failed attempts do not receive certificates.

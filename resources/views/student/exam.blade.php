@@ -34,7 +34,7 @@
             @if($question->question_image_path)
               <img class="exam-question-image" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($question->question_image_path) }}" alt="Question image" />
             @endif
-            <small>{{ substr($question->public_id, 0, 5) }}</small>
+            <small>{{ $question->code }}</small>
           </div>
         </div>
         @if($question->type === \App\Enums\QuestionType::Mcq)

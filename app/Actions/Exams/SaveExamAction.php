@@ -2,6 +2,8 @@
 
 namespace App\Actions\Exams;
 
+use App\Enums\ExamQuestionOrderMode;
+use App\Enums\ExamQuestionSelectionMode;
 use App\Enums\ExamStatus;
 use App\Models\Course;
 use App\Models\Exam;
@@ -20,6 +22,12 @@ class SaveExamAction
     {
         return DB::transaction(function () use ($exam, $course, $data): Exam {
             $creating = $exam === null;
+            $selectionMode = $data['question_selection_mode'] ?? ExamQuestionSelectionMode::Manual->value;
+            $questionOrderMode = $selectionMode === ExamQuestionSelectionMode::Random->value
+                ? ExamQuestionOrderMode::Static->value
+                : $data['question_order_mode'];
+            $questionCount = $selectionMode === ExamQuestionSelectionMode::Random->value ? ($data['question_count'] ?? null) : null;
+
             if ($creating) {
                 $exam = Exam::create([
                     'course_id' => $course->getKey(),
@@ -29,7 +37,9 @@ class SaveExamAction
                     'passing_score' => $data['passing_score'] ?? null,
                     'retake_score' => $data['retake_score'] ?? null,
                     'certificate_validity_years' => $data['certificate_validity_years'] ?? null,
-                    'question_order_mode' => $data['question_order_mode'],
+                    'question_order_mode' => $questionOrderMode,
+                    'question_selection_mode' => $selectionMode,
+                    'question_count' => $questionCount,
                     'status' => $data['status'] ?? ExamStatus::Draft,
                     'created_by_user_id' => auth()->id(),
                     'updated_by_user_id' => auth()->id(),
@@ -37,7 +47,7 @@ class SaveExamAction
                 $before = null;
             } else {
                 $exam = Exam::query()->lockForUpdate()->findOrFail($exam->getKey());
-                $before = ['name' => $exam->name, 'status' => $exam->status->value, 'question_order_mode' => $exam->question_order_mode->value];
+                $before = ['name' => $exam->name, 'status' => $exam->status->value, 'question_order_mode' => $exam->question_order_mode->value, 'question_selection_mode' => $exam->question_selection_mode?->value ?? ExamQuestionSelectionMode::Manual->value, 'question_count' => $exam->question_count];
                 $exam->update([
                     'name' => trim($data['name']),
                     // The Exam Code is generated once on creation and must stay
@@ -49,7 +59,9 @@ class SaveExamAction
                     'passing_score' => $data['passing_score'] ?? null,
                     'retake_score' => $data['retake_score'] ?? null,
                     'certificate_validity_years' => $data['certificate_validity_years'] ?? null,
-                    'question_order_mode' => $data['question_order_mode'],
+                    'question_order_mode' => $questionOrderMode,
+                    'question_selection_mode' => $selectionMode,
+                    'question_count' => $questionCount,
                     'status' => $data['status'] ?? $exam->status,
                     'updated_by_user_id' => auth()->id(),
                 ]);
@@ -60,6 +72,8 @@ class SaveExamAction
                 'course_id' => $course->getKey(), 'exam_id' => $exam->getKey(),
                 'question_count' => $exam->examQuestions->count(),
                 'question_order_mode' => $exam->question_order_mode->value,
+                'question_selection_mode' => $exam->question_selection_mode?->value ?? ExamQuestionSelectionMode::Manual->value,
+                'random_question_count' => $exam->question_count,
             ]);
             $this->audit->record('exam.questions_updated', $exam, null, ['exam_id' => $exam->getKey(), 'question_count' => $exam->examQuestions->count()]);
 
@@ -99,6 +113,12 @@ class SaveExamAction
 
     private function syncQuestions(Exam $exam, array $data): void
     {
+        if ($exam->question_selection_mode === ExamQuestionSelectionMode::Random) {
+            $exam->examQuestions()->delete();
+
+            return;
+        }
+
         $questionIds = array_values(array_unique(array_map('intval', $data['question_ids'] ?? [])));
         $orders = $data['display_orders'] ?? [];
         $questions = $exam->subject->questions()->whereIn('id', $questionIds)->pluck('id')->all();

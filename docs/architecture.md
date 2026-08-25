@@ -102,7 +102,7 @@ Proctor/Instructor
     → may view reports and release/scored attempts
 ```
 
-Question order is chosen when the attempt is created: `static` preserves the Exam question order; `shuffle` creates and persists a per-student attempt order. Exam duration belongs to the schedule and starts when the student starts an attempt.
+Question order is chosen when the attempt is created: `static` preserves the Exam question order; `shuffle` creates and persists a per-student attempt order. An Exam's question selection mode is separate: `manual` exams keep a persisted, shared question bank (`exam_questions`); `random` exams store no question bank and instead draw `question_count` active questions from the Subject at random when each attempt is created, forcing `static` order. Either way, the drawn/ordered set is persisted per attempt in `exam_attempt_questions` and never changes once an attempt exists. Exam duration belongs to the schedule and starts when the student starts an attempt.
 
 ## External integrations and asynchronous work
 

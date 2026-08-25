@@ -106,6 +106,8 @@ class StudentFlowTest extends TestCase
         $this->get(route('student.attempts.show', $attempt))
             ->assertOk()
             ->assertSee('Flow question')
+            ->assertSee($question->code)
+            ->assertDontSee($question->public_id)
             ->assertSee('x-data="studentExam', false);
         $attemptQuestion = $attempt->attemptQuestions()->firstOrFail();
         $this->patchJson(route('student.attempts.answers.update', [$attempt, $attemptQuestion]), ['answer' => 'Student answer'])

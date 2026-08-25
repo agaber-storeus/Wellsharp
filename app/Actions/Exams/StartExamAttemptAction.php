@@ -4,9 +4,11 @@ namespace App\Actions\Exams;
 
 use App\Enums\ExamAttemptStatus;
 use App\Enums\ExamQuestionOrderMode;
+use App\Enums\ExamQuestionSelectionMode;
 use App\Enums\ExamScheduleStatus;
 use App\Enums\GroupMembershipStatus;
 use App\Enums\QuestionType;
+use App\Models\Exam;
 use App\Models\ExamAttempt;
 use App\Models\ExamAttemptQuestion;
 use App\Models\ExamQuestion;
@@ -54,11 +56,7 @@ class StartExamAttemptAction
                 $existing->update(['status' => ExamAttemptStatus::Expired]);
             }
 
-            $examQuestions = ExamQuestion::query()
-                ->where('exam_id', $schedule->exam_id)
-                ->with('question.options')
-                ->orderBy('display_order')
-                ->get();
+            $examQuestions = $this->questionAssignments($schedule->exam);
 
             if ($examQuestions->isEmpty()) {
                 throw ValidationException::withMessages(['exam' => 'This exam does not contain any questions.']);
@@ -79,13 +77,13 @@ class StartExamAttemptAction
 
             $orderMode = $schedule->exam->question_order_mode;
             $orderedQuestions = $this->orderQuestions($examQuestions, $orderMode);
-            foreach ($orderedQuestions as $index => $examQuestion) {
+            foreach ($orderedQuestions as $index => $assignment) {
                 ExamAttemptQuestion::create([
                     'exam_attempt_id' => $attempt->getKey(),
-                    'question_id' => $examQuestion->question_id,
+                    'question_id' => $assignment['question']->getKey(),
                     'display_order' => $index + 1,
-                    'points' => $examQuestion->points,
-                    'option_order' => $this->optionOrder($examQuestion->question, $orderMode),
+                    'points' => $assignment['points'],
+                    'option_order' => $this->optionOrder($assignment['question'], $orderMode),
                 ]);
             }
 
@@ -117,6 +115,41 @@ class StartExamAttemptAction
         }
     }
 
+    /** @return Collection<int, array{question: Question, points: mixed}> */
+    private function questionAssignments(Exam $exam): Collection
+    {
+        if ($exam->question_selection_mode === ExamQuestionSelectionMode::Random) {
+            $count = (int) $exam->question_count;
+            $questions = Question::query()
+                ->where('course_id', $exam->course_id)
+                ->where('is_active', true)
+                ->with('options')
+                ->inRandomOrder()
+                ->limit($count)
+                ->get();
+
+            if ($count < 1 || $questions->count() !== $count) {
+                throw ValidationException::withMessages(['exam' => 'This exam does not have enough active questions for its configured random question count.']);
+            }
+
+            return $questions->map(fn (Question $question): array => [
+                'question' => $question,
+                'points' => $question->default_marks,
+            ])->values();
+        }
+
+        return ExamQuestion::query()
+            ->where('exam_id', $exam->getKey())
+            ->with('question.options')
+            ->orderBy('display_order')
+            ->get()
+            ->map(fn (ExamQuestion $examQuestion): array => [
+                'question' => $examQuestion->question,
+                'points' => $examQuestion->points,
+            ])->values();
+    }
+
+    /** @param Collection<int, array{question: Question, points: mixed}> $examQuestions */
     private function orderQuestions(Collection $examQuestions, ExamQuestionOrderMode $mode): Collection
     {
         if ($mode === ExamQuestionOrderMode::Shuffle && $examQuestions->count() > 1) {

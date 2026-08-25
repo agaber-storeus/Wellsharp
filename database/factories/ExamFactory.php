@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\ExamQuestionOrderMode;
+use App\Enums\ExamQuestionSelectionMode;
 use App\Enums\ExamStatus;
 use App\Models\Course;
 use App\Models\Exam;
@@ -29,6 +30,8 @@ class ExamFactory extends Factory
             'retake_score' => 60,
             'certificate_validity_years' => 2,
             'question_order_mode' => ExamQuestionOrderMode::Static,
+            'question_selection_mode' => ExamQuestionSelectionMode::Manual,
+            'question_count' => null,
             'status' => ExamStatus::Draft,
             'created_by_user_id' => null,
             'updated_by_user_id' => null,

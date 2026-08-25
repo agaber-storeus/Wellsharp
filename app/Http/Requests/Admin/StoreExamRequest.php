@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Enums\ExamQuestionOrderMode;
+use App\Enums\ExamQuestionSelectionMode;
 use App\Models\Course;
 use App\Models\Group;
 use App\Models\Role;
@@ -12,6 +14,18 @@ use Illuminate\Validation\Validator;
 
 class StoreExamRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $selectionMode = $this->input('question_selection_mode') ?: ExamQuestionSelectionMode::Manual->value;
+
+        $this->merge([
+            'question_selection_mode' => $selectionMode,
+            'question_order_mode' => $selectionMode === ExamQuestionSelectionMode::Random->value
+                ? ExamQuestionOrderMode::Static->value
+                : ($this->input('question_order_mode') ?: ExamQuestionOrderMode::Static->value),
+        ]);
+    }
+
     public function authorize(): bool
     {
         return $this->user()?->isAdmin() === true;
@@ -28,8 +42,10 @@ class StoreExamRequest extends FormRequest
             'retake_score' => ['nullable', 'integer', 'min:0', 'max:100'],
             'certificate_validity_years' => ['nullable', 'integer', 'min:1', 'max:99'],
             'question_order_mode' => ['required', 'in:static,shuffle'],
+            'question_selection_mode' => ['required', Rule::in(array_column(ExamQuestionSelectionMode::cases(), 'value'))],
+            'question_count' => ['nullable', 'integer', 'min:1'],
             'status' => ['required', 'in:draft,published,archived'],
-            'question_ids' => ['required', 'array', 'min:1'],
+            'question_ids' => ['required_if:question_selection_mode,manual', 'array', 'min:1'],
             'question_ids.*' => ['integer', Rule::exists('questions', 'id')],
             'display_orders' => ['nullable', 'array'],
             'display_orders.*' => ['nullable', 'integer', 'min:1'],
@@ -50,13 +66,27 @@ class StoreExamRequest extends FormRequest
         $validator->after(function (Validator $validator): void {
             $course = Course::query()->find($this->input('course_id')) ?: $this->route('course');
             $ids = array_map('intval', $this->input('question_ids', []));
-            if ($course && count($ids) !== count(array_unique($ids))) {
-                $validator->errors()->add('question_ids', 'A question may only be selected once.');
+            $selectionMode = $this->input('question_selection_mode', ExamQuestionSelectionMode::Manual->value);
+
+            if ($selectionMode === ExamQuestionSelectionMode::Manual->value) {
+                if ($course && count($ids) !== count(array_unique($ids))) {
+                    $validator->errors()->add('question_ids', 'A question may only be selected once.');
+                }
+                if ($course && count($course->questions()->whereIn('id', $ids)->get()) !== count($ids)) {
+                    $validator->errors()->add('question_ids', 'Every exam question must belong to the selected Subject.');
+                }
+            } elseif ($course) {
+                $eligibleCount = $course->questions()->where('is_active', true)->count();
+                $questionCount = $this->input('question_count');
+
+                if (! filled($questionCount)) {
+                    $validator->errors()->add('question_count', 'Enter the number of questions for random selection.');
+                } elseif (is_numeric($questionCount) && (int) $questionCount > $eligibleCount) {
+                    $validator->errors()->add('question_count', "The selected Subject has only {$eligibleCount} active questions available.");
+                }
             }
-            if ($course && count($course->questions()->whereIn('id', $ids)->get()) !== count($ids)) {
-                $validator->errors()->add('question_ids', 'Every exam question must belong to the selected Subject.');
-            }
-            if ($this->input('question_order_mode') === 'static') {
+
+            if ($selectionMode === ExamQuestionSelectionMode::Manual->value && $this->input('question_order_mode') === 'static') {
                 $orders = array_values(array_filter($this->input('display_orders', []), fn ($value): bool => $value !== null && $value !== ''));
                 if (count($orders) !== count(array_unique(array_map('intval', $orders)))) {
                     $validator->errors()->add('display_orders', 'Static question order numbers must be unique.');

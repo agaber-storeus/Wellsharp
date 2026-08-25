@@ -3,6 +3,8 @@
     $orders = old('display_orders', $exam->examQuestions?->pluck('display_order', 'question_id')->all() ?: []);
     $currentSubject = old('course_id', $selectedCourseId ?? $course?->id);
     $allowSubjectChange = $allowSubjectChange ?? false;
+    $selectionMode = old('question_selection_mode', $exam->question_selection_mode?->value ?? 'manual');
+    $questionCount = old('question_count', $exam->question_count);
     $hasSchedule = $exam->exists && $exam->schedules()->exists();
     $orderDefaults = [];
     foreach ($questions as $index => $question) {
@@ -19,14 +21,16 @@
         ])->values()->all(),
     ];
 @endphp
-<div class="admin-bento" x-data="examQuestionPicker(@js($questionBanks), @js((string) $currentSubject), @js(array_map('strval', $selected)), @js($orderDefaults))">
+<div class="admin-bento" x-data="examQuestionPicker(@js($questionBanks), @js((string) $currentSubject), @js(array_map('strval', $selected)), @js($orderDefaults), @js($selectionMode), @js($questionCount))">
     <div class="admin-bento-card admin-bento-card--wide">
         <div class="admin-card-head"><span class="admin-card-icon">📝</span><h3>Exam details</h3></div>
         <div class="admin-field-grid">
             <div class="field full"><x-admin.label for="course_id" required>Subject</x-admin.label><select id="course_id" name="course_id" required @if($allowSubjectChange && !$exam->exists) x-model="subjectId" x-on:change="changeSubject" @endif><option value="">Select a Subject</option>@foreach($subjects as $subject)<option value="{{ $subject->id }}" @selected((string) $currentSubject === (string) $subject->id)>{{ $subject->name }} ({{ $subject->code }})</option>@endforeach</select><small class="muted">{{ $allowSubjectChange && !$exam->exists ? 'Changing the Subject updates its active question bank instantly.' : 'Questions are selected from the current Subject.' }}</small></div>
             <div class="field"><x-admin.label for="name" required>Exam name</x-admin.label><input id="name" name="name" value="{{ old('name', $exam->name) }}" required></div>
             <div class="field"><x-admin.label for="code">Exam code</x-admin.label><input id="code" name="code" value="{{ old('code', $exam->code) }}" {{ $exam->exists ? 'readonly' : '' }}>@unless($exam->exists)<small class="muted"><span class="admin-badge-generated">Auto-generated</span> Leave blank to auto-generate a unique code.</small>@endunless</div>
-            <div class="field"><x-admin.label for="question_order_mode" required>Question order</x-admin.label><select id="question_order_mode" name="question_order_mode" required>@foreach(['static' => 'Static', 'shuffle' => 'Shuffle'] as $value => $label)<option value="{{ $value }}" @selected(old('question_order_mode', $exam->question_order_mode?->value) === $value)>{{ $label }}</option>@endforeach</select></div>
+            <div class="field"><x-admin.label for="question_order_mode" required>Question order</x-admin.label><select id="question_order_mode" name="question_order_mode" required x-bind:disabled="selectionMode === 'random'">@foreach(['static' => 'Static', 'shuffle' => 'Shuffle'] as $value => $label)<option value="{{ $value }}" @selected(old('question_order_mode', $exam->question_order_mode?->value) === $value)>{{ $label }}</option>@endforeach</select><small class="muted" x-show="selectionMode === 'random'" x-cloak>Random exams use static order after selecting each student's question set.</small></div>
+            <div class="field"><x-admin.label for="question_selection_mode" required>Question selection</x-admin.label><select id="question_selection_mode" name="question_selection_mode" required x-model="selectionMode" x-on:change="changeSelectionMode"><option value="manual">Manual question selection</option><option value="random">Random questions per student</option></select><small class="muted">Random mode chooses a new fixed question set when each student starts.</small></div>
+            <div class="field" x-show="selectionMode === 'random'" x-cloak><x-admin.label for="question_count" required>Number of questions</x-admin.label><input id="question_count" type="number" name="question_count" min="1" x-model.number="questionCount" x-bind:required="selectionMode === 'random'"><small class="muted">The count cannot exceed the Subject's active question bank.</small></div>
             <div class="field"><x-admin.label for="status" required>Status</x-admin.label><select id="status" name="status" required>@foreach(['draft' => 'Draft', 'published' => 'Published', 'archived' => 'Archived'] as $value => $label)<option value="{{ $value }}" @selected(old('status', $exam->status?->value) === $value)>{{ $label }}</option>@endforeach</select></div>
             <div class="field"><x-admin.label for="passing_score">Passing Score (%)</x-admin.label><input id="passing_score" type="number" name="passing_score" min="0" max="100" value="{{ old('passing_score', $exam->passing_score) }}"><small class="muted">The score required to pass.</small></div>
             <div class="field"><x-admin.label for="retake_score">Retake Score (%)</x-admin.label><input id="retake_score" type="number" name="retake_score" min="0" max="100" value="{{ old('retake_score', $exam->retake_score) }}"><small class="muted">The minimum score used for retake reporting.</small></div>
@@ -55,7 +59,7 @@
         </div>
     @endif
 
-    <div class="admin-bento-card admin-bento-card--wide">
+    <div class="admin-bento-card admin-bento-card--wide" x-show="selectionMode === 'manual'" x-cloak>
         <div class="admin-card-head"><span class="admin-card-icon">❓</span><h3>Questions<span class="required-mark" aria-hidden="true">*</span></h3></div>
         <span class="sr-only">Required</span>
         <p class="admin-card-note">Select questions from the chosen Subject, or auto-select a random set below (<span x-text="subjectQuestions().length"></span> active questions available).</p>
@@ -127,15 +131,15 @@
         </div>
 
         <template x-for="questionId in hiddenSelectedIds()" :key="'hidden-selected-' + questionId">
-            <input type="hidden" name="question_ids[]" :value="questionId">
-            <input type="hidden" :name="'display_orders[' + questionId + ']'" :value="orders[questionId] || ''">
+            <input type="hidden" name="question_ids[]" :value="questionId" x-bind:disabled="selectionMode === 'random'">
+            <input type="hidden" :name="'display_orders[' + questionId + ']'" :value="orders[questionId] || ''" x-bind:disabled="selectionMode === 'random'">
         </template>
 
         <div class="table-wrap"><table class="table"><thead><tr><th>Select</th><th>Order</th><th>Question</th><th>Subject</th><th>Type</th><th>Difficulty</th></tr></thead><tbody>
             <template x-for="question in filteredQuestions()" :key="question.id">
                 <tr>
-                    <td><input type="checkbox" name="question_ids[]" :value="question.id" x-model="selected"></td>
-                    <td><input style="width:80px" type="number" :name="'display_orders[' + question.id + ']'" x-model.number="orders[question.id]" min="1"></td>
+                    <td><input type="checkbox" name="question_ids[]" :value="question.id" x-model="selected" x-bind:disabled="selectionMode === 'random'"></td>
+                    <td><input style="width:80px" type="number" :name="'display_orders[' + question.id + ']'" x-model.number="orders[question.id]" min="1" x-bind:disabled="selectionMode === 'random'"></td>
                     <td><div class="admin-question-cell"><template x-if="question.image_url"><img class="admin-question-thumb" :src="question.image_url" alt="Question image"></template><div><span x-text="question.text"></span></div></div></td>
                     <td x-text="question.subject"></td>
                     <td x-text="question.type === 'mcq' ? 'Multiple choice' : (question.type === 'true_false' ? 'True / False' : 'Text input')"></td>
@@ -161,10 +165,12 @@
 
 @push('scripts')
 <script>
-function examQuestionPicker(questionBanks, initialSubject, initialSelected, initialOrders) {
+function examQuestionPicker(questionBanks, initialSubject, initialSelected, initialOrders, initialSelectionMode, initialQuestionCount) {
     return {
         questionBanks,
         subjectId: initialSubject,
+        selectionMode: initialSelectionMode || 'manual',
+        questionCount: initialQuestionCount,
         selected: initialSelected.slice(),
         orders: { ...initialOrders },
         search: '',
@@ -202,6 +208,9 @@ function examQuestionPicker(questionBanks, initialSubject, initialSelected, init
             this.search = '';
             this.filterType = '';
             this.filterDifficulty = '';
+            this.warning = '';
+        },
+        changeSelectionMode() {
             this.warning = '';
         },
         sortBy(field) {

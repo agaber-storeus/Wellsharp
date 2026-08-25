@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ExamQuestionOrderMode;
+use App\Enums\ExamQuestionSelectionMode;
 use App\Enums\ExamStatus;
 use App\Models\Concerns\HasPublicUlid;
 use App\Services\ExamCodeGenerator;
@@ -16,7 +17,7 @@ class Exam extends Model
 {
     use HasFactory, HasPublicUlid;
 
-    protected $fillable = ['course_id', 'name', 'code', 'description', 'passing_score', 'retake_score', 'certificate_validity_years', 'question_order_mode', 'status', 'created_by_user_id', 'updated_by_user_id'];
+    protected $fillable = ['course_id', 'name', 'code', 'description', 'passing_score', 'retake_score', 'certificate_validity_years', 'question_order_mode', 'question_selection_mode', 'question_count', 'status', 'created_by_user_id', 'updated_by_user_id'];
 
     /**
      * Exam codes are generated once on creation, never touched on update, so
@@ -35,7 +36,7 @@ class Exam extends Model
 
     protected function casts(): array
     {
-        return ['passing_score' => 'integer', 'retake_score' => 'integer', 'certificate_validity_years' => 'integer', 'question_order_mode' => ExamQuestionOrderMode::class, 'status' => ExamStatus::class];
+        return ['passing_score' => 'integer', 'retake_score' => 'integer', 'certificate_validity_years' => 'integer', 'question_order_mode' => ExamQuestionOrderMode::class, 'question_selection_mode' => ExamQuestionSelectionMode::class, 'question_count' => 'integer', 'status' => ExamStatus::class];
     }
 
     public function subject(): BelongsTo

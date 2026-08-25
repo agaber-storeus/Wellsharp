@@ -207,6 +207,21 @@ class CertificateManagementTest extends TestCase
         }
     }
 
+    public function test_certificate_expiration_supports_dates_beyond_the_mysql_timestamp_limit(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-24 13:50:16'));
+        try {
+            $data = $this->makeAttempt('submitted', true, certificateValidityYears: 20);
+
+            $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+
+            $this->assertNotNull($certificate);
+            $this->assertTrue($certificate->expires_at->equalTo(Carbon::parse('2046-08-24 13:50:16')));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_changing_an_exams_validity_years_does_not_alter_an_already_issued_certificates_expiration(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-04-15 10:00:00'));

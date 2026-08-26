@@ -11,6 +11,7 @@ use App\Models\ExamAttempt;
 use App\Services\AuditRecorder;
 use App\Services\EffectiveScoreService;
 use App\Services\ExamScoringService;
+use App\Services\Translation\AnswerBackTranslationResolver;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,6 +22,7 @@ class IssueCertificateAction
         private readonly ExamScoringService $scoring,
         private readonly EffectiveScoreService $effectiveScore,
         private readonly AuditRecorder $audit,
+        private readonly AnswerBackTranslationResolver $backTranslation,
     ) {}
 
     public function execute(ExamAttempt $attempt): ?Certificate
@@ -30,6 +32,12 @@ class IssueCertificateAction
             if ($attempt->status !== ExamAttemptStatus::Submitted) {
                 return null;
             }
+
+            // Retries any Text Input back-translation that failed at submit time
+            // (or was force-submitted via Class end, which never goes through
+            // SubmitExamAttemptAction at all) - see AnswerBackTranslationResolver.
+            // A no-op once every pending answer has already been resolved.
+            $this->backTranslation->resolve($attempt);
 
             // The raw automated Knowledge Exam result is always recalculated and
             // persisted here exactly as before (BR-027) - a Skills Score override

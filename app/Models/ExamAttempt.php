@@ -14,7 +14,7 @@ class ExamAttempt extends Model
     use HasFactory, HasPublicUlid;
 
     protected $fillable = [
-        'exam_id', 'exam_schedule_id', 'student_user_id', 'attempt_number', 'status',
+        'exam_id', 'exam_schedule_id', 'student_user_id', 'language_code', 'attempt_number', 'status',
         'started_at', 'expires_at', 'submitted_at', 'score', 'passed', 'scored_at', 'released_at', 'released_by_user_id',
     ];
 
@@ -61,5 +61,14 @@ class ExamAttempt extends Model
     public function getRouteKeyName(): string
     {
         return 'public_id';
+    }
+
+    /**
+     * Null means the attempt is presented in the Question bank's original
+     * source language - no translation was requested for this attempt.
+     */
+    public function isTranslated(): bool
+    {
+        return filled($this->language_code);
     }
 }

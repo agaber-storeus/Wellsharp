@@ -8,9 +8,11 @@ use App\Actions\Exams\SubmitExamAttemptAction;
 use App\Enums\ExamAttemptStatus;
 use App\Enums\QuestionType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Student\StartExamRequest;
 use App\Models\ExamAttempt;
 use App\Models\ExamAttemptQuestion;
 use App\Models\ExamSchedule;
+use App\Models\TranslationLanguage;
 use App\Services\StudentExamFlowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,10 +24,10 @@ use Illuminate\View\View;
 
 class ExamAttemptController extends Controller
 {
-    public function start(ExamSchedule $schedule, StartExamAttemptAction $action, StudentExamFlowService $flow): RedirectResponse
+    public function start(StartExamRequest $request, ExamSchedule $schedule, StartExamAttemptAction $action, StudentExamFlowService $flow): RedirectResponse
     {
         $flow->assertReadyForExam($schedule, auth()->user());
-        $attempt = $action->execute($schedule, auth()->user());
+        $attempt = $action->execute($schedule, auth()->user(), $request->validated('language_code'));
 
         return redirect()->route('student.attempts.show', $attempt);
     }
@@ -52,7 +54,11 @@ class ExamAttemptController extends Controller
             (string) $attemptQuestion->getKey() => $attemptQuestion->answer,
         ]);
 
-        return view('student.exam', compact('attempt', 'initialAnswers'));
+        $languageDirection = $attempt->isTranslated()
+            ? TranslationLanguage::query()->where('code', $attempt->language_code)->value('direction')
+            : null;
+
+        return view('student.exam', compact('attempt', 'initialAnswers', 'languageDirection'));
     }
 
     public function expire(ExamAttempt $attempt): JsonResponse

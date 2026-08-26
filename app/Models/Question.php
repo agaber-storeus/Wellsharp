@@ -80,6 +80,16 @@ class Question extends Model
         return $this->hasMany(ExamQuestion::class);
     }
 
+    public function translations(): HasMany
+    {
+        return $this->hasMany(QuestionTranslation::class);
+    }
+
+    public function translationFor(int $translationLanguageId): ?QuestionTranslation
+    {
+        return $this->translations->firstWhere('translation_language_id', $translationLanguageId);
+    }
+
     public function exams(): BelongsToMany
     {
         return $this->belongsToMany(Exam::class, 'exam_questions')

@@ -6,7 +6,7 @@
   $totalQuestions = $attempt->attemptQuestions->count();
 @endphp
 <div class="overlay exam-overlay"></div>
-<section class="exam-modal" x-data="studentExam(@js($initialAnswers), @js($answerEndpoint), @js(route('student.attempts.expire', $attempt)), {{ $totalQuestions }}, @js($attempt->expires_at?->toIso8601String()))">
+<section class="exam-modal" dir="{{ $languageDirection?->value ?? 'ltr' }}" x-data="studentExam(@js($initialAnswers), @js($answerEndpoint), @js(route('student.attempts.expire', $attempt)), {{ $totalQuestions }}, @js($attempt->expires_at?->toIso8601String()))">
   <header class="exam-modal-head">
     <img src="{{ asset('images/iadcLoginLgo.png') }}" alt="IADC WellSharp" />
     <div class="exam-status">
@@ -26,11 +26,11 @@
     @forelse($attempt->attemptQuestions as $attemptQuestion)
       @php($question = $attemptQuestion->question)
       @php($questionKey = (string) $attemptQuestion->getKey())
-      <section class="exam-question" data-question-id="{{ $questionKey }}">
+      <section class="exam-question" data-question-id="{{ $questionKey }}" dir="{{ $attemptQuestion->displayDirection($languageDirection)->value }}">
         <div class="question-line">
           <span class="question-number">{{ $attemptQuestion->display_order }}.</span>
           <div>
-            <h2>{{ $question->question_text }}</h2>
+            <h2>{{ $attemptQuestion->displayQuestionText() }}</h2>
             @if($question->question_image_path)
               <img class="exam-question-image" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($question->question_image_path) }}" alt="Question image" />
             @endif
@@ -42,7 +42,7 @@
             @foreach($attemptQuestion->orderedOptions() as $option)
               <label x-bind:class="expired ? 'is-disabled' : ''">
                 <input type="radio" name="question-{{ $questionKey }}" value="{{ $option->public_id }}" x-model="answers['{{ $questionKey }}']" x-on:change="save('{{ $questionKey }}', $event.target.value)" x-bind:disabled="expired" />
-                <span>{{ $option->option_text }}</span>
+                <span>{{ $attemptQuestion->displayOptionText($option) }}</span>
                 @if($option->image_path)
                   <img class="exam-answer-image" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($option->image_path) }}" alt="Answer option image" />
                 @endif

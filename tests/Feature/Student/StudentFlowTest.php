@@ -96,7 +96,7 @@ class StudentFlowTest extends TestCase
             ->assertSee('75% or Greater')
             ->assertSee('60% or Greater')
             ->assertSee('3 Hours 30 Minutes')
-            ->assertSee('English')
+            ->assertSee('EN (Original)')
             ->assertSee('Start Exam')
             ->assertDontSee("Enter Proctor's ID", false)
             ->assertDontSee('Launch Assessment');

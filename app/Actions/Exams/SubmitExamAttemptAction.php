@@ -6,12 +6,16 @@ use App\Enums\ExamAttemptStatus;
 use App\Models\ExamAttempt;
 use App\Models\User;
 use App\Services\ExamScoringService;
+use App\Services\Translation\AnswerBackTranslationResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class SubmitExamAttemptAction
 {
-    public function __construct(private readonly ExamScoringService $scoring) {}
+    public function __construct(
+        private readonly ExamScoringService $scoring,
+        private readonly AnswerBackTranslationResolver $backTranslation,
+    ) {}
 
     public function execute(ExamAttempt $attempt, User $student): ExamAttempt
     {
@@ -29,7 +33,14 @@ class SubmitExamAttemptAction
             }
 
             $attempt->update(['status' => ExamAttemptStatus::Submitted, 'submitted_at' => now()]);
-            $result = $this->scoring->calculate($attempt->fresh(['exam', 'attemptQuestions.question.options']));
+
+            $scored = $attempt->fresh(['exam', 'attemptQuestions.question.options']);
+            // Best-effort: a provider failure here never blocks submission or marks a
+            // Text Input answer wrong (see ExamScoringService::correctness()) - it is
+            // simply retried the next time scoring runs (BR-027's recompute at
+            // certificate issuance, via the same resolver call there).
+            $this->backTranslation->resolve($scored);
+            $result = $this->scoring->calculate($scored->fresh(['exam', 'attemptQuestions.question.options']));
             $attempt->update(['score' => $result['score'], 'passed' => $result['passed'], 'scored_at' => now()]);
 
             return $attempt->fresh(['exam', 'schedule', 'attemptQuestions.question.options']);

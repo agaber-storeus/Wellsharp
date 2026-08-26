@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\TranslationStatus;
 use App\Enums\QuestionType;
 use App\Models\ExamAttempt;
 use App\Models\ExamAttemptQuestion;
@@ -18,6 +19,15 @@ class ExamScoringService
         $earnedPoints = 0.0;
 
         foreach ($breakdown as $question) {
+            if ($question['translation_pending']) {
+                // Back-translation for this Text Input answer has not succeeded yet
+                // (see AnswerTranslationResolver) - excluded from both sides of the
+                // score entirely rather than ever counted wrong. It is retried the
+                // next time calculate() runs (submit, then again at certificate
+                // issuance - BR-027's existing recompute-on-issuance is the retry).
+                continue;
+            }
+
             $points = $question['points'];
             $possiblePoints += $points;
             $earnedPoints += $question['earned_points'];
@@ -35,6 +45,7 @@ class ExamScoringService
             'correct_count' => collect($breakdown)->where('is_correct', true)->count(),
             'incorrect_count' => collect($breakdown)->where('is_correct', false)->where('answered', true)->count(),
             'unanswered_count' => collect($breakdown)->where('answered', false)->count(),
+            'translation_pending_count' => collect($breakdown)->where('translation_pending', true)->count(),
         ];
     }
 
@@ -43,9 +54,9 @@ class ExamScoringService
     {
         $attempt->loadMissing(['exam', 'attemptQuestions.question.options']);
 
-        return $attempt->attemptQuestions->map(function (ExamAttemptQuestion $attemptQuestion): array {
+        return $attempt->attemptQuestions->map(function (ExamAttemptQuestion $attemptQuestion) use ($attempt): array {
             $answer = $attemptQuestion->answer;
-            $isCorrect = $this->isCorrect($attemptQuestion->question, $answer);
+            $isCorrect = $this->correctness($attempt, $attemptQuestion);
             $points = (float) ($attemptQuestion->points ?? $attemptQuestion->question->default_marks ?? 1);
             $question = $attemptQuestion->question;
             $selectedOption = $question->type === QuestionType::Mcq
@@ -68,9 +79,10 @@ class ExamScoringService
                 'correct_answer' => $this->correctAnswerLabel($question),
                 'correct_answer_image_url' => $this->imageUrl($correctOption?->image_path ?: $question->correct_answer_image_path),
                 'answered' => filled($answer),
-                'is_correct' => $isCorrect,
+                'is_correct' => $isCorrect === true,
+                'translation_pending' => $isCorrect === null,
                 'points' => $points,
-                'earned_points' => $isCorrect ? $points : 0.0,
+                'earned_points' => $isCorrect === true ? $points : 0.0,
             ];
         })->values()->all();
     }
@@ -97,10 +109,29 @@ class ExamScoringService
         };
     }
 
-    private function isCorrect(Question $question, ?string $answer): bool
+    /**
+     * True/false as before for every question type except a translated
+     * attempt's Text Input answers, which can also come back null - meaning
+     * "not yet gradable" (back-translation hasn't succeeded), never
+     * "incorrect". MCQ/True-False identity and scoring are completely
+     * unaffected by translation: MCQ always compares the submitted
+     * option's public_id, never translated option text.
+     */
+    private function correctness(ExamAttempt $attempt, ExamAttemptQuestion $attemptQuestion): ?bool
     {
+        $question = $attemptQuestion->question;
+        $answer = $attemptQuestion->answer;
+
         if ($answer === null || $answer === '') {
             return false;
+        }
+
+        if ($question->type === QuestionType::Input && $attempt->isTranslated()) {
+            if ($attemptQuestion->answer_translation_status !== TranslationStatus::Translated) {
+                return null;
+            }
+
+            return Question::normalizeText($attemptQuestion->back_translated_answer) === Question::normalizeText($question->correct_answer_text);
         }
 
         return match ($question->type) {

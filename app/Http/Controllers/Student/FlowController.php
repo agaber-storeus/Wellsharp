@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\ExamSchedule;
+use App\Models\TranslationLanguage;
 use App\Services\StudentExamFlowService;
 use App\Services\StudentSurveyDefinition;
+use App\Services\Translation\QuestionTranslationService;
+use App\Services\Translation\TranslationProviderInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,8 +87,12 @@ class FlowController extends Controller
         return redirect()->route('student.proctor', $schedule)->with('status', 'Survey saved. Review the instructions before starting your exam.');
     }
 
-    public function proctor(ExamSchedule $schedule, StudentExamFlowService $flow): View
-    {
+    public function proctor(
+        ExamSchedule $schedule,
+        StudentExamFlowService $flow,
+        QuestionTranslationService $translationService,
+        TranslationProviderInterface $provider,
+    ): View {
         $flow->assertExamLaunchAvailable($schedule, auth()->user());
         $schedule->load(['exam.subject.level', 'exam.subject.stacks', 'exam.subject.languages', 'group', 'trainingClass']);
 
@@ -95,6 +102,12 @@ class FlowController extends Controller
             'startAvailabilityMessage' => $flow->startAvailabilityMessage($schedule),
             'hasFinishedExam' => $flow->hasFinishedExam($schedule, auth()->user()),
             'finishedExamMessage' => $flow->finishedExamMessage($schedule, auth()->user()),
+            'sourceLanguage' => $translationService->sourceLanguage(),
+            'translationLanguages' => TranslationLanguage::query()
+                ->where('provider', $provider->name())
+                ->where('is_enabled', true)
+                ->orderBy('name')
+                ->get(['code', 'name', 'native_name', 'direction']),
             'studentFlowSchedule' => $schedule,
             'flowStep' => 'exam',
         ]);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CourseController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ExamController;
 use App\Http\Controllers\Admin\ExamScheduleController;
+use App\Http\Controllers\Admin\ExamTranslationLanguageController;
 use App\Http\Controllers\Admin\GroupController;
 use App\Http\Controllers\Admin\QuestionController;
 use App\Http\Controllers\Admin\StudentController;
@@ -41,6 +42,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::patch('subject-configuration/{type}/reorder', [CourseConfigurationController::class, 'reorder'])->name('configuration.reorder');
     Route::patch('subject-configuration/{type}/{item}', [CourseConfigurationController::class, 'update'])->name('configuration.update');
     Route::patch('subject-configuration/{type}/{item}/toggle', [CourseConfigurationController::class, 'toggle'])->name('configuration.toggle');
+
+    Route::get('settings/exam-languages', [ExamTranslationLanguageController::class, 'index'])->name('settings.exam-languages.index');
+    Route::post('settings/exam-languages/sync', [ExamTranslationLanguageController::class, 'sync'])->name('settings.exam-languages.sync');
+    Route::patch('settings/exam-languages', [ExamTranslationLanguageController::class, 'update'])->name('settings.exam-languages.update');
 
     Route::get('classes/data', [TrainingClassController::class, 'data'])->name('classes.data');
     Route::resource('courses', CourseController::class)->except(['destroy']);

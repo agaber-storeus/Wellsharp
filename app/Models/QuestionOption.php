@@ -6,6 +6,7 @@ use App\Models\Concerns\HasPublicUlid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class QuestionOption extends Model
 {
@@ -25,8 +26,18 @@ class QuestionOption extends Model
         return $this->belongsTo(Question::class);
     }
 
+    public function translations(): HasMany
+    {
+        return $this->hasMany(QuestionOptionTranslation::class);
+    }
+
     public function getRouteKeyName(): string
     {
         return 'public_id';
+    }
+
+    public function sourceHash(): string
+    {
+        return Question::textHash($this->option_text);
     }
 }

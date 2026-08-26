@@ -24,7 +24,7 @@
     </div>
   </section>
 
-  <section class="wide-panel exam-start-panel">
+  <section class="wide-panel exam-start-panel" x-data="{ languageCode: '', submitting: false }">
     <div class="exam-course-bar">1. {{ $subject->name }}, {{ $courseLevel }}, {{ $stacks }}</div>
     <div class="test-card">
       <div class="test-card-title">Test Information</div>
@@ -35,16 +35,22 @@
     <div class="test-card preference-card">
       <div class="test-card-title">Test Preferences</div>
       <label><strong>Language:</strong>
-        <select disabled aria-label="Exam language">@forelse($languages as $language)<option>{{ $language->name }}</option>@empty<option>Not configured</option>@endforelse</select>
+        <select aria-label="Exam language" x-model="languageCode" x-bind:disabled="submitting" @if($hasFinishedExam || !$canStartExam) disabled @endif>
+          <option value="">{{ strtoupper($sourceLanguage) }} (Original)</option>
+          @foreach($translationLanguages as $translationLanguage)
+            <option value="{{ $translationLanguage->code }}">{{ $translationLanguage->name }}@if($translationLanguage->native_name) ({{ $translationLanguage->native_name }})@endif</option>
+          @endforeach
+        </select>
       </label>
     </div>
-    <form class="start-exam-form" method="POST" action="{{ route('student.exams.start', $schedule) }}">
+    <form class="start-exam-form" method="POST" action="{{ route('student.exams.start', $schedule) }}" x-on:submit="submitting = true">
       @csrf
+      <input type="hidden" name="language_code" x-bind:value="languageCode">
       @if($hasFinishedExam)
         <button class="green-btn start-exam-btn" type="button" disabled aria-disabled="true">Exam Completed</button>
         <p class="muted exam-availability-message">{{ $finishedExamMessage }}</p>
       @elseif($canStartExam)
-        <button class="green-btn start-exam-btn" type="submit">Start Exam</button>
+        <button class="green-btn start-exam-btn" type="submit" x-bind:disabled="submitting" x-text="submitting ? 'Preparing your exam...' : 'Start Exam'">Start Exam</button>
       @else
         <button class="green-btn start-exam-btn" type="button" disabled aria-disabled="true">Start Exam</button>
         <p class="muted exam-availability-message">{{ $startAvailabilityMessage }}</p>

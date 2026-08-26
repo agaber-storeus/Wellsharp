@@ -22,6 +22,8 @@ use App\Policies\QuestionPolicy;
 use App\Policies\TrainingClassPolicy;
 use App\Policies\TrainingProviderPolicy;
 use App\Policies\UserPolicy;
+use App\Services\Translation\Providers\LibreTranslateProvider;
+use App\Services\Translation\TranslationProviderInterface;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -32,7 +34,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(TranslationProviderInterface::class, function (): TranslationProviderInterface {
+            $driver = config('translation.driver');
+
+            return match ($driver) {
+                'libretranslate' => new LibreTranslateProvider(
+                    baseUrl: config('translation.providers.libretranslate.base_url'),
+                    apiKey: config('translation.providers.libretranslate.api_key'),
+                    timeoutSeconds: config('translation.providers.libretranslate.timeout'),
+                ),
+                default => throw new \InvalidArgumentException("Unsupported translation provider driver [{$driver}]."),
+            };
+        });
     }
 
     /**

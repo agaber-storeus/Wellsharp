@@ -8,13 +8,17 @@ use App\Enums\ExamQuestionSelectionMode;
 use App\Enums\ExamScheduleStatus;
 use App\Enums\GroupMembershipStatus;
 use App\Enums\QuestionType;
+use App\Enums\TranslationStatus;
 use App\Models\Exam;
 use App\Models\ExamAttempt;
 use App\Models\ExamAttemptQuestion;
 use App\Models\ExamQuestion;
 use App\Models\ExamSchedule;
 use App\Models\Question;
+use App\Models\TranslationLanguage;
 use App\Models\User;
+use App\Services\Translation\QuestionTranslationService;
+use App\Services\Translation\TranslationProviderInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -22,11 +26,17 @@ use Illuminate\Validation\ValidationException;
 
 class StartExamAttemptAction
 {
-    public function execute(ExamSchedule $schedule, User $student): ExamAttempt
+    public function __construct(
+        private readonly QuestionTranslationService $translationService,
+        private readonly TranslationProviderInterface $provider,
+    ) {}
+
+    public function execute(ExamSchedule $schedule, User $student, ?string $languageCode = null): ExamAttempt
     {
-        return DB::transaction(function () use ($schedule, $student): ExamAttempt {
+        return DB::transaction(function () use ($schedule, $student, $languageCode): ExamAttempt {
             $schedule = ExamSchedule::query()->with('exam')->lockForUpdate()->findOrFail($schedule->getKey());
             $this->assertStudentCanStart($schedule, $student);
+            $language = $this->resolveLanguage($languageCode);
 
             $finished = ExamAttempt::query()
                 ->where('exam_schedule_id', $schedule->getKey())
@@ -66,6 +76,7 @@ class StartExamAttemptAction
                 'exam_id' => $schedule->exam_id,
                 'exam_schedule_id' => $schedule->getKey(),
                 'student_user_id' => $student->getKey(),
+                'language_code' => $language?->code,
                 'attempt_number' => ((int) ExamAttempt::query()
                     ->where('exam_schedule_id', $schedule->getKey())
                     ->where('student_user_id', $student->getKey())
@@ -77,18 +88,62 @@ class StartExamAttemptAction
 
             $orderMode = $schedule->exam->question_order_mode;
             $orderedQuestions = $this->orderQuestions($examQuestions, $orderMode);
+
+            // Translation is resolved only for the Questions actually selected for
+            // THIS attempt (post random-selection, post-shuffle) - never the whole
+            // Exam/Question bank. Reused across every other Exam/attempt that shares
+            // the same Question+language+source text via QuestionTranslationService's
+            // own cache; a provider call only happens for what's missing/stale.
+            $translations = $language
+                ? $this->translationService->resolveForQuestions($orderedQuestions->pluck('question'), $language)
+                : [];
+
             foreach ($orderedQuestions as $index => $assignment) {
+                $question = $assignment['question'];
+                $translation = $translations[$question->getKey()] ?? null;
+
                 ExamAttemptQuestion::create([
                     'exam_attempt_id' => $attempt->getKey(),
-                    'question_id' => $assignment['question']->getKey(),
+                    'question_id' => $question->getKey(),
                     'display_order' => $index + 1,
                     'points' => $assignment['points'],
-                    'option_order' => $this->optionOrder($assignment['question'], $orderMode),
+                    'option_order' => $this->optionOrder($question, $orderMode),
+                    'translated_question_text' => $translation['question_text'] ?? null,
+                    'translated_options' => $translation['options'] ?? null,
+                    'question_translation_status' => $translation === null ? null : ($translation['translated']
+                        ? TranslationStatus::Translated
+                        : TranslationStatus::Failed),
                 ]);
             }
 
             return $attempt->fresh(['exam', 'schedule', 'attemptQuestions.question']);
         });
+    }
+
+    /**
+     * Null means the original source language - always available with no
+     * provider dependency. A non-blank code must currently be an Admin-
+     * enabled language for the active provider; anything else is rejected
+     * here rather than silently falling back, so a stale/tampered dropdown
+     * value never starts an attempt in a language nobody approved.
+     */
+    private function resolveLanguage(?string $languageCode): ?TranslationLanguage
+    {
+        if (blank($languageCode)) {
+            return null;
+        }
+
+        $language = TranslationLanguage::query()
+            ->where('provider', $this->provider->name())
+            ->where('code', $languageCode)
+            ->where('is_enabled', true)
+            ->first();
+
+        if (! $language) {
+            throw ValidationException::withMessages(['language_code' => 'The selected exam language is not available.']);
+        }
+
+        return $language;
     }
 
     private function assertStudentCanStart(ExamSchedule $schedule, User $student): void

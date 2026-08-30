@@ -28,6 +28,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::resource('users', UserController::class)->except(['destroy']);
     Route::patch('users/{user}/disable', [UserController::class, 'disable'])->name('users.disable');
     Route::patch('users/{user}/archive', [UserController::class, 'archive'])->name('users.archive');
+    Route::patch('users/{user}/unarchive', [UserController::class, 'unarchive'])->name('users.unarchive');
     Route::patch('users/{user}/status', [UserController::class, 'updateStatus'])->name('users.status');
     Route::patch('users/{user}/role', [UserController::class, 'changeRole'])->name('users.role');
     Route::post('users/{user}/reveal-password', [UserController::class, 'revealPassword'])->name('users.reveal-password');
@@ -35,6 +36,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::get('providers/data', [TrainingProviderController::class, 'data'])->name('providers.data');
     Route::resource('providers', TrainingProviderController::class)->except(['destroy']);
     Route::patch('providers/{provider}/archive', [TrainingProviderController::class, 'archive'])->name('providers.archive');
+    Route::patch('providers/{provider}/unarchive', [TrainingProviderController::class, 'unarchive'])->name('providers.unarchive');
     Route::patch('providers/{provider}/status', [TrainingProviderController::class, 'updateStatus'])->name('providers.status');
 
     Route::get('subject-configuration', [CourseConfigurationController::class, 'index'])->name('configuration.index');
@@ -53,6 +55,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::get('subjects', [CourseController::class, 'index'])->name('subjects.index');
     Route::get('subjects/data', [CourseController::class, 'data'])->name('subjects.data');
     Route::patch('courses/{course}/archive', [CourseController::class, 'archive'])->name('courses.archive');
+    Route::patch('courses/{course}/unarchive', [CourseController::class, 'unarchive'])->name('courses.unarchive');
     Route::get('courses/{course}/questions/template', [QuestionController::class, 'template'])->name('courses.questions.template');
     Route::get('courses/{course}/questions/import', [QuestionController::class, 'import'])->name('courses.questions.import');
     Route::post('courses/{course}/questions/import/preview', [QuestionController::class, 'preview'])->name('courses.questions.import.preview');
@@ -64,6 +67,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::get('courses/{course}/questions/{question}/edit', [QuestionController::class, 'edit'])->name('courses.questions.edit');
     Route::put('courses/{course}/questions/{question}', [QuestionController::class, 'update'])->name('courses.questions.update');
     Route::delete('courses/{course}/questions/{question}', [QuestionController::class, 'destroy'])->name('courses.questions.destroy');
+    Route::patch('courses/{course}/questions/{question}/unarchive', [QuestionController::class, 'unarchive'])->name('courses.questions.unarchive');
 
     Route::resource('classes', TrainingClassController::class)->except(['destroy'])->parameters(['classes' => 'trainingClass']);
     Route::patch('classes/{trainingClass}/cancel', [TrainingClassController::class, 'cancel'])->name('classes.cancel');
@@ -74,6 +78,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::get('groups/data', [GroupController::class, 'data'])->name('groups.data');
     Route::resource('groups', GroupController::class)->except(['destroy']);
     Route::patch('groups/{group}/archive', [GroupController::class, 'archive'])->name('groups.archive');
+    Route::patch('groups/{group}/unarchive', [GroupController::class, 'unarchive'])->name('groups.unarchive');
     Route::post('groups/{group}/members', [GroupController::class, 'addMembers'])->name('groups.members.store');
     Route::delete('groups/{group}/members/{student}', [GroupController::class, 'removeMember'])->name('groups.members.destroy');
 
@@ -89,6 +94,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::get('exams/{exam}/edit', [ExamController::class, 'editGlobal'])->name('exams.edit');
     Route::put('exams/{exam}', [ExamController::class, 'updateGlobal'])->name('exams.update');
     Route::patch('exams/{exam}/archive', [ExamController::class, 'archive'])->name('exams.archive');
+    Route::patch('exams/{exam}/unarchive', [ExamController::class, 'unarchive'])->name('exams.unarchive');
     Route::get('exam-schedules', [ExamScheduleController::class, 'index'])->name('exam-schedules.index');
     Route::get('exam-schedules/data', [ExamScheduleController::class, 'data'])->name('exam-schedules.data');
     Route::get('exam-schedules/create', [ExamScheduleController::class, 'create'])->name('exam-schedules.create');

@@ -8,6 +8,7 @@ use App\Models\ExamSchedule;
 use App\Models\Group;
 use App\Models\GroupMembership;
 use App\Models\Question;
+use App\Models\TrainingProvider;
 use App\Models\User;
 use App\Models\UserProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -175,6 +176,7 @@ class BusinessDomainTest extends TestCase
         $this->get(route('admin.groups.index'))
             ->assertOk()
             ->assertSee('archiveGroup(group)', false)
+            ->assertSee('group.archive_url', false)
             ->assertSee('archive_url', false);
         $this->patchJson(route('admin.groups.archive', $group))
             ->assertOk()
@@ -186,6 +188,7 @@ class BusinessDomainTest extends TestCase
         $this->get(route('admin.courses.index'))
             ->assertOk()
             ->assertSee('archiveSubject(subject)', false)
+            ->assertSee('subject.archiving', false)
             ->assertSee('Archived');
         $this->patchJson(route('admin.courses.archive', $subject))
             ->assertOk()
@@ -208,6 +211,43 @@ class BusinessDomainTest extends TestCase
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.status', 'archived');
+    }
+
+    public function test_admin_can_unarchive_every_archivable_dashboard_entity(): void
+    {
+        $user = User::factory()->student()->archived()->create();
+        $provider = TrainingProvider::factory()->archived()->create();
+        $subject = Course::factory()->retired()->create(['archived_at' => now()]);
+        $group = Group::factory()->archived()->create();
+        $exam = Exam::factory()->archived()->create(['course_id' => $this->subject->id]);
+        $question = Question::create([
+            'course_id' => $this->subject->id,
+            'question_text' => 'Restore this question',
+            'type' => 'input',
+            'difficulty' => 'easy',
+            'correct_answer_text' => 'answer',
+            'is_active' => false,
+        ]);
+
+        $this->patchJson(route('admin.users.unarchive', $user))->assertOk()->assertJsonPath('status', 'active');
+        $this->patchJson(route('admin.providers.unarchive', $provider))->assertOk()->assertJsonPath('status', 'active');
+        $this->patchJson(route('admin.courses.unarchive', $subject))->assertOk()->assertJsonPath('status', 'active');
+        $this->patchJson(route('admin.groups.unarchive', $group))->assertOk()->assertJsonPath('status', 'active');
+        $this->patchJson(route('admin.exams.unarchive', $exam))->assertOk()->assertJsonPath('status', 'draft');
+        $this->patchJson(route('admin.courses.questions.unarchive', [$this->subject, $question]))->assertOk()->assertJsonPath('active', true);
+
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'status' => 'active', 'archived_at' => null]);
+        $this->assertDatabaseHas('training_providers', ['id' => $provider->id, 'status' => 'active', 'archived_at' => null]);
+        $this->assertDatabaseHas('courses', ['id' => $subject->id, 'status' => 'active', 'archived_at' => null]);
+        $this->assertDatabaseHas('student_groups', ['id' => $group->id, 'status' => 'active']);
+        $this->assertDatabaseHas('exams', ['id' => $exam->id, 'status' => 'draft']);
+        $this->assertDatabaseHas('questions', ['id' => $question->id, 'is_active' => 1]);
+        $this->assertDatabaseHas('audit_events', ['action' => 'user.unarchived']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'training_provider.unarchived']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'course.unarchived']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'group.unarchived']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'exam.unarchived']);
+        $this->assertDatabaseHas('audit_events', ['action' => 'question.unarchived']);
     }
 
     public function test_shared_user_form_renders_for_normal_and_student_users(): void
@@ -523,6 +563,27 @@ class BusinessDomainTest extends TestCase
             $this->get(route('admin.groups.index'))->assertForbidden();
             $this->get(route('admin.courses.exams.index', $this->subject))->assertForbidden();
             $this->get(route('admin.exam-schedules.index'))->assertForbidden();
+        }
+    }
+
+    public function test_admin_management_pages_render_alpine_controls_without_external_alpine_dependency(): void
+    {
+        $pages = [
+            [route('admin.courses.index'), 'archiveSubject(subject)'],
+            [route('admin.students.index'), 'archiveStudent(student)'],
+            [route('admin.exams.index'), 'archiveExam(exam)'],
+            [route('admin.questions.index'), 'archiveQuestion(question)'],
+            [route('admin.users.index'), 'archiveUser(user)'],
+            [route('admin.providers.index'), 'archiveProvider(provider)'],
+            [route('admin.configuration.index'), 'toggle(section, row)'],
+        ];
+
+        foreach ($pages as [$url, $action]) {
+            $this->get($url)
+                ->assertOk()
+                ->assertSee($action, false)
+                ->assertSee('type="button"', false)
+                ->assertDontSee('cdn.jsdelivr.net/npm/alpinejs');
         }
     }
 }

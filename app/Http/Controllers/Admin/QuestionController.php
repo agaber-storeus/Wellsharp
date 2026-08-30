@@ -14,6 +14,7 @@ use App\Http\Requests\Admin\StoreQuestionRequest;
 use App\Http\Requests\Admin\UpdateQuestionRequest;
 use App\Models\Course;
 use App\Models\Question;
+use App\Services\AuditRecorder;
 use App\Services\QuestionExcelService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -215,6 +216,22 @@ class QuestionController extends Controller
         return back()->with('status', 'Question archived.');
     }
 
+    public function unarchive(Request $request, Course $course, Question $question, AuditRecorder $audit): RedirectResponse|JsonResponse
+    {
+        $this->ensureCourseQuestion($course, $question);
+        $this->authorize('update', $question);
+        abort_unless($question->is_active === false, 422, 'This question is not archived.');
+        $before = ['is_active' => false];
+        $question->forceFill(['is_active' => true, 'updated_by_user_id' => auth()->id()])->save();
+        $audit->record('question.unarchived', $question, $before, ['is_active' => true]);
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Question unarchived and restored to Active.', 'active' => true, 'status_label' => 'Active']);
+        }
+
+        return back()->with('status', 'Question unarchived and restored to Active.');
+    }
+
     public function template(Course $course, QuestionExcelService $service)
     {
         $this->authorize('viewAny', Question::class);
@@ -294,6 +311,8 @@ class QuestionController extends Controller
             'active' => $question->is_active,
             'edit_url' => route('admin.courses.questions.edit', [$question->course, $question]),
             'archive_url' => route('admin.courses.questions.destroy', [$question->course, $question]),
+            'can_unarchive' => ! $question->is_active,
+            'unarchive_url' => route('admin.courses.questions.unarchive', [$question->course, $question]),
         ];
     }
 }

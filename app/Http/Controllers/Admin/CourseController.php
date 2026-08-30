@@ -116,6 +116,21 @@ class CourseController extends Controller
         return back()->with('status', 'Subject retired.');
     }
 
+    public function unarchive(Request $request, Course $course, AuditRecorder $audit): RedirectResponse|JsonResponse
+    {
+        $this->authorize('update', $course);
+        abort_unless($course->archived_at !== null || $course->status === CourseStatus::Retired, 422, 'This Subject is not archived.');
+        $before = $course->toArray();
+        $course->forceFill(['status' => CourseStatus::Active, 'archived_at' => null])->save();
+        $audit->record('course.unarchived', $course, $before, $course->fresh()->toArray());
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Subject unarchived and restored to Active.', 'status' => CourseStatus::Active->value, 'status_label' => CourseStatus::Active->label()]);
+        }
+
+        return back()->with('status', 'Subject unarchived and restored to Active.');
+    }
+
     private function formData(): array
     {
         return [
@@ -143,6 +158,8 @@ class CourseController extends Controller
 
     private function coursePayload(Course $course): array
     {
+        $archived = $course->archived_at !== null || $course->status === CourseStatus::Retired;
+
         return [
             'id' => $course->getKey(),
             'code' => $course->code,
@@ -151,9 +168,11 @@ class CourseController extends Controller
             'level' => $course->level?->name ?: 'Not assigned',
             'status' => $course->status->value,
             'status_label' => $course->status->label(),
-            'archived' => $course->archived_at !== null,
+            'archived' => $archived,
             'can_archive' => $course->status === CourseStatus::Active && $course->archived_at === null,
             'archive_url' => route('admin.courses.archive', $course),
+            'can_unarchive' => $archived,
+            'unarchive_url' => route('admin.courses.unarchive', $course),
             'view_url' => route('admin.courses.show', $course),
         ];
     }

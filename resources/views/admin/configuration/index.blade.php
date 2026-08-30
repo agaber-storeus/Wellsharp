@@ -14,6 +14,8 @@
                 'name' => $item->name,
                 'sort_order' => $item->sort_order,
                 'active' => $item->is_active,
+                'saving' => false,
+                'toggling' => false,
                 'update_url' => route('admin.configuration.update', [$type, $item->id]),
                 'toggle_url' => route('admin.configuration.toggle', [$type, $item->id]),
             ])->values(),
@@ -46,7 +48,7 @@
                             <td><div class="admin-status-cell"><span class="badge" x-bind:class="row.active ? 'active' : 'archived'" x-text="row.active ? 'Active' : 'Inactive'"></span></div></td>
                             <td>
                                 <div class="actions configuration-actions admin-actions-cell">
-                                    <button class="btn secondary small" type="button" x-on:click.prevent="toggle(section, row)" x-bind:aria-busy="row.toggling ? 'true' : 'false'" x-text="row.toggling ? 'Updating...' : (row.active ? 'Deactivate' : 'Activate')"></button>
+                                    <button class="btn secondary small" type="button" x-on:click.stop="toggle(section, row)" x-bind:disabled="row.toggling" x-bind:aria-busy="row.toggling ? 'true' : 'false'" x-text="row.toggling ? 'Updating...' : (row.active ? 'Deactivate' : 'Activate')"></button>
                                 </div>
                             </td>
                         </tr>
@@ -94,7 +96,7 @@
                 const name = section.newName.trim();
                 if (!name) return;
                 section.saving = true;
-                try { const payload = await this.request(section.store_url, 'POST', { name }); section.rows.unshift({ ...payload.row, savedName: payload.row.name }); section.newName = ''; this.notify(payload.message); }
+                try { const payload = await this.request(section.store_url, 'POST', { name }); section.rows.unshift({ ...payload.row, saving: false, toggling: false, savedName: payload.row.name }); section.newName = ''; this.notify(payload.message); }
                 catch (error) { this.notify(error.message, 'error'); }
                 finally { section.saving = false; }
             },
@@ -122,7 +124,7 @@
                 const from = section.rows.findIndex((item) => item.id === this.dragging.id); const to = section.rows.findIndex((item) => item.id === row.id);
                 if (from < 0 || to < 0) { this.dragging = null; return; }
                 const previousRows = [...section.rows]; const [moved] = section.rows.splice(from, 1); section.rows.splice(to, 0, moved); this.dragging = null; section.ordering = true;
-                try { const payload = await this.request(section.reorder_url, 'PATCH', { order: section.rows.map((item) => item.id) }); section.rows = payload.rows.map((item) => ({ ...item, savedName: item.name })); this.notify(payload.message); }
+                try { const payload = await this.request(section.reorder_url, 'PATCH', { order: section.rows.map((item) => item.id) }); section.rows = payload.rows.map((item) => ({ ...item, saving: false, toggling: false, savedName: item.name })); this.notify(payload.message); }
                 catch (error) { section.rows = previousRows; this.notify(error.message, 'error'); }
                 finally { section.ordering = false; }
             },

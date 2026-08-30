@@ -5,10 +5,15 @@
     <div><h1>{{ $provider->name }}</h1></div>
     <div class="admin-page-actions">
         <a class="btn secondary" href="{{ route('admin.providers.edit', $provider) }}">Edit</a>
-        @if($provider->archived_at === null)
+        @if($provider->archived_at === null && $provider->status->value !== 'archived')
             <form method="POST" action="{{ route('admin.providers.archive', $provider) }}">
                 @csrf @method('PATCH')
                 <button class="btn danger" type="submit">Archive</button>
+            </form>
+        @else
+            <form method="POST" action="{{ route('admin.providers.unarchive', $provider) }}">
+                @csrf @method('PATCH')
+                <button class="btn secondary" type="submit">Unarchive</button>
             </form>
         @endif
     </div>

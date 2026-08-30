@@ -131,6 +131,21 @@ class GroupController extends Controller
         return back()->with('status', 'Group archived.');
     }
 
+    public function unarchive(Request $request, Group $group): RedirectResponse|JsonResponse
+    {
+        $this->authorize('update', $group);
+        abort_unless($group->status === GroupStatus::Archived, 422, 'This group is not archived.');
+        $before = ['status' => $group->status->value];
+        $group->update(['status' => GroupStatus::Active, 'updated_by_user_id' => auth()->id()]);
+        app(AuditRecorder::class)->record('group.unarchived', $group, $before, ['status' => GroupStatus::Active->value]);
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Group unarchived and restored to Active.', 'status' => GroupStatus::Active->value, 'status_label' => GroupStatus::Active->label()]);
+        }
+
+        return back()->with('status', 'Group unarchived and restored to Active.');
+    }
+
     public function addMembers(AddGroupMembersRequest $request, Group $group, AddStudentsToGroupAction $action): RedirectResponse
     {
         $this->authorize('update', $group);
@@ -183,6 +198,8 @@ class GroupController extends Controller
             'status_label' => $group->status->label(),
             'can_archive' => $group->status === GroupStatus::Active,
             'archive_url' => route('admin.groups.archive', $group),
+            'can_unarchive' => $group->status === GroupStatus::Archived,
+            'unarchive_url' => route('admin.groups.unarchive', $group),
             'view_url' => route('admin.groups.show', $group),
         ];
     }

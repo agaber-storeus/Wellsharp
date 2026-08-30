@@ -129,6 +129,21 @@ class TrainingProviderController extends Controller
         return back()->with('status', 'Training provider archived.');
     }
 
+    public function unarchive(Request $request, TrainingProvider $provider, AuditRecorder $audit): RedirectResponse|JsonResponse
+    {
+        $this->authorize('update', $provider);
+        abort_unless($provider->status === ProviderStatus::Archived || $provider->archived_at !== null, 422, 'This provider is not archived.');
+        $before = $provider->toArray();
+        $provider->forceFill(['status' => ProviderStatus::Active, 'archived_at' => null])->save();
+        $audit->record('training_provider.unarchived', $provider, $before, $provider->fresh()->toArray());
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Training provider unarchived and restored to Active.', 'status' => ProviderStatus::Active->value, 'status_label' => ProviderStatus::Active->label()]);
+        }
+
+        return back()->with('status', 'Training provider unarchived and restored to Active.');
+    }
+
     private function filteredQuery(Request $request)
     {
         $search = trim((string) $request->input('search'));
@@ -155,6 +170,8 @@ class TrainingProviderController extends Controller
             'saved_status' => $provider->status->value,
             'status_url' => route('admin.providers.status', $provider),
             'archive_url' => route('admin.providers.archive', $provider),
+            'can_unarchive' => $provider->status === ProviderStatus::Archived || $provider->archived_at !== null,
+            'unarchive_url' => route('admin.providers.unarchive', $provider),
             'view_url' => route('admin.providers.show', $provider),
         ];
     }

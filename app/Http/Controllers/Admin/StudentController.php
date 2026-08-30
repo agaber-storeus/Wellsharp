@@ -118,6 +118,8 @@ class StudentController extends Controller
             'status_url' => route('admin.users.status', $student),
             'can_archive' => in_array($student->status, [UserStatus::Active, UserStatus::Disabled], true) && ! $student->is(auth()->user()),
             'archive_url' => route('admin.users.archive', $student),
+            'can_unarchive' => $student->status === UserStatus::Archived && ! $student->is(auth()->user()),
+            'unarchive_url' => route('admin.users.unarchive', $student),
             'view_url' => route('admin.users.show', $student),
         ];
     }

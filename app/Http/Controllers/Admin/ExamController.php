@@ -253,6 +253,21 @@ class ExamController extends Controller
         return back()->with('status', 'Exam archived.');
     }
 
+    public function unarchive(Request $request, Exam $exam, AuditRecorder $audit): RedirectResponse|JsonResponse
+    {
+        $this->authorize('update', $exam);
+        abort_unless($exam->status === ExamStatus::Archived, 422, 'This exam is not archived.');
+        $before = ['status' => $exam->status->value];
+        $exam->forceFill(['status' => ExamStatus::Draft, 'updated_by_user_id' => auth()->id()])->save();
+        $audit->record('exam.unarchived', $exam, $before, ['status' => ExamStatus::Draft->value]);
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Exam unarchived and restored to Draft.', 'status' => ExamStatus::Draft->value, 'status_label' => ExamStatus::Draft->label()]);
+        }
+
+        return back()->with('status', 'Exam unarchived and restored to Draft.');
+    }
+
     private function ensureCourseExam(Course $course, Exam $exam): void
     {
         abort_unless($exam->course_id === $course->getKey(), 404);
@@ -293,6 +308,8 @@ class ExamController extends Controller
             'exam_url' => route('admin.exams.show', $exam),
             'edit_url' => route('admin.exams.edit', $exam),
             'archive_url' => route('admin.exams.archive', $exam),
+            'can_unarchive' => $exam->status === ExamStatus::Archived,
+            'unarchive_url' => route('admin.exams.unarchive', $exam),
             'schedule_url' => route('admin.exam-schedules.create', ['exam_id' => $exam->getKey()]),
         ];
     }

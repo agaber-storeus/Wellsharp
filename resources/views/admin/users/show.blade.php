@@ -8,7 +8,7 @@
 
 <div class="admin-page-head hero">
     <div><span class="admin-kicker">User profile</span><h1>{{ $user->display_name }}</h1><p>{{ $user->currentRole?->name ?: 'Unassigned' }} · {{ $user->wellsharp_id }}</p></div>
-    <div class="admin-page-actions"><a class="btn" href="{{ route('admin.users.edit', $user) }}">Edit profile</a>@if($user->isActive() && !$user->is(auth()->user()))<form method="POST" action="{{ route('admin.users.disable', $user) }}">@csrf @method('PATCH')<button class="btn danger" type="submit">Disable account</button></form>@endif</div>
+    <div class="admin-page-actions"><a class="btn" href="{{ route('admin.users.edit', $user) }}">Edit profile</a>@if($user->status->value === 'archived' && !$user->is(auth()->user()))<form method="POST" action="{{ route('admin.users.unarchive', $user) }}">@csrf @method('PATCH')<button class="btn secondary" type="submit">Unarchive</button></form>@elseif(!$user->is(auth()->user()))@if($user->isActive())<form method="POST" action="{{ route('admin.users.disable', $user) }}">@csrf @method('PATCH')<button class="btn danger" type="submit">Disable account</button></form>@endif<form method="POST" action="{{ route('admin.users.archive', $user) }}">@csrf @method('PATCH')<button class="btn danger" type="submit">Archive</button></form>@endif</div>
 </div>
 
 <div class="admin-bento">

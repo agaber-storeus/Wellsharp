@@ -8,6 +8,7 @@ use App\Actions\Users\CreateUserAction;
 use App\Actions\Users\DisableUserAction;
 use App\Actions\Users\UpdateUserAction;
 use App\Actions\Users\UpdateUserStatusAction;
+use App\Actions\Users\UnarchiveUserAction;
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ChangeUserRoleRequest;
@@ -194,6 +195,24 @@ class UserController extends Controller
         return back()->with('status', 'User archived and existing sessions revoked.');
     }
 
+    public function unarchive(Request $request, User $user, UnarchiveUserAction $action): RedirectResponse|JsonResponse
+    {
+        $this->authorize('update', $user);
+        abort_if($user->is(auth()->user()), 422, 'You cannot unarchive your own account.');
+        abort_unless($user->status === UserStatus::Archived, 422, 'This user is not archived.');
+        $action->execute($user);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'User unarchived and restored to Active.',
+                'status' => UserStatus::Active->value,
+                'status_label' => UserStatus::Active->label(),
+            ]);
+        }
+
+        return back()->with('status', 'User unarchived and restored to Active.');
+    }
+
     private function filteredQuery(Request $request)
     {
         $search = trim((string) $request->input('search'));
@@ -234,6 +253,8 @@ class UserController extends Controller
             'status_url' => route('admin.users.status', $user),
             'can_archive' => in_array($user->status, [UserStatus::Active, UserStatus::Disabled], true) && ! $user->is(auth()->user()),
             'archive_url' => route('admin.users.archive', $user),
+            'can_unarchive' => $user->status === UserStatus::Archived && ! $user->is(auth()->user()),
+            'unarchive_url' => route('admin.users.unarchive', $user),
             'view_url' => route('admin.users.show', $user),
         ];
     }

@@ -13,7 +13,7 @@
         @if(!auth()->user()->isAdmin())<link rel="stylesheet" href="{{ asset('css/proctor.css') }}?v={{ filemtime(public_path('css/proctor.css')) }}">@endif
         <link rel="stylesheet" href="{{ asset('css/certificate-documents.css') }}?v={{ filemtime(public_path('css/certificate-documents.css')) }}">
     @endif
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+    @vite('resources/js/app.js')
     @if(request()->routeIs('admin.questions.create', 'admin.courses.questions.create', 'admin.courses.questions.edit'))<link rel="stylesheet" href="{{ asset('css/admin-question-wizard.css') }}">@endif
     @if(request()->routeIs('admin.providers.create', 'admin.providers.edit', 'admin.providers.show'))<link rel="stylesheet" href="{{ asset('css/provider-location-picker.css') }}">@vite('resources/js/maps.js')@endif
     {{-- Always last: the global design-system layer overrides tokens/typography/badges/etc. declared by every stylesheet above, including the page-specific ones loaded conditionally just above. --}}

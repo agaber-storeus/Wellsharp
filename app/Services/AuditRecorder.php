@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\AuditEvent;
+use App\Support\SensitiveKeys;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 
 class AuditRecorder
@@ -40,6 +40,6 @@ class AuditRecorder
             return null;
         }
 
-        return Arr::except($state, ['password', 'password_confirmation', 'password_ciphertext', 'remember_token', 'correct_answer', 'answer_key', 'secret', 'token']);
+        return SensitiveKeys::scrub($state);
     }
 }

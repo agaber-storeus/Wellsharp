@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ExamScheduleController;
 use App\Http\Controllers\Admin\GroupController;
 use App\Http\Controllers\Admin\QuestionController;
 use App\Http\Controllers\Admin\StudentController;
+use App\Http\Controllers\Admin\SystemLogController;
 use App\Http\Controllers\Admin\TrainingClassController;
 use App\Http\Controllers\Admin\TrainingProviderController;
 use App\Http\Controllers\Admin\UserController;
@@ -41,6 +42,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::patch('subject-configuration/{type}/reorder', [CourseConfigurationController::class, 'reorder'])->name('configuration.reorder');
     Route::patch('subject-configuration/{type}/{item}', [CourseConfigurationController::class, 'update'])->name('configuration.update');
     Route::patch('subject-configuration/{type}/{item}/toggle', [CourseConfigurationController::class, 'toggle'])->name('configuration.toggle');
+    Route::get('system-logs', [SystemLogController::class, 'index'])->name('system-logs.index');
+    Route::get('system-logs/data', [SystemLogController::class, 'data'])->name('system-logs.data');
+    Route::get('system-logs/{source}/{publicId}', [SystemLogController::class, 'show'])
+        ->whereIn('source', ['audit', 'login'])
+        ->name('system-logs.show');
 
     Route::get('classes/data', [TrainingClassController::class, 'data'])->name('classes.data');
     Route::resource('courses', CourseController::class)->except(['destroy']);

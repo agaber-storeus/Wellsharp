@@ -515,16 +515,11 @@
 
     postExamControl(control, action, null, function (result) {
       if (!result.ok) {
-        var errors = result.data.errors || {};
-        var message = errors.action ? errors.action[0] : (result.data.message || "The Class could not be updated.");
-        window.alert(message);
         return;
       }
 
       finishExamStateChange(result.data);
-    }, function () {
-      window.alert("The Class could not be updated. Try again.");
-    });
+    }, function () {});
   }
 
   function closeButtonMarkup() {
@@ -827,9 +822,6 @@
     if (examControlButton) {
       event.preventDefault();
       var action = examControlButton.getAttribute("data-exam-action");
-      if (action === "end" && !window.confirm("Are you sure that you would like to close this Class? Do not stop it if all trainees have not completed their exams.")) {
-        return;
-      }
       var examControl = getClassConfig().examControl;
       if (window.wellsharpCurrentRole === "proctor") {
         controlClassAsProctor(action, examControl);

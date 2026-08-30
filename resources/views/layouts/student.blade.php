@@ -36,8 +36,6 @@
           @endif
           <button class="collapse-btn" type="button">&lsaquo; Collapse</button>
         </aside>
-        @if(session('status'))<div class="message-bar global-alert success" role="status">{{ session('status') }}</div>@endif
-        @if($errors->any())<div class="message-bar global-alert error" role="alert">{{ $errors->first() }}</div>@endif
         @yield('student-content')
       </div>
 
@@ -47,6 +45,5 @@
       </footer>
     </main>
     @stack('scripts')
-    <script src="{{ asset('js/auto-dismiss-alerts.js') }}?v={{ filemtime(public_path('js/auto-dismiss-alerts.js')) }}"></script>
   </body>
 </html>

@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Operational;
 
 use App\Actions\Exams\ControlOperationalExamAction;
+use App\Enums\ClassControlFailureReason;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Operational\ControlExamRequest;
 use App\Models\TrainingClass;
+use App\Services\AuditRecorder;
 use App\Services\ProctorIdVerifier;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,9 +29,24 @@ class ExamControlController extends Controller
         return response()->json(['message' => "Proctor's ID verified.", 'proctor_name' => $proctor->display_name]);
     }
 
-    public function control(ControlExamRequest $request, TrainingClass $trainingClass, ControlOperationalExamAction $action): JsonResponse
+    public function control(ControlExamRequest $request, TrainingClass $trainingClass, ControlOperationalExamAction $action, AuditRecorder $audit): JsonResponse
     {
-        $this->authorize('control', $trainingClass);
+        try {
+            $this->authorize('control', $trainingClass);
+        } catch (AuthorizationException $exception) {
+            $reason = ClassControlFailureReason::NotAssignedToClass;
+            $audit->record(
+                'class.control_attempt.failed',
+                $trainingClass,
+                null,
+                ['operation' => $request->input('action'), 'failure_stage' => $reason->stage(), 'failure_reason' => $reason->value],
+                $reason->label(),
+                $request->user()?->getKey(),
+            );
+
+            throw $exception;
+        }
+
         $data = $request->validated();
         $result = $action->executeManual($trainingClass, $data['action'], $request->user(), $data['proctor_id'] ?? null);
 

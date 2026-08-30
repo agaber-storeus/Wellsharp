@@ -14,7 +14,7 @@
       <span x-text="timerLabel"></span><br />
       <span x-text="answeredCount + '/' + totalQuestions + ' questions answered'"></span><br />
       <span class="exam-expired-message" x-show="errors._timer" x-text="errors._timer" x-cloak></span>
-      <form method="POST" action="{{ route('student.attempts.submit', $attempt) }}" onsubmit="return confirm('Submit this exam? You will not be able to change your answers afterward.');">
+      <form method="POST" action="{{ route('student.attempts.submit', $attempt) }}">
         @csrf
         <button class="green-btn" type="submit" x-show="!expired" x-bind:disabled="expired" x-cloak>Submit Exam</button>
       </form>

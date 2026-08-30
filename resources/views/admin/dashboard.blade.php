@@ -271,7 +271,7 @@
 
 {{-- Recent activity --}}
 <section class="card dash-section" aria-labelledby="recent-activity-title">
-    <div class="admin-section-head"><div><span class="admin-kicker">Audit trail</span><h2 id="recent-activity-title">Recent activity</h2></div></div>
+    <div class="admin-section-head"><div><span class="admin-kicker">Audit trail</span><h2 id="recent-activity-title">Recent activity</h2></div><a class="btn secondary" href="{{ route('admin.system-logs.index') }}">View all</a></div>
     @if(count($dashboard['recent_activity']))
         <ul class="dash-activity-list">
             @foreach($dashboard['recent_activity'] as $event)

@@ -43,8 +43,6 @@
         </aside>
 
         <section class="workspace {{ $workspaceClass ?? 'proctor-home-workspace' }}">
-          @if(session('status'))<div class="message-bar global-alert success" role="status">{{ session('status') }}</div>@endif
-          @if($errors->any())<div class="message-bar global-alert error" role="alert">{{ $errors->first() }}</div>@endif
           @yield('operational-content')
         </section>
       </div>
@@ -65,6 +63,5 @@
     <script src="{{ asset('js/proctor-home-laravel.js') }}?v={{ filemtime(public_path('js/proctor-home-laravel.js')) }}"></script>
     <script src="{{ asset('js/proctor-class-modal-laravel.js') }}?v={{ filemtime(public_path('js/proctor-class-modal-laravel.js')) }}"></script>
     <script src="{{ asset('js/proctor-menu.js') }}?v={{ filemtime(public_path('js/proctor-menu.js')) }}"></script>
-    <script src="{{ asset('js/auto-dismiss-alerts.js') }}?v={{ filemtime(public_path('js/auto-dismiss-alerts.js')) }}"></script>
   </body>
 </html>

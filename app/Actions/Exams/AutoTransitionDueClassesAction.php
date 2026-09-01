@@ -26,6 +26,7 @@ class AutoTransitionDueClassesAction
         $now = now();
 
         TrainingClass::query()
+            ->whereDoesntHave('examSchedules', fn ($query) => $query->where('start_mode', 'manual'))
             ->where('status', 'planned')
             ->whereNotNull('starts_at')
             ->where('starts_at', '<=', $now)

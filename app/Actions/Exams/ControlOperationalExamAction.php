@@ -38,7 +38,7 @@ class ControlOperationalExamAction
         $verifiedProctor = null;
 
         if ($actor->currentRole?->key === Role::INSTRUCTOR) {
-            $verifiedProctor = $this->verifyInstructorProctorId($trainingClass, $action, $actor, $proctorId ?? '');
+            $verifiedProctor = $this->verifyProctorIdForManualControl($trainingClass, $action, $actor, $proctorId ?? '');
         } elseif ($actor->currentRole?->key !== Role::PROCTOR) {
             $this->recordControlAttemptFailed($trainingClass, $action, ClassControlFailureReason::UnsupportedRole, $actor);
 
@@ -46,6 +46,17 @@ class ControlOperationalExamAction
         }
 
         return $this->execute($trainingClass, $action, 'manual', $actor, null, $verifiedProctor);
+    }
+
+    public function executeForStudent(TrainingClass $trainingClass, string $action, User $student, string $proctorId): array
+    {
+        if ($student->currentRole?->key !== Role::STUDENT) {
+            throw ValidationException::withMessages(['proctor_id' => 'Only a Student can use this start method.']);
+        }
+
+        $verifiedProctor = $this->verifyProctorIdForManualControl($trainingClass, $action, $student, $proctorId);
+
+        return $this->execute($trainingClass, $action, 'manual', $student, null, $verifiedProctor);
     }
 
     /**
@@ -56,7 +67,7 @@ class ControlOperationalExamAction
      * never roll back the verification event, and a failed verification
      * always leaves its own event even though no Class state changes.
      */
-    private function verifyInstructorProctorId(TrainingClass $trainingClass, string $action, User $actor, string $proctorId): User
+    private function verifyProctorIdForManualControl(TrainingClass $trainingClass, string $action, User $actor, string $proctorId): User
     {
         $result = $this->controlIds->verify($proctorId);
 
@@ -78,7 +89,7 @@ class ControlOperationalExamAction
             $trainingClass,
             null,
             ['operation' => $action, 'verified_proctor_user_id' => $result->proctor->getKey(), 'verified_proctor_wellsharp_id' => $result->proctor->wellsharp_id],
-            'Instructor verified Proctor for '.$action,
+            'Proctor ID verified for '.$action,
             $actor->getKey(),
         );
 
@@ -126,6 +137,9 @@ class ControlOperationalExamAction
                     }
                     if ($source === 'automatic' && (! $class->starts_at || $class->starts_at->isAfter($clock))) {
                         return $this->result($class, null, 0, false);
+                    }
+                    if ($source === 'manual' && $class->starts_at?->isAfter($clock)) {
+                        throw ValidationException::withMessages(['action' => 'This exam cannot be started before its scheduled start date.']);
                     }
 
                     $before = $class->toArray();

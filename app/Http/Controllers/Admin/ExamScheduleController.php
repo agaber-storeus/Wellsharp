@@ -155,6 +155,8 @@ class ExamScheduleController extends Controller
             'start_date' => $schedule->start_date?->format('Y-m-d'),
             'end_date' => $schedule->end_date?->format('Y-m-d'),
             'duration' => $schedule->duration_minutes ? $schedule->duration_minutes.' min' : '—',
+            'start_mode' => $schedule->start_mode?->value ?? 'automatic',
+            'start_mode_label' => $schedule->start_mode?->label() ?? 'Automatic — follow start/end dates',
             'status' => $schedule->status->value,
             'status_label' => $schedule->status->label(),
             'edit_url' => route('admin.exam-schedules.edit', $schedule),

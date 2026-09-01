@@ -23,6 +23,7 @@ class StoreExamRequest extends FormRequest
             'question_order_mode' => $selectionMode === ExamQuestionSelectionMode::Random->value
                 ? ExamQuestionOrderMode::Static->value
                 : ($this->input('question_order_mode') ?: ExamQuestionOrderMode::Static->value),
+            'start_mode' => $this->input('start_mode') ?: 'automatic',
         ]);
     }
 
@@ -45,6 +46,7 @@ class StoreExamRequest extends FormRequest
             'question_selection_mode' => ['required', Rule::in(array_column(ExamQuestionSelectionMode::cases(), 'value'))],
             'question_count' => ['nullable', 'integer', 'min:1'],
             'status' => ['required', 'in:draft,published,archived'],
+            'start_mode' => ['nullable', 'in:automatic,manual'],
             'question_ids' => ['required_if:question_selection_mode,manual', 'array', 'min:1'],
             'question_ids.*' => ['integer', Rule::exists('questions', 'id')],
             'display_orders' => ['nullable', 'array'],

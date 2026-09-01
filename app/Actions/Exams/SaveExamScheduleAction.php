@@ -55,6 +55,7 @@ class SaveExamScheduleAction
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'duration_minutes' => $data['duration_minutes'],
+                'start_mode' => $data['start_mode'] ?? 'automatic',
                 'updated_by_user_id' => auth()->id(),
             ];
             if ($creating) {

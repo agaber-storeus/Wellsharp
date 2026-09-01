@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ExamScheduleStatus;
+use App\Enums\ExamStartMode;
 use App\Models\Concerns\HasPublicUlid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,11 +14,11 @@ class ExamSchedule extends Model
 {
     use HasFactory, HasPublicUlid;
 
-    protected $fillable = ['exam_id', 'group_id', 'training_class_id', 'start_date', 'end_date', 'duration_minutes', 'status', 'created_by_user_id', 'updated_by_user_id', 'override_started_at', 'override_ended_at', 'override_started_by_user_id', 'override_ended_by_user_id'];
+    protected $fillable = ['exam_id', 'group_id', 'training_class_id', 'start_date', 'end_date', 'duration_minutes', 'status', 'start_mode', 'created_by_user_id', 'updated_by_user_id', 'override_started_at', 'override_ended_at', 'override_started_by_user_id', 'override_ended_by_user_id'];
 
     protected function casts(): array
     {
-        return ['start_date' => 'date', 'end_date' => 'date', 'duration_minutes' => 'integer', 'status' => ExamScheduleStatus::class, 'override_started_at' => 'datetime', 'override_ended_at' => 'datetime'];
+        return ['start_date' => 'date', 'end_date' => 'date', 'duration_minutes' => 'integer', 'status' => ExamScheduleStatus::class, 'start_mode' => ExamStartMode::class, 'override_started_at' => 'datetime', 'override_ended_at' => 'datetime'];
     }
 
     public function exam(): BelongsTo

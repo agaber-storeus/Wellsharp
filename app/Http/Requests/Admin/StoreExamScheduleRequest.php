@@ -32,6 +32,7 @@ class StoreExamScheduleRequest extends FormRequest
             'start_date' => ['required', 'date_format:Y-m-d'],
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
+            'start_mode' => ['required', 'in:automatic,manual'],
             'proctor_id' => ['required', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::PROCTOR, 'Proctor')],
             'instructor_id' => ['required', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::INSTRUCTOR, 'Instructor')],
         ];

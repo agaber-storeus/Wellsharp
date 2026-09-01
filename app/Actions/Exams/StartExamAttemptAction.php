@@ -6,6 +6,7 @@ use App\Enums\ExamAttemptStatus;
 use App\Enums\ExamQuestionOrderMode;
 use App\Enums\ExamQuestionSelectionMode;
 use App\Enums\ExamScheduleStatus;
+use App\Enums\ExamStartMode;
 use App\Enums\GroupMembershipStatus;
 use App\Enums\QuestionType;
 use App\Models\Exam;
@@ -102,6 +103,10 @@ class StartExamAttemptAction
             ->where('status', GroupMembershipStatus::Active->value)
             ->exists()) {
             abort(403, 'You are not assigned to this exam group.');
+        }
+
+        if ($schedule->start_mode === ExamStartMode::Manual && ! $schedule->override_started_at) {
+            throw ValidationException::withMessages(['exam' => 'A Proctor must start this exam before it can be opened.']);
         }
 
         if (! $schedule->override_started_at && $schedule->start_date?->isFuture()) {

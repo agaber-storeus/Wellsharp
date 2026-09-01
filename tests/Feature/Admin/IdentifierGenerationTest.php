@@ -48,7 +48,7 @@ class IdentifierGenerationTest extends TestCase
         $user = User::whereHas('profile', fn ($q) => $q->where('first_name', 'Ahmed')->where('last_name', 'Gaber'))->firstOrFail();
 
         $this->assertMatchesRegularExpression('/^[A-Z0-9]{5,8}$/', $user->wellsharp_id);
-        $this->assertMatchesRegularExpression('/^[a-z0-9]{5,8}$/', $user->username);
+        $this->assertMatchesRegularExpression('/^[a-z]{5,8}$/', $user->username);
         $this->assertNotNull($user->getRawOriginal('password'));
         $this->assertFalse(Hash::needsRehash($user->getRawOriginal('password')));
 
@@ -223,6 +223,7 @@ class IdentifierGenerationTest extends TestCase
         foreach ($usernames as $username) {
             $this->assertLessThanOrEqual(8, strlen($username));
             $this->assertGreaterThanOrEqual(5, strlen($username));
+            $this->assertMatchesRegularExpression('/^[a-z]{5,8}$/', $username);
         }
     }
 
@@ -244,7 +245,7 @@ class IdentifierGenerationTest extends TestCase
             $username = $generator->generateUsername($first, $last);
 
             $this->assertMatchesRegularExpression('/^[A-Z0-9]{5,8}$/', $wellsharpId, "WellSharp ID for [$first $last]");
-            $this->assertMatchesRegularExpression('/^[a-z0-9]{5,8}$/', $username, "Username for [$first $last]");
+            $this->assertMatchesRegularExpression('/^[a-z]{5,8}$/', $username, "Username for [$first $last]");
         }
     }
 

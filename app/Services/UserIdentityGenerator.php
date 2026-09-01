@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 /**
  * Generates the two name-derived, human-facing identifiers a User gets on
  * creation: the WellSharp ID (uppercase initials + random digits, used to
- * log in) and the Username (lowercase, more readable, display-only). Both
+ * log in) and the Username (lowercase letters, more readable, display-only). Both
  * are distinct from a Proctor's ID (see ProctorIdGenerator), which is a
  * role-specific exam-control credential, not an account identifier.
  */
@@ -36,18 +36,25 @@ class UserIdentityGenerator
     {
         [$first, $last] = $this->normalizeNameParts($firstName, $lastName);
         $base = $this->usernameBase($first, $last);
+        $nameLetters = Str::lower($first.$last);
+        $nameLetters = $nameLetters !== '' ? $nameLetters : Str::lower($this->randomLetters(8));
 
-        return $this->generateUnique(function (int $attempt) use ($base): string {
+        return $this->generateUnique(function (int $attempt) use ($base, $first, $last, $nameLetters): string {
             if ($attempt === 0) {
-                return $this->padToMinLength($base);
+                return $this->padToMinLength($base, $nameLetters);
             }
 
-            // Collision: shrink the readable base to make room for a numeric
-            // suffix while staying within the 8-character ceiling.
-            $suffix = (string) random_int(0, $attempt < 10 ? 9 : 999);
-            $room = max(1, self::MAX_LENGTH - strlen($suffix));
+            // Keep collisions readable and name-derived. The alternate form
+            // starts with the last-name initial and the first name; subsequent
+            // attempts retain a name prefix and add random letters only.
+            $alternate = Str::lower(
+                ($last !== '' ? substr($last, 0, 1) : '') .
+                ($first !== '' ? $first : $last)
+            );
+            $prefix = $attempt === 1 ? ($alternate !== '' ? $alternate : $base) : $base;
+            $prefix = substr($prefix, 0, max(1, self::MAX_LENGTH - 3));
 
-            return substr($base, 0, $room).$suffix;
+            return Str::lower(substr($prefix.$this->randomLetters(3), 0, self::MAX_LENGTH));
         }, fn (string $candidate): bool => User::query()->where('username', $candidate)->exists());
     }
 
@@ -91,10 +98,13 @@ class UserIdentityGenerator
         return substr($base, 0, self::MAX_LENGTH);
     }
 
-    private function padToMinLength(string $base): string
+    private function padToMinLength(string $base, string $nameLetters): string
     {
+        $poolLength = strlen($nameLetters);
+        $poolIndex = 0;
         while (strlen($base) < self::MIN_LENGTH) {
-            $base .= (string) random_int(0, 9);
+            $base .= $nameLetters[$poolIndex % $poolLength];
+            $poolIndex++;
         }
 
         return substr($base, 0, self::MAX_LENGTH);

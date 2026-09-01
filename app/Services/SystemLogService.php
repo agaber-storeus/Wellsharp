@@ -56,6 +56,7 @@ class SystemLogService
         'user.archived' => ['category' => 'users', 'label' => 'User archived'],
         'user.unarchived' => ['category' => 'users', 'label' => 'User unarchived'],
         'student.password_viewed' => ['category' => 'security', 'label' => 'Student password viewed', 'severity' => 'warning'],
+        'user.password_viewed' => ['category' => 'security', 'label' => 'User password viewed', 'severity' => 'warning'],
         'student_passwords.class_roster_viewed' => ['category' => 'security', 'label' => 'Class roster passwords viewed', 'severity' => 'warning'],
         'class.proctor_verification.succeeded' => ['category' => 'security', 'label' => 'Proctor verification succeeded'],
         'class.proctor_verification.failed' => ['category' => 'security', 'label' => 'Proctor verification failed', 'result' => 'failed', 'severity' => 'warning'],

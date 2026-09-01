@@ -37,7 +37,7 @@
         <div class="admin-field-grid">
             <div class="field"><x-admin.label for="first_name" required>First name</x-admin.label><input id="first_name" name="first_name" value="{{ old('first_name', $user->profile?->first_name) }}" required></div>
             <div class="field"><x-admin.label for="last_name" required>Last name</x-admin.label><input id="last_name" name="last_name" value="{{ old('last_name', $user->profile?->last_name) }}" required></div>
-            <div class="field"><x-admin.label for="wellsharp_id">WellSharp ID</x-admin.label><input id="wellsharp_id" name="wellsharp_id" value="{{ old('wellsharp_id', $user->wellsharp_id) }}" {{ $user->exists ? 'readonly' : '' }}>@unless($user->exists)<small class="muted"><span class="admin-badge-generated">Auto-generated</span> Leave blank to generate from the first/last name below.</small>@endunless</div>
+            <div class="field"><x-admin.label for="wellsharp_id" :required="$user->exists">WellSharp ID</x-admin.label><input id="wellsharp_id" name="wellsharp_id" value="{{ old('wellsharp_id', $user->wellsharp_id) }}" {{ $user->exists ? 'required' : '' }}>@unless($user->exists)<small class="muted"><span class="admin-badge-generated">Auto-generated</span> Leave blank to generate from the first/last name below.</small>@endunless</div>
             @if($user->exists)
                 <div class="field"><x-admin.label>Username</x-admin.label><input value="{{ $user->username }}" readonly><small class="muted"><span class="admin-badge-generated">System-generated</span> Display-only; not used to log in.</small></div>
             @endif
@@ -95,9 +95,8 @@
 
     <div class="admin-bento-card admin-bento-card--wide" x-show="selectedRole === proctorRole" x-cloak>
         <div class="admin-card-head"><span class="admin-card-icon cool">🛡️</span><h3>Proctor's ID</h3></div>
-        @if($user->examControlCredential?->control_id)
-            <div class="field"><input value="{{ $user->examControlCredential?->control_id }}" readonly aria-describedby="proctor-id-note">
-            <small id="proctor-id-note" class="role-note">This system-generated Proctor's ID is used to authorize Class start and end controls. It cannot be edited.</small></div>
+        @if($user->exists)
+            <div class="field"><x-admin.label for="proctor_id">Proctor's ID</x-admin.label><input id="proctor_id" name="proctor_id" value="{{ old('proctor_id', $user->examControlCredential?->control_id) }}" maxlength="32"><small id="proctor-id-note" class="role-note">This ID is used to authorize Class start and end controls. Admins may update it.</small></div>
         @else
             <p class="role-note"><span class="admin-badge-generated">Auto-generated</span> A unique Proctor's ID will be generated automatically after this user is created.</p>
         @endif

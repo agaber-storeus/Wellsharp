@@ -32,7 +32,7 @@
             <div class="admin-meta-item"><span class="muted">Date of birth</span><strong>{{ $profile?->birthday?->format('Y-m-d') ?: 'Not set' }}</strong></div>
             <div class="admin-meta-item"><span class="muted">Phone number</span><strong>{{ $value($profile?->phone) }}</strong></div>
             <div class="admin-meta-item"><span class="muted">Role</span><strong>{{ $user->currentRole?->name ?: 'Unassigned' }}</strong></div>
-            @if($role === \App\Models\Role::STUDENT && $user->password_ciphertext)
+            @if($user->password_ciphertext)
                 <div class="admin-meta-item" x-data="{ revealed: null, revealing: false, error: '' }">
                     <span class="muted">Password</span>
                     <div x-show="!revealed" x-cloak>
@@ -51,7 +51,7 @@
                     <small class="muted" x-show="revealed" x-cloak>Visible only to you. This view was recorded in the audit log.</small>
                 </div>
             @else
-                <div class="admin-meta-item"><span class="muted">Password</span><strong>Stored securely</strong><small class="muted">Passwords are never displayed.</small></div>
+                <div class="admin-meta-item"><span class="muted">Password</span><strong>Not available for reveal</strong><small class="muted">Set a new password from Edit profile to make it available.</small></div>
             @endif
             @if($role === \App\Models\Role::PROCTOR)
                 <div class="admin-meta-item"><span class="muted">Proctor's ID</span><strong>{{ $value($user->examControlCredential?->control_id) }}</strong><small class="muted">Used to authorize Class start and end controls.</small></div>

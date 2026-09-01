@@ -255,7 +255,7 @@ class UserManagementTest extends TestCase
         $this->actingAs(User::factory()->student()->create())->get(route('admin.users.index'))->assertForbidden();
     }
 
-    public function test_creating_a_student_stores_a_recoverable_password_but_staff_roles_do_not(): void
+    public function test_creating_any_role_stores_a_recoverable_password_for_admin_management(): void
     {
         $studentResponse = $this->post(route('admin.users.store'), [
             'wellsharp_id' => 'REVEAL-STUDENT-001', 'first_name' => 'Reveal', 'last_name' => 'Student',
@@ -277,8 +277,10 @@ class UserManagementTest extends TestCase
         ]);
         $proctorResponse->assertRedirect();
         $proctor = User::where('wellsharp_id', 'REVEAL-PROCTOR-001')->firstOrFail();
-        $this->assertNull($proctor->password_ciphertext);
-        $this->postJson(route('admin.users.reveal-password', $proctor))->assertNotFound();
+        $this->assertNotNull($proctor->password_ciphertext);
+        $this->postJson(route('admin.users.reveal-password', $proctor))
+            ->assertOk()
+            ->assertJson(['password' => 'Secure12']);
     }
 
     public function test_changing_a_students_password_updates_the_recoverable_copy(): void
@@ -297,7 +299,7 @@ class UserManagementTest extends TestCase
             ->assertJson(['password' => 'Repl1']);
     }
 
-    public function test_changing_role_away_from_student_clears_the_recoverable_password(): void
+    public function test_changing_role_away_from_student_preserves_the_recoverable_password(): void
     {
         $student = User::factory()->student()->create();
         $student->setPasswordAndCiphertext('will-be-cleared', Role::STUDENT);
@@ -305,8 +307,10 @@ class UserManagementTest extends TestCase
 
         $this->patch(route('admin.users.role', $student), ['role_id' => Role::where('key', Role::PROCTOR)->value('id')])->assertRedirect();
 
-        $this->assertNull($student->fresh()->password_ciphertext);
-        $this->postJson(route('admin.users.reveal-password', $student))->assertNotFound();
+        $this->assertNotNull($student->fresh()->password_ciphertext);
+        $this->postJson(route('admin.users.reveal-password', $student))
+            ->assertOk()
+            ->assertJson(['password' => 'will-be-cleared']);
     }
 
     public function test_student_password_is_never_exposed_outside_the_reveal_endpoint(): void

@@ -24,6 +24,7 @@ class UpdateUserRequest extends FormRequest
         $passwordRules = Role::passwordLengthRules($user?->currentRole?->key);
 
         return [
+            'wellsharp_id' => ['sometimes', 'required', 'string', 'max:64', 'alpha_dash', Rule::unique('users', 'wellsharp_id')->ignore($user)],
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],
@@ -43,6 +44,7 @@ class UpdateUserRequest extends FormRequest
             'employee_id' => ['nullable', 'string', 'max:64'],
             'gender' => ['nullable', Rule::enum(Gender::class)],
             'password' => ['nullable', 'string', 'confirmed', ...$passwordRules],
+            'proctor_id' => [Rule::requiredIf(fn (): bool => $user?->currentRole?->key === Role::PROCTOR), 'nullable', 'string', 'max:32', 'alpha_dash', Rule::unique('exam_control_credentials', 'control_id')->ignore($user?->examControlCredential?->id)],
             'group_ids' => ['nullable', 'array'],
             'group_ids.*' => ['integer', Rule::exists('student_groups', 'id')],
         ];

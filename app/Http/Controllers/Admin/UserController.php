@@ -140,7 +140,7 @@ class UserController extends Controller
         $password = $user->revealPassword();
         abort_if($password === null, 404, 'No recoverable password is stored for this account.');
 
-        $audit->record('student.password_viewed', $user, null, ['viewed_by_role' => auth()->user()->currentRole?->key]);
+        $audit->record($user->currentRole?->key === Role::STUDENT ? 'student.password_viewed' : 'user.password_viewed', $user, null, ['viewed_by_role' => auth()->user()->currentRole?->key]);
 
         return response()->json(['password' => $password])->header('Cache-Control', 'no-store');
     }

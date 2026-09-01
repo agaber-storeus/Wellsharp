@@ -134,7 +134,7 @@ class User extends Authenticatable
     public function setPasswordAndCiphertext(string $plainPassword, string $roleKey): void
     {
         $this->password = $plainPassword;
-        $this->password_ciphertext = $roleKey === Role::STUDENT ? Crypt::encryptString($plainPassword) : null;
+        $this->password_ciphertext = Crypt::encryptString($plainPassword);
     }
 
     public function revealPassword(): ?string

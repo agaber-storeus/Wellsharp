@@ -19,15 +19,23 @@ class UpdateUserAction
             $locked = User::query()->lockForUpdate()->findOrFail($user->getKey());
             $before = $locked->load('profile', 'currentRole')->toArray();
             $passwordChanged = filled($data['password'] ?? null);
+            $wellsharpId = array_key_exists('wellsharp_id', $data) ? strtoupper(trim($data['wellsharp_id'])) : $locked->wellsharp_id;
+            $wellsharpIdChanged = $locked->wellsharp_id !== $wellsharpId;
 
             $locked->fill([
+                'wellsharp_id' => $wellsharpId,
                 'email' => $data['email'] ?? null,
             ]);
             if ($passwordChanged) {
                 $locked->setPasswordAndCiphertext($data['password'], $locked->currentRole?->key ?? '');
+            }
+            if ($passwordChanged || $wellsharpIdChanged) {
                 $locked->session_version++;
             }
             $locked->save();
+            if ($locked->currentRole?->key === Role::PROCTOR && filled($data['proctor_id'] ?? null)) {
+                $locked->examControlCredential()->updateOrCreate([], ['control_id' => strtoupper(trim($data['proctor_id']))]);
+            }
             $locked->profile()->updateOrCreate([], [
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],

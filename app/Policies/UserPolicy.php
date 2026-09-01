@@ -20,6 +20,10 @@ class UserPolicy
      */
     public function viewPassword(User $actor, User $target): bool
     {
+        if ($actor->isAdmin()) {
+            return true;
+        }
+
         if ($target->currentRole?->key !== Role::STUDENT) {
             return false;
         }

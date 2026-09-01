@@ -24,7 +24,7 @@ class UpdateOwnProfileAction
 
             $locked->email = $data['email'] ?? null;
             if ($passwordChanged) {
-                $locked->password = $data['password'];
+                $locked->setPasswordAndCiphertext($data['password'], $locked->currentRole?->key ?? '');
                 $locked->session_version++;
             }
             $locked->save();

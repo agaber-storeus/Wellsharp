@@ -35,15 +35,13 @@ class ExamAttemptController extends Controller
         abort_unless($attempt->student_user_id === auth()->id(), 403);
 
         if ($attempt->status !== ExamAttemptStatus::InProgress) {
-            return redirect()->route('student.dashboard')->with('status', $attempt->status === ExamAttemptStatus::Expired
-                ? 'This exam attempt expired and can no longer be continued.'
-                : 'This exam attempt has already been submitted.');
+            return redirect()->route('student.dashboard');
         }
 
         if ($attempt->expires_at?->isPast()) {
             $attempt->update(['status' => ExamAttemptStatus::Expired]);
 
-            return redirect()->route('student.dashboard')->with('status', 'This exam attempt expired and can no longer be continued.');
+            return redirect()->route('student.dashboard');
         }
 
         $attempt->load(['exam.subject', 'schedule.group', 'attemptQuestions.question.options']);

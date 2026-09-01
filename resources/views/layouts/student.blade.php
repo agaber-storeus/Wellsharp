@@ -7,7 +7,6 @@
     <title>{{ $title ?? 'WellSharp - Confirm Info' }}</title>
     <link rel="stylesheet" href="{{ asset('css/student.css') }}?v={{ filemtime(public_path('css/student.css')) }}" />
     <link rel="stylesheet" href="{{ asset('css/prototype-laravel-overrides.css') }}?v={{ filemtime(public_path('css/prototype-laravel-overrides.css')) }}" />
-    <link rel="stylesheet" href="{{ asset('css/alerts.css') }}?v={{ filemtime(public_path('css/alerts.css')) }}" />
     @if(request()->routeIs('certificates.*', 'student.certificates'))<link rel="stylesheet" href="{{ asset('css/proctor.css') }}?v={{ filemtime(public_path('css/proctor.css')) }}" /><link rel="stylesheet" href="{{ asset('css/certificate-documents.css') }}?v={{ filemtime(public_path('css/certificate-documents.css')) }}" />@endif
     <style>[x-cloak]{display:none!important}</style>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
@@ -36,8 +35,6 @@
           @endif
           <button class="collapse-btn" type="button">&lsaquo; Collapse</button>
         </aside>
-        @if(session('status'))<div class="message-bar global-alert success" role="status">{{ session('status') }}</div>@endif
-        @if($errors->any())<div class="message-bar global-alert error" role="alert">{{ $errors->first() }}</div>@endif
         @yield('student-content')
       </div>
 
@@ -47,6 +44,5 @@
       </footer>
     </main>
     @stack('scripts')
-    <script src="{{ asset('js/auto-dismiss-alerts.js') }}?v={{ filemtime(public_path('js/auto-dismiss-alerts.js')) }}"></script>
   </body>
 </html>

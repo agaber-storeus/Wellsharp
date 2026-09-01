@@ -168,7 +168,6 @@
       releaseAttempt: function (row) {
         if (!row.releaseUrl || row.releasing || row.releasedAt) return;
         row.releasing = true;
-        row.releaseError = "";
 
         fetch(row.releaseUrl, {
           method: "POST",
@@ -180,7 +179,6 @@
           if (!response.ok) throw new Error("Release failed");
           row.releasedAt = new Date().toISOString();
         }).catch(function () {
-          row.releaseError = "Release failed";
         }).finally(function () {
           row.releasing = false;
         });
@@ -246,7 +244,6 @@
                     <span class="score-edit-cell">
                       <input class="score-input" type="number" min="0" max="100" x-model="row.draft" aria-label="Skills Score">
                       <a href="#" class="save-score" x-on:click.prevent="saveScore(row)">&#128190;</a>
-                      <small class="score-error" x-show="row.error" x-text="row.error"></small>
                     </span>
                   </template>
                 </td>
@@ -342,7 +339,6 @@
       '<input id="proctorCodeInput" placeholder="Proctor ID" autocomplete="off" />',
       '<button class="tiny-green proctor-check-btn" type="button" data-proctor-check>Check</button>',
       '</div>',
-      '<div id="proctorCheckMessage" class="message-bar is-hidden"></div>',
       '<button id="proctorLaunchButton" class="tiny-green launch-class disabled" type="button" data-proctor-launch disabled>' + buttonText + '</button>',
       '<h3>Linked Exam: ' + scheduledText + '</h3>',
       controlNote,
@@ -387,15 +383,11 @@
   }
 
   function setProctorMessage(type, text) {
-    var message = document.getElementById("proctorCheckMessage");
     var launch = document.getElementById("proctorLaunchButton");
 
-    if (!message || !launch) {
+    if (!launch) {
       return;
     }
-
-    message.className = "message-bar " + type;
-    message.textContent = text;
 
     if (type === "success") {
       launch.disabled = false;
@@ -515,15 +507,11 @@
 
     postExamControl(control, action, null, function (result) {
       if (!result.ok) {
-        var errors = result.data.errors || {};
-        var message = errors.action ? errors.action[0] : (result.data.message || "The Class could not be updated.");
-        window.alert(message);
         return;
       }
 
       finishExamStateChange(result.data);
     }, function () {
-      window.alert("The Class could not be updated. Try again.");
     });
   }
 

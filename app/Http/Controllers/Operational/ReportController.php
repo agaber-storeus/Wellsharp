@@ -142,9 +142,7 @@ class ReportController extends Controller
         $released = $release->execute($attempt, auth()->user());
         $certificate = $released->status->value === 'submitted' ? $issuer->execute($released) : null;
 
-        return back()->with('status', $certificate
-            ? 'Trainee exam released, scored, and certificate '.$certificate->certificate_number.' issued.'
-            : 'Trainee exam released and scored.');
+        return back();
     }
 
     /** @param array<string, mixed> $row */

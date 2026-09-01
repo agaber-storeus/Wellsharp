@@ -30,7 +30,6 @@
             <input id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]" value="{{ old('answers.'.$question['key']) }}" {{ $question['required'] ? 'required' : '' }} />
           @endif
         </div>
-        @error('answers.'.$question['key'])<div class="message-bar error">{{ $message }}</div>@enderror
       @endforeach
       <div class="center-actions"><button class="green-btn arrow" type="submit">Proceed</button></div>
     </form>

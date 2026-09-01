@@ -33,7 +33,7 @@ class FlowController extends Controller
         $survey = $flow->surveyFor($schedule, auth()->user());
         $survey->update(['contact_confirmed_at' => now(), 'status' => $survey->status === 'completed' ? 'completed' : 'started']);
 
-        return redirect()->route('student.survey.start', $schedule)->with('status', 'Contact information confirmed.');
+        return redirect()->route('student.survey.start', $schedule);
     }
 
     public function surveyStart(ExamSchedule $schedule, StudentExamFlowService $flow): View
@@ -81,7 +81,7 @@ class FlowController extends Controller
             $survey->update(['status' => 'completed', 'completed_at' => now()]);
         });
 
-        return redirect()->route('student.proctor', $schedule)->with('status', 'Survey saved. Review the instructions before starting your exam.');
+        return redirect()->route('student.proctor', $schedule);
     }
 
     public function proctor(ExamSchedule $schedule, StudentExamFlowService $flow): View

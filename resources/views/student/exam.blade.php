@@ -13,13 +13,11 @@
       <strong>{{ auth()->user()->display_name }}</strong><br />
       <span x-text="timerLabel"></span><br />
       <span x-text="answeredCount + '/' + totalQuestions + ' questions answered'"></span><br />
-      <span class="exam-expired-message" x-show="errors._timer" x-text="errors._timer" x-cloak></span>
       <form method="POST" action="{{ route('student.attempts.submit', $attempt) }}" onsubmit="return confirm('Submit this exam? You will not be able to change your answers afterward.');">
         @csrf
         <button class="green-btn" type="submit" x-show="!expired" x-bind:disabled="expired" x-cloak>Submit Exam</button>
       </form>
-      <span class="exam-expired-message" x-show="expired" x-cloak>Time expired. Your attempt is closed.</span>
-      <a class="green-btn small" href="{{ route('student.dashboard') }}" x-show="expired" x-cloak>Return to Dashboard</a>
+       <a class="green-btn small" href="{{ route('student.dashboard') }}" x-show="expired" x-cloak>Return to Dashboard</a>
     </div>
   </header>
   <div class="exam-content">
@@ -59,7 +57,6 @@
             <input type="text" class="exam-text-answer" value="{{ $attemptQuestion->answer }}" x-model="answers['{{ $questionKey }}']" x-on:input.debounce.400ms="save('{{ $questionKey }}', $event.target.value)" x-bind:disabled="expired" aria-label="Answer for question {{ $attemptQuestion->display_order }}" />
           </div>
         @endif
-        <small class="answer-save-state" x-cloak x-show="errors['{{ $questionKey }}']" x-text="errors['{{ $questionKey }}']"></small>
       </section>
     @empty
       <section class="exam-question"><h2>No questions are available for this attempt.</h2></section>

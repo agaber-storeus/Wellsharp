@@ -14,16 +14,11 @@ class Course extends Model
 {
     use HasFactory, HasPublicUlid;
 
-    protected $fillable = ['code', 'name', 'description', 'training_provider_id', 'course_level_id', 'status'];
+    protected $fillable = ['code', 'name', 'description', 'course_level_id', 'status'];
 
     protected function casts(): array
     {
         return ['status' => CourseStatus::class, 'archived_at' => 'datetime'];
-    }
-
-    public function provider(): BelongsTo
-    {
-        return $this->belongsTo(TrainingProvider::class, 'training_provider_id');
     }
 
     public function level(): BelongsTo

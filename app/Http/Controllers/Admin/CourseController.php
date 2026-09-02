@@ -12,7 +12,6 @@ use App\Models\CourseLevel;
 use App\Models\Language;
 use App\Models\Stack;
 use App\Models\Supplement;
-use App\Models\TrainingProvider;
 use App\Services\AuditRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -27,14 +26,10 @@ class CourseController extends Controller
         $query = $this->filteredQuery($request);
         $sort = (string) $request->input('sort', 'created_at');
         $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
-        $allowedSorts = ['code', 'name', 'provider', 'level', 'status', 'created_at'];
+        $allowedSorts = ['code', 'name', 'level', 'status', 'created_at'];
         $sort = in_array($sort, $allowedSorts, true) ? $sort : 'created_at';
 
-        if ($sort === 'provider') {
-            $query->leftJoin('training_providers as course_provider_sort', 'course_provider_sort.id', '=', 'courses.training_provider_id')
-                ->addSelect('courses.*')
-                ->orderBy('course_provider_sort.name', $direction);
-        } elseif ($sort === 'level') {
+        if ($sort === 'level') {
             $query->leftJoin('course_levels as course_level_sort', 'course_level_sort.id', '=', 'courses.course_level_id')
                 ->addSelect('courses.*')
                 ->orderBy('course_level_sort.name', $direction);
@@ -84,7 +79,7 @@ class CourseController extends Controller
     {
         $this->authorize('view', $course);
 
-        return view('admin.courses.show', ['course' => $course->load('provider', 'level', 'stacks', 'supplements', 'languages')]);
+        return view('admin.courses.show', ['course' => $course->load('level', 'stacks', 'supplements', 'languages')]);
     }
 
     public function edit(Course $course): View
@@ -134,7 +129,6 @@ class CourseController extends Controller
     private function formData(): array
     {
         return [
-            'providers' => TrainingProvider::whereNull('archived_at')->orderBy('name')->get(),
             'levels' => CourseLevel::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
             'stacks' => Stack::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
             'supplements' => Supplement::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
@@ -147,11 +141,10 @@ class CourseController extends Controller
         $search = trim((string) $request->input('search'));
         $status = $request->input('status');
 
-        return Course::query()->with(['provider', 'level'])
+        return Course::query()->with(['level'])
             ->when($search, fn ($query) => $query->where(function ($query) use ($search): void {
                 $query->where('courses.code', 'like', "%{$search}%")
-                    ->orWhere('courses.name', 'like', "%{$search}%")
-                    ->orWhereHas('provider', fn ($provider) => $provider->where('name', 'like', "%{$search}%"));
+                    ->orWhere('courses.name', 'like', "%{$search}%");
             }))
             ->when($status, fn ($query) => $query->where('courses.status', $status));
     }
@@ -164,7 +157,6 @@ class CourseController extends Controller
             'id' => $course->getKey(),
             'code' => $course->code,
             'name' => $course->name,
-            'provider' => $course->provider?->name ?: 'Not assigned',
             'level' => $course->level?->name ?: 'Not assigned',
             'status' => $course->status->value,
             'status_label' => $course->status->label(),

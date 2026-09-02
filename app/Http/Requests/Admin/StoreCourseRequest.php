@@ -17,7 +17,6 @@ class StoreCourseRequest extends FormRequest
         return [
             'code' => ['required', 'string', 'max:64', 'alpha_dash', 'unique:courses,code'],
             'name' => ['required', 'string', 'max:180'], 'description' => ['nullable', 'string'],
-            'training_provider_id' => ['nullable', Rule::exists('training_providers', 'id')],
             'course_level_id' => ['nullable', Rule::exists('course_levels', 'id')],
             'stack_ids' => ['array'], 'stack_ids.*' => [Rule::exists('stacks', 'id')],
             'supplement_ids' => ['array'], 'supplement_ids.*' => [Rule::exists('supplements', 'id')],

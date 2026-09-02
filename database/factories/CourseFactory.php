@@ -12,7 +12,6 @@ class CourseFactory extends Factory
             'code' => 'CRS-'.fake()->unique()->numerify('#####'),
             'name' => fake()->sentence(3),
             'description' => fake()->sentence(),
-            'training_provider_id' => null,
             'course_level_id' => null,
             'status' => 'active',
         ];

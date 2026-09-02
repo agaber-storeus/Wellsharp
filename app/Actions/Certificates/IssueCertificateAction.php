@@ -60,6 +60,7 @@ class IssueCertificateAction
                 'student.profile',
                 'exam.subject',
                 'schedule.group',
+                'schedule.provider',
                 'schedule.trainingClass.provider',
                 'schedule.trainingClass.instructor',
             ]);
@@ -72,7 +73,7 @@ class IssueCertificateAction
                 'exam_id' => $attempt->exam_id,
                 'exam_schedule_id' => $attempt->exam_schedule_id,
                 'training_class_id' => $trainingClass?->getKey(),
-                'training_provider_id' => $trainingClass?->training_provider_id,
+                'training_provider_id' => $attempt->schedule?->training_provider_id ?: $trainingClass?->training_provider_id,
                 'instructor_user_id' => $trainingClass?->instructor_id,
                 'issued_by_user_id' => auth()->id(),
                 'student_name' => $attempt->student?->display_name ?: $attempt->student?->wellsharp_id,
@@ -83,7 +84,7 @@ class IssueCertificateAction
                 'subject_name' => $attempt->exam?->subject?->name,
                 'class_number' => $trainingClass?->class_number,
                 'group_name' => $attempt->schedule?->group?->name,
-                'provider_name' => $trainingClass?->provider?->name,
+                'provider_name' => $attempt->schedule?->provider?->name ?: $trainingClass?->provider?->name,
                 'instructor_name' => $trainingClass?->instructor?->display_name,
                 // The certificate records the *effective* score - the one that
                 // actually cleared the passing threshold - so the printed

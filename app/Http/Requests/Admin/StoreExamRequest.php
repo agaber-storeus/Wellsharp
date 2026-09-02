@@ -55,6 +55,7 @@ class StoreExamRequest extends FormRequest
             // request when it doesn't have a schedule yet, so Admin never has to
             // visit a separate "Create Exam Schedule" screen for the first Class.
             'group_id' => ['nullable', 'integer', Rule::exists('student_groups', 'id')],
+            'training_provider_id' => ['nullable', 'integer', Rule::exists('training_providers', 'id')],
             'start_date' => ['nullable', 'date_format:Y-m-d'],
             'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],

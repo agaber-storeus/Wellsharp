@@ -115,7 +115,7 @@ class ProviderAndCourseTest extends TestCase
         $this->get(route('admin.courses.create'))
             ->assertOk()
             ->assertSee('Subject code')
-            ->assertSee('Training provider')
+            ->assertDontSee('Training provider')
             ->assertDontSee("@include('admin.courses._form')");
     }
 
@@ -126,9 +126,9 @@ class ProviderAndCourseTest extends TestCase
         $this->post(route('admin.providers.store'), ['provider_number' => 'TP-DUP', 'name' => 'Second Provider'])->assertSessionHasErrors('provider_number');
 
         $provider = TrainingProvider::where('provider_number', 'TP-DUP')->firstOrFail();
-        $course = Course::factory()->create(['training_provider_id' => $provider->id]);
+        $course = Course::factory()->create();
         $this->patch(route('admin.providers.archive', $provider))->assertRedirect();
-        $this->assertSame($provider->id, $course->fresh()->training_provider_id);
+        $this->assertDatabaseHas('courses', ['id' => $course->id]);
 
         for ($i = 1; $i <= 16; $i++) {
             TrainingProvider::factory()->create(['name' => "Bulk Provider {$i}"]);
@@ -198,7 +198,7 @@ class ProviderAndCourseTest extends TestCase
         $language = Language::create(['name' => 'Arabic', 'slug' => 'arabic', 'sort_order' => 1, 'is_active' => true]);
 
         $this->post(route('admin.courses.store'), [
-            'code' => 'WS-101', 'name' => 'Foundations', 'training_provider_id' => $provider->id, 'course_level_id' => $level->id,
+            'code' => 'WS-101', 'name' => 'Foundations', 'course_level_id' => $level->id,
             'stack_ids' => [$stack->id], 'language_ids' => [$language->id], 'supplement_ids' => [],
         ])->assertRedirect();
 
@@ -210,19 +210,18 @@ class ProviderAndCourseTest extends TestCase
 
     public function test_course_update_syncs_pivots_and_audits_as_one_workflow(): void
     {
-        $provider = TrainingProvider::factory()->create(['provider_number' => 'TP-UPDATE']);
         $level = CourseLevel::create(['name' => 'Update Level', 'slug' => 'update-level', 'sort_order' => 1, 'is_active' => true]);
         $firstStack = Stack::create(['name' => 'First Stack', 'slug' => 'first-stack', 'sort_order' => 1, 'is_active' => true]);
         $secondStack = Stack::create(['name' => 'Second Stack', 'slug' => 'second-stack', 'sort_order' => 2, 'is_active' => true]);
 
         $this->post(route('admin.courses.store'), [
-            'code' => 'WS-UPDATE-1', 'name' => 'Before Update', 'training_provider_id' => $provider->id, 'course_level_id' => $level->id,
+            'code' => 'WS-UPDATE-1', 'name' => 'Before Update', 'course_level_id' => $level->id,
             'stack_ids' => [$firstStack->id], 'supplement_ids' => [], 'language_ids' => [],
         ])->assertRedirect();
         $course = Course::where('code', 'WS-UPDATE-1')->firstOrFail();
 
         $this->put(route('admin.courses.update', $course), [
-            'code' => 'WS-UPDATE-2', 'name' => 'After Update', 'training_provider_id' => $provider->id, 'course_level_id' => $level->id,
+            'code' => 'WS-UPDATE-2', 'name' => 'After Update', 'course_level_id' => $level->id,
             'stack_ids' => [$secondStack->id], 'supplement_ids' => [], 'language_ids' => [],
         ])->assertRedirect();
 
@@ -234,8 +233,8 @@ class ProviderAndCourseTest extends TestCase
 
     public function test_course_foreign_ids_and_duplicate_code_are_validated(): void
     {
-        $payload = ['code' => 'WS-INVALID', 'name' => 'Invalid Course', 'training_provider_id' => 999999, 'course_level_id' => 999999, 'stack_ids' => [999999], 'supplement_ids' => [999999], 'language_ids' => [999999]];
-        $this->post(route('admin.courses.store'), $payload)->assertSessionHasErrors(['training_provider_id', 'course_level_id', 'stack_ids.0', 'supplement_ids.0', 'language_ids.0']);
+        $payload = ['code' => 'WS-INVALID', 'name' => 'Invalid Course', 'course_level_id' => 999999, 'stack_ids' => [999999], 'supplement_ids' => [999999], 'language_ids' => [999999]];
+        $this->post(route('admin.courses.store'), $payload)->assertSessionHasErrors(['course_level_id', 'stack_ids.0', 'supplement_ids.0', 'language_ids.0']);
         $this->assertDatabaseMissing('courses', ['code' => 'WS-INVALID']);
 
         $this->post(route('admin.courses.store'), ['code' => 'WS-DUP', 'name' => 'First Course'])->assertRedirect();

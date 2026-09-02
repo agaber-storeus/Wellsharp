@@ -13,6 +13,7 @@ use App\Models\Exam;
 use App\Models\Group;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\TrainingProvider;
 use App\Services\AuditRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -190,6 +191,7 @@ class ExamController extends Controller
     private function staffOptions(): array
     {
         return [
+            'providers' => TrainingProvider::query()->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get(),
             'proctors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::PROCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
             'instructors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::INSTRUCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
         ];

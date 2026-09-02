@@ -52,6 +52,7 @@ class SaveExamScheduleAction
             }
             $attributes = [
                 'exam_id' => $exam->getKey(), 'group_id' => $group->getKey(),
+                'training_provider_id' => $data['training_provider_id'] ?? null,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'duration_minutes' => $data['duration_minutes'],

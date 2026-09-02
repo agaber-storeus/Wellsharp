@@ -347,7 +347,6 @@ class DemoDataSeeder extends Seeder
                 [
                     'name' => $courseNames[$number - 1],
                     'description' => 'Demo course used to exercise the WellSharp administration and operational workflows.',
-                    'training_provider_id' => $providers[($number - 1) % 11]->getKey(),
                     'course_level_id' => $references['levels'][($number - 1) % count($references['levels'])]->getKey(),
                     'status' => $number === count($courseNames) ? CourseStatus::Retired : CourseStatus::Active,
                 ],
@@ -573,6 +572,7 @@ class DemoDataSeeder extends Seeder
                 $schedule->fill([
                     'group_id' => $group->getKey(),
                     'training_class_id' => $linkedClass->getKey(),
+                    'training_provider_id' => $linkedClass->training_provider_id,
                     'start_date' => $startDate,
                     'end_date' => $endDate,
                     'duration_minutes' => 60 + (($index + $scheduleIndex) % 3) * 30,

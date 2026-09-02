@@ -17,6 +17,9 @@ class StoreExamScheduleRequest extends FormRequest
         if (! $this->filled('exam_id') && $this->route('exam')) {
             $this->merge(['exam_id' => $this->route('exam')->getKey()]);
         }
+        if (! $this->filled('start_mode')) {
+            $this->merge(['start_mode' => 'automatic']);
+        }
     }
 
     public function authorize(): bool
@@ -29,6 +32,7 @@ class StoreExamScheduleRequest extends FormRequest
         return [
             'exam_id' => ['required', 'integer', 'exists:exams,id'],
             'group_id' => ['required', 'integer', 'exists:student_groups,id'],
+            'training_provider_id' => ['nullable', 'integer', Rule::exists('training_providers', 'id')],
             'start_date' => ['required', 'date_format:Y-m-d'],
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],

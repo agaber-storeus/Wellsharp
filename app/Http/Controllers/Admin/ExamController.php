@@ -211,7 +211,7 @@ class ExamController extends Controller
         return $subjects->mapWithKeys(fn (Course $subject): array => [
             (string) $subject->id => $subject->questions->map(fn ($question): array => [
                 'id' => (string) $question->id,
-                'text' => $question->question_text,
+                'text' => $question->display_question_text,
                 'subject' => $subject->name,
                 'type' => $question->type?->value,
                 'difficulty' => $question->difficulty?->value,

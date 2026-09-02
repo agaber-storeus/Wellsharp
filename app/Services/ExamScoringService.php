@@ -59,7 +59,7 @@ class ExamScoringService
                 'id' => $attemptQuestion->getKey(),
                 'display_order' => $attemptQuestion->display_order,
                 'question_id' => $attemptQuestion->question->public_id,
-                'question_text' => $question->question_text,
+                'question_text' => $question->display_question_text,
                 'question_image_url' => $this->imageUrl($question->question_image_path),
                 'type' => $question->type->value,
                 'answer' => $this->answerLabel($question, $answer),

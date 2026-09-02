@@ -16,16 +16,15 @@ use Illuminate\View\View;
 
 class TrainingProviderController extends Controller
 {
+    private const PER_PAGE = 25;
+
     public function data(Request $request): JsonResponse
     {
         $this->authorize('viewAny', TrainingProvider::class);
         $query = $this->filteredQuery($request);
-        $sort = (string) $request->input('sort', 'created_at');
-        $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
-        $allowedSorts = ['provider_number', 'name', 'email', 'status', 'created_at'];
-        $sort = in_array($sort, $allowedSorts, true) ? $sort : 'created_at';
+        [$sort, $direction] = $this->sortValues($request);
         $providers = $query->orderBy('training_providers.'.$sort, $direction)
-            ->paginate(25, ['*'], 'page', max(1, (int) $request->input('page', 1)));
+            ->paginate(self::PER_PAGE, ['*'], 'page', $this->safePage($query, $request));
 
         return response()->json([
             'data' => $providers->getCollection()->map(fn (TrainingProvider $provider): array => $this->providerPayload($provider))->values(),
@@ -33,10 +32,13 @@ class TrainingProviderController extends Controller
         ]);
     }
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', TrainingProvider::class);
-        $providers = $this->filteredQuery(request())->latest('training_providers.created_at')->paginate(15)->withQueryString();
+        $query = $this->filteredQuery($request);
+        [$sort, $direction] = $this->sortValues($request);
+        $providers = $query->orderBy('training_providers.'.$sort, $direction)
+            ->paginate(self::PER_PAGE, ['*'], 'page', $this->safePage($query, $request))->withQueryString();
         $initialProviders = $providers->getCollection()->map(fn (TrainingProvider $provider): array => $this->providerPayload($provider))->values();
 
         return view('admin.providers.index', [
@@ -45,6 +47,8 @@ class TrainingProviderController extends Controller
             'initialMeta' => $this->paginationMeta($providers),
             'search' => trim((string) request('search')),
             'status' => request('status'),
+            'sort' => $sort,
+            'direction' => $direction,
         ]);
     }
 
@@ -156,6 +160,25 @@ class TrainingProviderController extends Controller
                     ->orWhere('email', 'like', "%{$search}%");
             }))
             ->when($status, fn ($query) => $query->where('status', $status));
+    }
+
+    private function safePage($query, Request $request): int
+    {
+        $requested = max(1, (int) $request->input('page', 1));
+        $total = (clone $query)->count();
+        $lastPage = max(1, (int) ceil($total / self::PER_PAGE));
+
+        return min($requested, $lastPage);
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function sortValues(Request $request): array
+    {
+        $sort = (string) $request->input('sort', 'created_at');
+        $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
+        $allowed = ['provider_number', 'name', 'email', 'status', 'created_at'];
+
+        return [in_array($sort, $allowed, true) ? $sort : 'created_at', $direction];
     }
 
     private function providerPayload(TrainingProvider $provider): array

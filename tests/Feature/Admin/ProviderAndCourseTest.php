@@ -136,6 +136,27 @@ class ProviderAndCourseTest extends TestCase
         $this->get(route('admin.providers.index', ['search' => 'Bulk Provider', 'page' => 2]))->assertOk()->assertSee('Bulk Provider 16')->assertDontSee('Bulk Provider 1</td>');
     }
 
+    public function test_subject_data_endpoint_uses_consistent_pages_and_clamps_stale_pages(): void
+    {
+        for ($i = 1; $i <= 51; $i++) {
+            Course::factory()->create(['code' => "SUB-{$i}", 'name' => "Subject {$i}"]);
+        }
+
+        $this->getJson(route('admin.subjects.data', ['page' => 2, 'sort' => 'name', 'direction' => 'asc']))
+            ->assertOk()
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.last_page', 3)
+            ->assertJsonPath('meta.from', 26)
+            ->assertJsonCount(25, 'data');
+
+        $this->getJson(route('admin.subjects.data', ['page' => 99, 'search' => 'Subject 51']))
+            ->assertOk()
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.last_page', 1)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonCount(1, 'data');
+    }
+
     public function test_course_reference_values_are_dynamic_and_duplicate_names_are_validated(): void
     {
         $this->post(route('admin.configuration.store', 'levels'), ['name' => 'Foundation'])->assertSessionHasErrors('name');

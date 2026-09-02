@@ -20,6 +20,8 @@ use Illuminate\View\View;
 
 class CourseController extends Controller
 {
+    private const PER_PAGE = 25;
+
     public function data(Request $request): JsonResponse
     {
         $this->authorize('viewAny', Course::class);
@@ -37,7 +39,7 @@ class CourseController extends Controller
             $query->orderBy('courses.'.$sort, $direction);
         }
 
-        $courses = $query->paginate(25, ['*'], 'page', max(1, (int) $request->input('page', 1)));
+        $courses = $query->paginate(self::PER_PAGE, ['*'], 'page', $this->safePage($query, $request));
 
         return response()->json([
             'data' => $courses->getCollection()->map(fn (Course $course): array => $this->coursePayload($course))->values(),
@@ -45,10 +47,13 @@ class CourseController extends Controller
         ]);
     }
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Course::class);
-        $courses = $this->filteredQuery(request())->latest('courses.created_at')->paginate(15)->withQueryString();
+        $query = $this->filteredQuery($request);
+        [$sort, $direction] = $this->sortValues($request);
+        $this->applySort($query, $sort, $direction);
+        $courses = $query->paginate(self::PER_PAGE, ['*'], 'page', $this->safePage($query, $request))->withQueryString();
         $initialCourses = $courses->getCollection()->map(fn (Course $course): array => $this->coursePayload($course))->values();
 
         return view('admin.courses.index', [
@@ -57,6 +62,8 @@ class CourseController extends Controller
             'initialMeta' => $this->paginationMeta($courses),
             'search' => trim((string) request('search')),
             'status' => request('status'),
+            'sort' => $sort,
+            'direction' => $direction,
         ]);
     }
 
@@ -147,6 +154,36 @@ class CourseController extends Controller
                     ->orWhere('courses.name', 'like', "%{$search}%");
             }))
             ->when($status, fn ($query) => $query->where('courses.status', $status));
+    }
+
+    private function safePage($query, Request $request): int
+    {
+        $requested = max(1, (int) $request->input('page', 1));
+        $total = (clone $query)->count();
+        $lastPage = max(1, (int) ceil($total / self::PER_PAGE));
+
+        return min($requested, $lastPage);
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function sortValues(Request $request): array
+    {
+        $sort = (string) $request->input('sort', 'created_at');
+        $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
+        $allowed = ['code', 'name', 'level', 'status', 'created_at'];
+
+        return [in_array($sort, $allowed, true) ? $sort : 'created_at', $direction];
+    }
+
+    private function applySort($query, string $sort, string $direction): void
+    {
+        if ($sort === 'level') {
+            $query->leftJoin('course_levels as course_level_sort', 'course_level_sort.id', '=', 'courses.course_level_id')
+                ->addSelect('courses.*')
+                ->orderBy('course_level_sort.name', $direction);
+        } else {
+            $query->orderBy('courses.'.$sort, $direction);
+        }
     }
 
     private function coursePayload(Course $course): array

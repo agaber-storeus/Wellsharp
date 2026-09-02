@@ -101,4 +101,16 @@ class Question extends Model
     {
         return hash('sha256', self::normalizeText($text));
     }
+
+    /** Clean imported Word HTML for question lists, reports, and exam screens. */
+    public function getDisplayQuestionTextAttribute(): string
+    {
+        $text = html_entity_decode((string) $this->question_text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/\x{00A0}/u', ' ', $text) ?? $text;
+        $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
+
+        return trim($text);
+    }
 }

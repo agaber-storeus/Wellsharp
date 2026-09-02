@@ -544,7 +544,7 @@ body {
 }
 
 .question-row.comment-row textarea {
-  height: 110px;
+  height: 50px;
 }
 
 .question-row label {

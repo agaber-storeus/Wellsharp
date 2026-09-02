@@ -13,7 +13,7 @@
     $questionBanks = $questionBanks ?? [
         (string) $currentSubject => $questions->map(fn ($question): array => [
             'id' => (string) $question->id,
-            'text' => $question->question_text,
+            'text' => $question->display_question_text,
             'subject' => $question->course?->name,
             'type' => $question->type?->value,
             'difficulty' => $question->difficulty?->value,

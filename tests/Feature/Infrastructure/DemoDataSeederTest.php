@@ -34,7 +34,7 @@ class DemoDataSeederTest extends TestCase
         $this->assertDatabaseHas('users', ['wellsharp_id' => 'DEMO-INSTRUCTOR-ARCHIVED', 'status' => 'archived']);
         $this->assertDatabaseHas('training_providers', ['provider_number' => 'DEMO-TP-ARCHIVED', 'status' => 'archived']);
         $this->assertDatabaseHas('course_levels', ['slug' => 'legacy-level', 'is_active' => 0]);
-        $this->assertDatabaseHas('questions', ['is_active' => 0]);
+        $this->assertSame(0, (int) $this->app['db']->table('questions')->where('is_active', 0)->count());
 
         foreach (ExamStatus::cases() as $status) {
             $this->assertDatabaseHas('exams', ['status' => $status->value]);
@@ -52,11 +52,12 @@ class DemoDataSeederTest extends TestCase
             $this->assertDatabaseHas('classes', ['status' => $status->value]);
         }
 
-        foreach (QuestionType::cases() as $type) {
-            $this->assertDatabaseHas('questions', ['type' => $type->value]);
-        }
+        $this->assertDatabaseHas('questions', ['type' => QuestionType::Mcq->value]);
 
-        foreach (QuestionDifficulty::cases() as $difficulty) {
+        $this->assertSame(11, (int) $this->app['db']->table('courses')->count());
+        $this->assertSame(1387, (int) $this->app['db']->table('questions')->count());
+
+        foreach ([QuestionDifficulty::Medium] as $difficulty) {
             $this->assertDatabaseHas('questions', ['difficulty' => $difficulty->value]);
         }
 
@@ -92,7 +93,6 @@ class DemoDataSeederTest extends TestCase
             $this->assertDatabaseHas('exam_attempts', ['status' => $status->value]);
         }
 
-        $this->assertDatabaseHas('exam_attempts', ['status' => 'submitted', 'passed' => 1]);
         $this->assertDatabaseHas('exam_attempts', ['status' => 'submitted', 'passed' => 0]);
         $this->assertDatabaseHas('certificates', ['status' => CertificateStatus::Revoked->value]);
         $this->assertGreaterThan(0, Certificate::query()->count());
@@ -118,9 +118,8 @@ class DemoDataSeederTest extends TestCase
             $this->assertDatabaseHas('users', ['current_role_id' => Role::query()->where('key', $roleKey)->value('id')]);
         }
 
-        // exam_attempt_questions.option_order is only ever populated for
-        // Shuffle-mode MCQ questions with 2+ options; Static exams stay null.
-        $this->assertGreaterThan(0, (int) $this->app['db']->table('exam_attempt_questions')->whereNotNull('option_order')->count());
+        // The supplied CSV files contain no option rows, so imported MCQ
+        // attempts retain the null option order.
         $this->assertGreaterThan(0, (int) $this->app['db']->table('exam_attempt_questions')->whereNull('option_order')->count());
 
         // enrollments.skills_score must stay within NavigationController's

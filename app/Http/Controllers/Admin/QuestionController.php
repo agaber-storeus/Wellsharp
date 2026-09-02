@@ -299,7 +299,7 @@ class QuestionController extends Controller
         return [
             'id' => $question->getKey(),
             'code' => $question->code,
-            'question_text' => $question->question_text,
+            'question_text' => $question->display_question_text,
             'subject' => $question->course?->name,
             'type' => $question->type->value,
             'type_label' => $question->type->label(),

@@ -29,7 +29,7 @@
                 @endforeach
               </select>
             @elseif($question['type'] === 'textarea')
-              <textarea class="h-12.5" id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]"
+              <textarea class="h-[50px]" id="survey-{{ $question['key'] }}" name="answers[{{ $question['key'] }}]"
                 placeholder="{{ $question['label'] }}:" aria-label="{{ $question['label'] }}"
                 rows="4">{{ old('answers.' . $question['key']) }}</textarea>
             @else

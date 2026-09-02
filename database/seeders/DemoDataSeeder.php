@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Actions\Certificates\IssueCertificateAction;
 use App\Enums\CertificateStatus;
 use App\Enums\ClassStatus;
-use App\Enums\CourseStatus;
 use App\Enums\EnrollmentStatus;
 use App\Enums\ExamAttemptStatus;
 use App\Enums\ExamGroupAssignmentStatus;
@@ -16,7 +15,6 @@ use App\Enums\Gender;
 use App\Enums\GroupMembershipStatus;
 use App\Enums\GroupStatus;
 use App\Enums\ProviderStatus;
-use App\Enums\QuestionDifficulty;
 use App\Enums\QuestionType;
 use App\Enums\UserStatus;
 use App\Models\AuditEvent;
@@ -57,14 +55,16 @@ class DemoDataSeeder extends Seeder
     public function run(): void
     {
         $this->call(DatabaseSeeder::class);
+        $this->call(IadcExamQuestions2026Seeder::class);
 
         DB::transaction(function (): void {
             $roles = Role::query()->pluck('id', 'key')->all();
             $references = $this->seedReferenceData();
             $providers = $this->seedProviders();
             $users = $this->seedUsers($roles);
-            $courses = $this->seedCourses($providers, $references);
-            $questions = $this->seedQuestions($courses, $users['admin']);
+            $subjectCodes = collect(IadcExamQuestions2026Seeder::legacySubjects())->pluck('code');
+            $courses = Course::query()->whereIn('code', $subjectCodes)->get()->all();
+            $questions = Question::query()->whereIn('course_id', collect($courses)->pluck('id'))->get()->all();
             $groups = $this->seedGroups($users['students'], $users['admin']);
             $exams = $this->seedExams($courses, $questions, $users['admin']);
             $this->seedExamGroupAssignments($exams, $groups, $users['admin']);
@@ -327,102 +327,6 @@ class DemoDataSeeder extends Seeder
         return $user->fresh(['profile', 'currentRole']);
     }
 
-    /** @param array<int, TrainingProvider> $providers
-     * @param  array<string, array<int, object>>  $references
-     * @return array<int, Course>
-     */
-    private function seedCourses(array $providers, array $references): array
-    {
-        $courses = [];
-        $courseNames = [
-            'Well Control Fundamentals', 'Drilling Operations Supervisor', 'Pressure Control Equipment', 'Kick Detection and Shut-In',
-            'Managed Pressure Operations', 'Subsea BOP Operations', 'Deepwater Well Control', 'HPHT Well Planning',
-            'Casing and Cementing', 'Rig Site Leadership', 'Barrier Management', 'Well Intervention Basics',
-            'Emergency Response', 'Assessment Preparation', 'Well Control Refresher', 'BOP Testing and Maintenance',
-            'Losses and Influx Management', 'Advanced Well Control Instructor',
-        ];
-        foreach (range(1, count($courseNames)) as $number) {
-            $course = Course::query()->updateOrCreate(
-                ['code' => sprintf('DEMO-COURSE-%03d', $number)],
-                [
-                    'name' => $courseNames[$number - 1],
-                    'description' => 'Demo course used to exercise the WellSharp administration and operational workflows.',
-                    'course_level_id' => $references['levels'][($number - 1) % count($references['levels'])]->getKey(),
-                    'status' => $number === count($courseNames) ? CourseStatus::Retired : CourseStatus::Active,
-                ],
-            );
-            $course->forceFill(['archived_at' => $number === count($courseNames) ? now()->subDays(5) : null])->save();
-            $course->stacks()->sync([$references['stacks'][($number - 1) % count($references['stacks'])]->getKey(), $references['stacks'][$number % count($references['stacks'])]->getKey()]);
-            $course->supplements()->sync([$references['supplements'][($number - 1) % count($references['supplements'])]->getKey()]);
-            $course->languages()->sync([$references['languages'][($number - 1) % count($references['languages'])]->getKey()]);
-            $courses[] = $course;
-        }
-
-        return $courses;
-    }
-
-    /** @param array<int, Course> $courses
-     * @return array<int, Question>
-     */
-    private function seedQuestions(array $courses, User $admin): array
-    {
-        $templates = [
-            ['text' => 'Which activity best supports the main objective of %s?', 'type' => QuestionType::Mcq, 'difficulty' => QuestionDifficulty::Easy, 'options' => ['Following the approved operating procedure', 'Skipping the pre-job meeting', 'Ignoring the well plan', 'Removing a barrier without approval'], 'correct' => 0],
-            ['text' => 'Which item should be reviewed before starting %s?', 'type' => QuestionType::Mcq, 'difficulty' => QuestionDifficulty::Easy, 'options' => ['The current programme and risk controls', 'An unrelated maintenance log', 'A personal calendar', 'An old superseded drawing'], 'correct' => 0],
-            ['text' => 'What is the best response when an unexpected pressure trend is detected during %s?', 'type' => QuestionType::Mcq, 'difficulty' => QuestionDifficulty::Medium, 'options' => ['Pause and follow the approved response procedure', 'Continue without recording it', 'Disable the alarm', 'Wait until the next shift'], 'correct' => 0],
-            ['text' => 'Which record provides evidence that %s was completed correctly?', 'type' => QuestionType::Mcq, 'difficulty' => QuestionDifficulty::Medium, 'options' => ['The completed and approved activity record', 'An unsigned blank form', 'A personal note only', 'A deleted draft'], 'correct' => 0],
-            ['text' => 'Which decision requires escalation during %s?', 'type' => QuestionType::Mcq, 'difficulty' => QuestionDifficulty::Hard, 'options' => ['A condition outside the approved operating limits', 'A normal recorded reading', 'A completed checklist', 'A scheduled break'], 'correct' => 0],
-            ['text' => 'A documented pre-job risk review is required before %s.', 'type' => QuestionType::TrueFalse, 'difficulty' => QuestionDifficulty::Easy, 'correct' => true],
-            ['text' => 'A trainee should continue an activity after a critical control has failed during %s.', 'type' => QuestionType::TrueFalse, 'difficulty' => QuestionDifficulty::Easy, 'correct' => false],
-            ['text' => 'Changes to the approved plan for %s should be communicated to the responsible team.', 'type' => QuestionType::TrueFalse, 'difficulty' => QuestionDifficulty::Medium, 'correct' => true],
-            ['text' => 'An abnormal reading can be ignored when the rest of the checklist for %s is complete.', 'type' => QuestionType::TrueFalse, 'difficulty' => QuestionDifficulty::Medium, 'correct' => false],
-            ['text' => 'Lessons learned from %s should be captured for future work.', 'type' => QuestionType::TrueFalse, 'difficulty' => QuestionDifficulty::Hard, 'correct' => true],
-            ['text' => 'Enter the name of the approved document used to control %s.', 'type' => QuestionType::Input, 'difficulty' => QuestionDifficulty::Easy, 'answer' => 'Approved operating procedure'],
-            ['text' => 'Enter the first action when a critical deviation occurs during %s.', 'type' => QuestionType::Input, 'difficulty' => QuestionDifficulty::Easy, 'answer' => 'Stop and make the situation safe'],
-            ['text' => 'Enter the record that should contain the final %s activity results.', 'type' => QuestionType::Input, 'difficulty' => QuestionDifficulty::Medium, 'answer' => 'Activity record'],
-            ['text' => 'Enter the control that must be verified before resuming %s.', 'type' => QuestionType::Input, 'difficulty' => QuestionDifficulty::Medium, 'answer' => 'Critical barrier control'],
-            ['text' => 'Enter the person responsible for approving a material change to %s.', 'type' => QuestionType::Input, 'difficulty' => QuestionDifficulty::Hard, 'answer' => 'Responsible supervisor'],
-        ];
-        $questions = [];
-
-        foreach ($courses as $course) {
-            foreach ($templates as $templateIndex => $template) {
-                $questionText = sprintf($template['text'], $course->name);
-                $question = Question::query()->updateOrCreate(
-                    ['course_id' => $course->getKey(), 'question_text' => $questionText],
-                    [
-                        'type' => $template['type'],
-                        'difficulty' => $template['difficulty'],
-                        'default_marks' => $template['type'] === QuestionType::Mcq ? 2 : 1,
-                        'correct_answer_text' => $template['type'] === QuestionType::Input ? $template['answer'] : null,
-                        'correct_answer_boolean' => $template['type'] === QuestionType::TrueFalse ? $template['correct'] : null,
-                        'solution_text' => 'Review the approved WellSharp procedure and confirm the required barrier and escalation controls before continuing.',
-                        // The final input question remains in the bank but is
-                        // inactive, which exercises admin activation filters
-                        // without placing it in demo exams.
-                        'is_active' => $templateIndex !== count($templates) - 1,
-                        'created_by_user_id' => $admin->getKey(),
-                        'updated_by_user_id' => $admin->getKey(),
-                    ],
-                );
-
-                $question->options()->delete();
-                if ($template['type'] === QuestionType::Mcq) {
-                    foreach ($template['options'] as $index => $option) {
-                        $question->options()->create([
-                            'option_text' => $option,
-                            'is_correct' => $index === $template['correct'],
-                            'display_order' => $index,
-                        ]);
-                    }
-                }
-                $questions[] = $question;
-            }
-        }
-
-        return $questions;
-    }
-
     /** @param array<int, User> $students */
     private function seedGroups(array $students, User $admin): array
     {
@@ -468,8 +372,8 @@ class DemoDataSeeder extends Seeder
         $exams = [];
         foreach ($courses as $index => $course) {
             foreach ([
-                'PRACTICE' => [ExamQuestionOrderMode::Static, $course->status === CourseStatus::Retired ? ExamStatus::Archived : ExamStatus::Published],
-                'FINAL' => [ExamQuestionOrderMode::Shuffle, $course->status === CourseStatus::Retired ? ExamStatus::Archived : ExamStatus::Published],
+                'PRACTICE' => [ExamQuestionOrderMode::Static, $index === count($courses) - 1 ? ExamStatus::Archived : ExamStatus::Published],
+                'FINAL' => [ExamQuestionOrderMode::Shuffle, $index === count($courses) - 1 ? ExamStatus::Archived : ExamStatus::Published],
                 'DRAFT' => [ExamQuestionOrderMode::Static, ExamStatus::Draft],
             ] as $kind => [$mode, $status]) {
                 $number = $index + 1;

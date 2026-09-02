@@ -28,7 +28,7 @@
         <div class="question-line">
           <span class="question-number">{{ $attemptQuestion->display_order }}.</span>
           <div>
-            <h2>{{ $question->question_text }}</h2>
+            <h2>{{ $question->display_question_text }}</h2>
             @if($question->question_image_path)
               <img class="exam-question-image" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($question->question_image_path) }}" alt="Question image" />
             @endif

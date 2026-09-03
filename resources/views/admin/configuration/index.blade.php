@@ -48,7 +48,7 @@
                             <td><div class="admin-status-cell"><span class="badge" x-bind:class="row.active ? 'active' : 'archived'" x-text="row.active ? 'Active' : 'Inactive'"></span></div></td>
                             <td>
                                 <div class="actions configuration-actions admin-actions-cell">
-                                    <button class="btn secondary small" type="button" x-on:click.stop="toggle(section, row)" x-bind:disabled="row.toggling" x-bind:aria-busy="row.toggling ? 'true' : 'false'" x-text="row.toggling ? 'Updating...' : (row.active ? 'Deactivate' : 'Activate')"></button>
+                                    <button class="btn secondary small" type="button" x-on:click.prevent="toggle(section, row)" x-bind:aria-busy="row.toggling ? 'true' : 'false'" x-text="row.toggling ? 'Updating...' : (row.active ? 'Deactivate' : 'Activate')"></button>
                                 </div>
                             </td>
                         </tr>

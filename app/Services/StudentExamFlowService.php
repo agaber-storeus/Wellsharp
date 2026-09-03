@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ExamAttemptStatus;
 use App\Enums\ExamScheduleStatus;
+use App\Enums\ExamStartMode;
 use App\Enums\GroupMembershipStatus;
 use App\Models\ExamSchedule;
 use App\Models\StudentSurvey;
@@ -64,6 +65,10 @@ class StudentExamFlowService
             return ! $schedule->override_ended_at;
         }
 
+        if ($schedule->start_mode === ExamStartMode::Manual) {
+            return false;
+        }
+
         return ! $schedule->start_date?->isFuture()
             && ! $schedule->end_date?->endOfDay()->isPast();
     }
@@ -87,6 +92,10 @@ class StudentExamFlowService
     {
         if ($this->canStartExam($schedule)) {
             return null;
+        }
+
+        if ($schedule->start_mode === ExamStartMode::Manual && ! $schedule->override_started_at) {
+            return 'A Proctor must start this exam before it can be opened.';
         }
 
         if (! $schedule->override_started_at && $schedule->start_date?->isFuture()) {

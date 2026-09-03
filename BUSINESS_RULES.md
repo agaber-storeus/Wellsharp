@@ -173,25 +173,25 @@ Group / GroupMembership / ExamGroupAssignment:
                            active → removed (Membership / ExamGroupAssignment)
 ```
 
-## Student Password Recovery
+## Recoverable Password Management
 
-**BR-037** — A Student's login password is still stored the same way as everyone else's: hashed (`users.password`, `hashed` cast), verified via `Hash::check()` at login. This never changed.
+**BR-037** — Every account's login password is stored hashed (`users.password`, `hashed` cast) and verified via `Hash::check()` at login. This remains the authentication credential.
 Source: `app/Models/User.php` casts, `app/Actions/Auth/AuthenticateUserAction.php`.
 
-**BR-038** — Additionally, for Student-role accounts only, a separately **encrypted** (not hashed — reversible) copy of the plaintext password is stored in `users.password_ciphertext` (`Crypt::encryptString()`, decryptable only with the app key). Staff roles (Admin/Proctor/Instructor) never get a ciphertext copy of their own password.
+**BR-038** — Additionally, every account keeps a separately **encrypted** (not hashed — reversible) copy of its plaintext password in `users.password_ciphertext` (`Crypt::encryptString()`, decryptable only with the app key). This includes Admin, Proctor, Instructor, and Student accounts and is an explicit business requirement for Admin account management.
 Source: `User::setPasswordAndCiphertext()`, called from `CreateUserAction`, `UpdateUserAction`, `DemoDataSeeder::user()`.
-**Why this exists**: Students frequently cannot reset their own password (no self-service flow), and staff need to hand them working credentials at check-in. A plain-text `password` column was explicitly considered and rejected — it would be the literal login credential, so any DB leak would directly expose live logins, and since students commonly reuse passwords elsewhere, the blast radius would extend well beyond this app. The encrypted-copy approach keeps the actual authentication path hash-only while still letting authorized staff recover the value on demand.
+**Why this exists**: Users cannot self-reset passwords, and Admins must be able to recover credentials for account management; operational staff also need to hand Students working credentials at check-in. A plain-text `password` column was explicitly rejected. The encrypted-copy approach keeps the authentication path hash-only while allowing policy-controlled recovery on demand.
 
-**BR-039** — Only Admin, or an **active** Proctor/Instructor, may reveal a Student's password, and only when the target account currently has the Student role — staff accounts' own passwords are never revealable, even by another Admin.
+**BR-039** — An Admin may reveal any account's password. An **active** Proctor/Instructor may reveal a password only when the target account currently has the Student role; operational staff cannot reveal staff-account passwords.
 Source: `app/Policies/UserPolicy::viewPassword()`.
 
 **BR-040** — Revealing a password is a live decrypt-and-return action (`POST .../reveal-password`, JSON `{password}`), not a value ever embedded in a page's HTML/JSON by default — the Admin user-show page, user table JSON, and the Proctor/Instructor class-roster modal all carry a reveal *URL*, never the password itself, until the staff member explicitly clicks "Reveal"/"Reveal password".
 Source: `app/Http/Controllers/Admin/UserController::revealPassword()`, `app/Http/Controllers/Operational/NavigationController::revealStudentPassword()`, `resources/views/admin/users/show.blade.php`, `public/js/proctor-class-modal-laravel.js`.
 
-**BR-041** — Every reveal is written to the audit log (`student.password_viewed`, actor + their role recorded), regardless of which role performed it.
+**BR-041** — Every reveal is written to the audit log with the actor and their role. Student reveals use `student.password_viewed`; Admin reveals of staff accounts use `user.password_viewed`.
 Source: same controller methods as BR-040, via `AuditRecorder`.
 
-**BR-042** — Changing a Student's password (Admin edit form) re-encrypts the new value into `password_ciphertext`, so the revealable copy always matches the current login password. Changing a Student's role *away* from Student clears `password_ciphertext` entirely (staff accounts never carry one); changing a staff member's role *to* Student does **not** retroactively create one — a ciphertext only exists from the point a password is next set while the account is a Student.
+**BR-042** — Changing any account's password re-encrypts the new value into `password_ciphertext`, so the recoverable copy matches the current login password. Changing roles preserves the existing ciphertext because recoverability applies to every role.
 Source: `UpdateUserAction::execute()`, `ChangeUserRoleAction::execute()`.
 
 ## Needs Business Confirmation

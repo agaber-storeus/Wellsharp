@@ -58,7 +58,9 @@ class IadcExamQuestions2026Seeder extends Seeder
                 $displayOrder = 0;
                 foreach ($subject['questions'] as $questionData) {
                     $hash = Question::textHash($questionData['question']);
-                    if (isset($seenHashes[$hash])) continue;
+                    if (isset($seenHashes[$hash])) {
+                        continue;
+                    }
                     $seenHashes[$hash] = true;
                     $displayOrder++;
                     $questionNumber++;
@@ -109,11 +111,14 @@ class IadcExamQuestions2026Seeder extends Seeder
     public static function dataset(): array
     {
         $json = gzdecode(base64_decode(self::EMBEDDED_DATA, true));
-        if ($json === false) throw new RuntimeException('Unable to decode embedded subject question data.');
+        if ($json === false) {
+            throw new RuntimeException('Unable to decode embedded subject question data.');
+        }
         $dataset = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         if (! is_array($dataset) || ! isset($dataset['subjects']) || ! is_array($dataset['subjects'])) {
             throw new RuntimeException('Embedded subject question data is invalid.');
         }
+
         return $dataset;
     }
 }

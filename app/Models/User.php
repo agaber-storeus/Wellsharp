@@ -126,10 +126,9 @@ class User extends Authenticatable
     }
 
     /**
-     * Sets the login password (hashed via the model cast) and, for Students only, a
-     * separately encrypted copy so Admin/Proctor/Instructor can look it up later.
-     * Reason: Student accounts are shared by staff at check-in; students frequently
-     * cannot recover a forgotten password themselves. Not applied to staff roles.
+     * Sets the hashed login password and a separately encrypted, recoverable copy.
+     * Admins may reveal any account password for account management; active
+     * Proctors/Instructors may reveal Student passwords only.
      */
     public function setPasswordAndCiphertext(string $plainPassword, string $roleKey): void
     {

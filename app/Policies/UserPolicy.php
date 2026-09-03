@@ -13,10 +13,8 @@ class UserPolicy
     }
 
     /**
-     * Admin, and active Proctor/Instructor, may look up a Student's password.
-     * Business rule: Student accounts are shared/managed by staff, and Students
-     * cannot reset their own password, so staff need a way to hand it to them.
-     * Restricted to Student targets only — staff accounts are never revealable.
+     * Admins may look up any account password for account management. Active
+     * Proctors/Instructors are restricted to Student targets.
      */
     public function viewPassword(User $actor, User $target): bool
     {

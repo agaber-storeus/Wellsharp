@@ -127,10 +127,6 @@ class ControlOperationalExamAction
                     if ($source === 'automatic' && (! $class->starts_at || $class->starts_at->isAfter($clock))) {
                         return $this->result($class, null, 0, false);
                     }
-                    if ($source === 'manual' && $class->starts_at?->isAfter($clock)) {
-                        throw ValidationException::withMessages(['action' => 'This exam cannot be started before its scheduled start date.']);
-                    }
-
                     $before = $class->toArray();
                     $class->forceFill(['status' => ClassStatus::Active, 'actual_started_at' => $clock])->save();
                     $schedules = $class->examSchedules()->where('status', ExamScheduleStatus::Scheduled->value)->lockForUpdate()->get();

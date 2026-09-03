@@ -102,12 +102,12 @@ class StudentExamAnswerSecurityTest extends TestCase
         $attempt->update(['status' => 'submitted']);
         $this->get(route('student.attempts.show', $attempt))
             ->assertRedirect(route('student.dashboard'))
-            ->assertSessionHas('status', 'This exam attempt has already been submitted.');
+            ->assertSessionMissing('status');
 
         $attempt->update(['status' => 'in_progress', 'expires_at' => now()->subMinute()]);
         $this->get(route('student.attempts.show', $attempt))
             ->assertRedirect(route('student.dashboard'))
-            ->assertSessionHas('status', 'This exam attempt expired and can no longer be continued.');
+            ->assertSessionMissing('status');
         $this->assertDatabaseHas('exam_attempts', ['id' => $attempt->id, 'status' => 'expired']);
     }
 

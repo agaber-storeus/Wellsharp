@@ -17,7 +17,7 @@ class CertificateQrCodeService
     {
         $qrCode = new QrCode(data: $this->payload($certificate), size: $size, margin: 0);
 
-        return (new PngWriter())->write($qrCode)->getString();
+        return (new PngWriter)->write($qrCode)->getString();
     }
 
     public function dataUri(Certificate $certificate, int $size = 220): string

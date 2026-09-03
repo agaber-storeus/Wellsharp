@@ -17,6 +17,7 @@ use App\Models\QuestionOption;
 use App\Models\TrainingClass;
 use App\Models\TrainingProvider;
 use App\Models\User;
+use App\Services\CertificateQrCodeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -57,6 +58,56 @@ class CertificateManagementTest extends TestCase
         $this->assertNull(app(IssueCertificateAction::class)->execute($data['attempt']));
         $this->assertDatabaseHas('exam_attempts', ['id' => $data['attempt']->id, 'passed' => 0]);
         $this->assertDatabaseCount('certificates', 0);
+    }
+
+    public function test_public_certificate_lookup_and_verification_show_snapshot_status_without_private_fields(): void
+    {
+        $data = $this->makeAttempt('submitted', true);
+        $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+
+        $this->get(route('iadc.certification', ['lookup' => strtolower($certificate->certificate_number)]))
+            ->assertRedirect(route('certificates.verify', $certificate->certificate_number));
+
+        $this->get(route('certificates.verify', $certificate->certificate_number))
+            ->assertOk()
+            ->assertSee($certificate->certificate_number)
+            ->assertSee($certificate->student_name)
+            ->assertSee('Issued')
+            ->assertDontSee($certificate->student_email)
+            ->assertDontSee($certificate->student_wellsharp_id);
+
+        $certificate->update(['status' => 'revoked', 'revoked_at' => now(), 'revocation_reason' => 'Test revocation']);
+        $this->get(route('certificates.verify', $certificate->certificate_number))
+            ->assertOk()
+            ->assertSee('Revoked');
+    }
+
+    public function test_public_instructor_lookup_lists_only_that_instructors_certificates(): void
+    {
+        $data = $this->makeAttempt('submitted', true);
+        $instructor = User::factory()->instructor()->create();
+        $data['trainingClass']->update(['instructor_id' => $instructor->id]);
+        $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+
+        $otherCertificate = Certificate::factory()->create([
+            'instructor_user_id' => User::factory()->instructor()->create()->id,
+        ]);
+
+        $this->get(route('iadc.certification', ['lookup' => strtolower($instructor->wellsharp_id)]))
+            ->assertOk()
+            ->assertSee($certificate->student_name)
+            ->assertSee($certificate->certificate_number)
+            ->assertDontSee($otherCertificate->certificate_number);
+    }
+
+    public function test_certificate_qr_code_targets_the_public_verification_route(): void
+    {
+        $data = $this->makeAttempt('submitted', true);
+        $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+        $qrCodes = app(CertificateQrCodeService::class);
+
+        $this->assertSame(route('certificates.verify', $certificate->certificate_number), $qrCodes->payload($certificate));
+        $this->assertStringStartsWith("\x89PNG\r\n\x1a\n", $qrCodes->png($certificate));
     }
 
     public function test_admin_can_search_and_open_certificate_details(): void

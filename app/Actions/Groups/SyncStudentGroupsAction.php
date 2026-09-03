@@ -2,9 +2,9 @@
 
 namespace App\Actions\Groups;
 
+use App\Actions\Classes\SyncGroupEnrollmentsAction;
 use App\Enums\GroupMembershipStatus;
 use App\Enums\GroupStatus;
-use App\Actions\Classes\SyncGroupEnrollmentsAction;
 use App\Models\Group;
 use App\Models\GroupMembership;
 use App\Models\User;

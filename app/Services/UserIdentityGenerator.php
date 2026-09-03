@@ -48,7 +48,7 @@ class UserIdentityGenerator
             // starts with the last-name initial and the first name; subsequent
             // attempts retain a name prefix and add random letters only.
             $alternate = Str::lower(
-                ($last !== '' ? substr($last, 0, 1) : '') .
+                ($last !== '' ? substr($last, 0, 1) : '').
                 ($first !== '' ? $first : $last)
             );
             $prefix = $attempt === 1 ? ($alternate !== '' ? $alternate : $base) : $base;

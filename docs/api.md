@@ -153,24 +153,24 @@ The IDs must be distinct existing IDs for that configuration type. Success retur
 
 ### `POST /admin/users/{user}/reveal-password`
 
-Reveals a Student's recoverable password (see [Student password recovery](#student-password-recovery) below for the shared behavior and business rules). Admin may reveal any Student's password regardless of Admin's own active status.
+Reveals any account's recoverable password (see [Recoverable password management](#recoverable-password-management) below). Admin may reveal any user's password regardless of the Admin's own active status.
 
-## Student password recovery
+## Recoverable password management
 
-Student accounts (only) keep a separately encrypted, reversible copy of their current login password so staff can hand it to a Student who cannot self-reset. Both endpoints below share identical behavior:
+Every account keeps a separately encrypted, reversible copy of its current login password for Admin account management. The operational endpoint remains limited to Student targets:
 
 ```text
 POST /admin/users/{user}/reveal-password
 POST /{role}/students/{student}/reveal-password
 ```
 
-Requires policy `viewPassword`: the target account's current role must be Student, and the actor must be Admin, or an **active** Proctor/Instructor. No request body. Success returns `200` with `Cache-Control: no-store` (the response must never be cached or replayed from a shared/proxy cache):
+Requires policy `viewPassword`: Admin may target any account; an **active** Proctor/Instructor may target Students only. No request body. Success returns `200` with `Cache-Control: no-store` (the response must never be cached or replayed from a shared/proxy cache):
 
 ```json
 { "password": "Ab3kq" }
 ```
 
-A target that isn't a Student (policy denial) returns `403`; a Student with no recoverable password (legacy account created before this feature) returns `404`. Every successful reveal is written to the audit log as `student.password_viewed` (actor, actor role, and target Student — never the plaintext password, its hash, or its ciphertext), regardless of which role performed it. The password is never embedded in any page's HTML/JSON by default (including the Proctor/Instructor Class Dashboard roster, which carries only a `revealUrl` per Student) — only this endpoint, called on an explicit staff "Reveal" action, ever returns the plaintext value, and only to that one request; the client keeps it in transient UI state only (no localStorage/sessionStorage/cookie/URL persistence) until the staff member clicks "Hide" or navigates away.
+For Proctor/Instructor callers, a target that isn't a Student returns `403`. An account with no recoverable password returns `404`. Every successful reveal is audited as `student.password_viewed` for Student targets or `user.password_viewed` for Admin reveals of staff accounts; audit data never includes the plaintext password, hash, or ciphertext. The password is not embedded in initial page HTML/JSON and is returned only by an explicit reveal request with transient client-side display.
 
 ## Operational JSON endpoints
 
@@ -207,7 +207,7 @@ Starts or ends the shared operational Class/Exam. The route-model identifier is 
 
 ### `POST /{role}/students/{student}/reveal-password`
 
-See [Student password recovery](#student-password-recovery) above.
+See [Recoverable password management](#recoverable-password-management) above.
 
 ### `POST /{role}/enrollments/{enrollment}/skills-score`
 

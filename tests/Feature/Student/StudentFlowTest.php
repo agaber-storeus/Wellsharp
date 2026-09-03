@@ -16,6 +16,7 @@ use App\Models\StudentSurvey;
 use App\Models\StudentSurveyAnswer;
 use App\Models\TrainingClass;
 use App\Models\User;
+use App\Services\StudentExamFlowService;
 use App\Services\StudentSurveyDefinition;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -23,6 +24,26 @@ use Tests\TestCase;
 class StudentFlowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_manual_schedule_stays_locked_until_a_proctor_starts_it(): void
+    {
+        $flow = app(StudentExamFlowService::class);
+        $schedule = ExamSchedule::factory()->make([
+            'start_date' => now()->subDay()->toDateString(),
+            'end_date' => now()->addDay()->toDateString(),
+            'start_mode' => 'manual',
+            'override_started_at' => null,
+            'override_ended_at' => null,
+        ]);
+
+        $this->assertFalse($flow->canStartExam($schedule));
+        $this->assertSame('A Proctor must start this exam before it can be opened.', $flow->startAvailabilityMessage($schedule));
+
+        $schedule->override_started_at = now();
+
+        $this->assertTrue($flow->canStartExam($schedule));
+        $this->assertNull($flow->startAvailabilityMessage($schedule));
+    }
 
     public function test_linked_class_requires_and_persists_the_complete_student_flow(): void
     {

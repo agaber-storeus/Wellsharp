@@ -48,17 +48,6 @@ class ControlOperationalExamAction
         return $this->execute($trainingClass, $action, 'manual', $actor, null, $verifiedProctor);
     }
 
-    public function executeForStudent(TrainingClass $trainingClass, string $action, User $student, string $proctorId): array
-    {
-        if ($student->currentRole?->key !== Role::STUDENT) {
-            throw ValidationException::withMessages(['proctor_id' => 'Only a Student can use this start method.']);
-        }
-
-        $verifiedProctor = $this->verifyProctorIdForManualControl($trainingClass, $action, $student, $proctorId);
-
-        return $this->execute($trainingClass, $action, 'manual', $student, null, $verifiedProctor);
-    }
-
     /**
      * Verifies the Proctor's ID the Instructor supplied and, independent of
      * whether the Class Start/End itself goes on to succeed, records a

@@ -63,5 +63,7 @@
 @if(request()->routeIs('admin.providers.show'))<script src="{{ asset('js/provider-location-map.js') }}"></script>@endif
 @if(request()->routeIs('admin.questions.create', 'admin.courses.questions.create', 'admin.courses.questions.edit'))<script src="{{ asset('js/admin-question-wizard.js') }}"></script>@endif
 <script src="{{ asset('js/file-upload-inputs.js') }}"></script>
+<script src="{{ asset('js/admin-dropdowns.js') }}?v={{ filemtime(public_path('js/admin-dropdowns.js')) }}"></script>
+<script src="{{ asset('js/admin-date-pickers.js') }}?v={{ filemtime(public_path('js/admin-date-pickers.js')) }}"></script>
 @stack('scripts')
 </body></html>

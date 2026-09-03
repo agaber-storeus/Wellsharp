@@ -62,4 +62,22 @@ class SyncGroupEnrollmentsAction
             }
         });
     }
+
+    /**
+     * Reconcile every Class currently backed by an Exam Schedule for a Group.
+     * This is called when group membership changes, so a running Class gets
+     * the same roster update as a newly-created schedule.
+     */
+    public function executeForGroup(Group $group): void
+    {
+        $group->examSchedules()
+            ->whereNotNull('training_class_id')
+            ->with('trainingClass')
+            ->get()
+            ->each(function ($schedule): void {
+                if ($schedule->trainingClass) {
+                    $this->execute($schedule->trainingClass, $schedule->group);
+                }
+            });
+    }
 }

@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.2",
         "ext-zip": "*",
+        "endroid/qr-code": "6.0",
         "laravel/framework": "^12.60",
         "laravel/tinker": "^2.10.1",
         "phpoffice/phpspreadsheet": "^5.9",

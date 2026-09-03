@@ -96,7 +96,7 @@ class DemoDataSeederTest extends TestCase
         $this->assertDatabaseHas('exam_attempts', ['status' => 'submitted', 'passed' => 0]);
         $this->assertDatabaseHas('certificates', ['status' => CertificateStatus::Revoked->value]);
         $this->assertGreaterThan(0, Certificate::query()->count());
-        $this->assertSame(Certificate::query()->count() * 3, (int) $this->app['db']->table('certificate_documents')->count());
+        $this->assertSame(Certificate::query()->count() * 4, (int) $this->app['db']->table('certificate_documents')->count());
 
         // questions.code is NOT NULL/unique as of the backfill-and-enforce
         // migration - every seeded question must carry a valid 5-character code.
@@ -134,6 +134,6 @@ class DemoDataSeederTest extends TestCase
 
         $this->assertSame(1, (int) $this->app['db']->table('users')->where('wellsharp_id', 'DEMO-ADMIN-001')->count());
         $this->assertSame(1, (int) $this->app['db']->table('certificates')->where('student_wellsharp_id', 'like', 'DEMO-STUDENT-%')->where('status', 'revoked')->count());
-        $this->assertSame(Certificate::query()->count() * 3, (int) $this->app['db']->table('certificate_documents')->count());
+        $this->assertSame(Certificate::query()->count() * 4, (int) $this->app['db']->table('certificate_documents')->count());
     }
 }

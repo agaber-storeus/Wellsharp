@@ -73,6 +73,8 @@ class CertificateDocumentController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => $disposition.'; filename="'.$filename.'"',
             'Content-Length' => (string) strlen($contents),
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
         ]);
     }
 

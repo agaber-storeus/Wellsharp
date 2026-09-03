@@ -6,5 +6,5 @@
     <p>To verify validity, please visit the IADC website:</p>
     <strong>www.iadc.org/wellsharp</strong>
   </div>
-  <div class="exact-qr" aria-label="Certificate verification QR code"></div>
+  <img class="exact-qr" src="{{ app(\App\Services\CertificateQrCodeService::class)->dataUri($certificate) }}" alt="Certificate verification QR code" />
 </main>

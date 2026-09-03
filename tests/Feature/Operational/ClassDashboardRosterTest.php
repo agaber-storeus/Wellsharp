@@ -65,6 +65,64 @@ class ClassDashboardRosterTest extends TestCase
             ->assertSee('Rosa Enrolled');
     }
 
+    public function test_adding_a_student_to_an_existing_exam_group_updates_the_class_roster(): void
+    {
+        $proctor = User::factory()->proctor()->create();
+        $admin = User::factory()->admin()->create();
+        $course = Course::factory()->create(['name' => 'Running Roster Course']);
+        $group = Group::create(['name' => 'Running Roster Group', 'status' => 'active']);
+        $existing = User::factory()->student()->create();
+        GroupMembership::create(['group_id' => $group->id, 'student_user_id' => $existing->id, 'status' => 'active', 'joined_at' => now()]);
+
+        $schedule = $this->scheduleExamForGroup($course, $group, ['proctor_id' => $proctor->id]);
+        TrainingClass::query()->findOrFail($schedule->training_class_id)->update([
+            'status' => ClassStatus::Active,
+            'actual_started_at' => now(),
+        ]);
+        $added = User::factory()->student()->create();
+
+        $this->actingAs($admin)->withSession(['auth.session_version' => $admin->session_version])
+            ->post(route('admin.groups.members.store', $group), ['student_ids' => [$added->id]])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('enrollments', [
+            'class_id' => $schedule->training_class_id,
+            'student_user_id' => $added->id,
+            'status' => 'enrolled',
+        ]);
+    }
+
+    public function test_creating_a_student_in_an_existing_exam_group_updates_the_class_roster(): void
+    {
+        $proctor = User::factory()->proctor()->create();
+        $admin = User::factory()->admin()->create();
+        $course = Course::factory()->create(['name' => 'Created Roster Course']);
+        $group = Group::create(['name' => 'Created Roster Group', 'status' => 'active']);
+
+        $schedule = $this->scheduleExamForGroup($course, $group, ['proctor_id' => $proctor->id]);
+        TrainingClass::query()->findOrFail($schedule->training_class_id)->update([
+            'status' => ClassStatus::Active,
+            'actual_started_at' => now(),
+        ]);
+
+        $this->actingAs($admin)->withSession(['auth.session_version' => $admin->session_version])
+            ->post(route('admin.students.store'), [
+                'wellsharp_id' => 'ROSTER-CREATED-001',
+                'first_name' => 'Created',
+                'last_name' => 'Roster Student',
+                'password' => 'Stud1',
+                'password_confirmation' => 'Stud1',
+                'group_ids' => [$group->id],
+            ])->assertRedirect();
+
+        $student = User::where('wellsharp_id', 'ROSTER-CREATED-001')->firstOrFail();
+        $this->assertDatabaseHas('enrollments', [
+            'class_id' => $schedule->training_class_id,
+            'student_user_id' => $student->id,
+            'status' => 'enrolled',
+        ]);
+    }
+
     public function test_instructor_sees_the_same_students_on_the_same_class_dashboard(): void
     {
         $instructor = User::factory()->instructor()->create();

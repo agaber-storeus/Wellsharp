@@ -18,6 +18,8 @@ use setasign\Fpdi\Fpdi;
  */
 class CertificatePdfService
 {
+    public function __construct(private readonly CertificateQrCodeService $qrCodes) {}
+
     private const TEMPLATE_PATH = 'pdf-templates/certificate-of-completion.pdf';
 
     private const PAGE1_HEIGHT_PT = 792.0;
@@ -34,6 +36,10 @@ class CertificatePdfService
             'exam.subject.supplements',
             'trainingClass.provider',
         ])->firstOrFail();
+
+        if ($document->type === CertificateDocumentType::FullCertificate) {
+            return $this->renderFullCertificate($certificate);
+        }
 
         $pdf = new Fpdi('P', 'pt');
         $pdf->SetAutoPageBreak(false);
@@ -52,9 +58,95 @@ class CertificatePdfService
         $pdf->setSourceFile($templatePath);
 
         $this->stampPage($pdf, 1, self::PAGE1_HEIGHT_PT, $this->page1Fields($data));
+        $this->clearTemplateQrCodes($pdf, 1);
         $this->stampPage($pdf, 2, self::PAGE2_HEIGHT_PT, $this->page2Fields($data));
+        $this->clearTemplateQrCodes($pdf, 2);
+        if ($document->type === CertificateDocumentType::CompletionCardBack) {
+            $this->stampQrCode($pdf, $certificate);
+        }
 
         return $pdf->Output('S');
+    }
+
+    private function renderFullCertificate(Certificate $certificate): string
+    {
+        $data = $this->fieldValues($certificate);
+        $pdf = new Fpdi('P', 'pt');
+        $pdf->SetAutoPageBreak(false);
+        $pdf->SetMargins(0, 0, 0);
+        $pdf->SetTitle('Full Certificate - '.$data['traineeName']);
+        $pdf->setSourceFile(resource_path(self::TEMPLATE_PATH));
+
+        // Full Certificate contains both dynamic certificate pages. Its back
+        // page intentionally has no QR; the QR belongs only to the separate
+        // Completion Card - Back document.
+        $this->stampPage($pdf, 1, self::PAGE1_HEIGHT_PT, $this->page1Fields($data));
+        $this->clearTemplateQrCodes($pdf, 1);
+        $this->renderFullCertificateBackPage($pdf, $data);
+
+        return $pdf->Output('S');
+    }
+
+    private function renderFullCertificateBackPage(Fpdi $pdf, array $data): void
+    {
+        $pdf->AddPage('P', [612, 792]);
+        $pdf->SetFillColor(247, 248, 250);
+        $pdf->Rect(0, 0, 612, 792, 'F');
+        $pdf->SetDrawColor(205, 210, 216);
+        $pdf->SetLineWidth(1);
+        $pdf->Rect(56, 190, 500, 330, 'D');
+
+        $logo = public_path('images/iadcLoginLgo.png');
+        if (is_file($logo)) {
+            $pdf->Image($logo, 80, 220, 150);
+        }
+
+        $pdf->SetFont(self::FONT, 'B', 11);
+        $pdf->SetTextColor(31, 41, 55);
+        $pdf->Text(80, 305, 'COMPLETION CARD - BACK');
+        $pdf->SetFont(self::FONT, '', 11);
+        $pdf->SetTextColor(55, 65, 81);
+        $pdf->SetXY(80, 330);
+        $pdf->MultiCell(310, 17, 'This individual has successfully completed a well control course at an institution accredited by the International Association of Drilling Contractors.');
+        $pdf->SetXY(80, 390);
+        $pdf->MultiCell(310, 17, 'For scheduling training or replacement of a lost card, please call the training provider with the information provided on this completion card.');
+        $pdf->SetFont(self::FONT, 'B', 10);
+        $pdf->Text(80, 475, 'Certificate Number: '.$data['certificateNumber']);
+    }
+
+    private function stampQrCode(Fpdi $pdf, Certificate $certificate): void
+    {
+        $this->stampQrCodeAt($pdf, $certificate, 235, 242, 70);
+    }
+
+    private function clearTemplateQrCodes(Fpdi $pdf, int $page): void
+    {
+        // The imported artwork contains sample QR images. Remove them from
+        // every generated document so a generic external QR can never remain.
+        $pdf->SetFillColor(255, 255, 255);
+        if ($page === 1) {
+            $pdf->Rect(42, 560, 85, 85, 'F');
+        } else {
+            $pdf->Rect(42, 18, 105, 105, 'F');
+            $pdf->Rect(215, 220, 105, 105, 'F');
+        }
+    }
+
+    private function stampQrCodeAt(Fpdi $pdf, Certificate $certificate, float $x, float $y, float $size): void
+    {
+        $qr = $this->qrCodes->png($certificate, 220);
+        $path = tempnam(sys_get_temp_dir(), 'certificate-qr-');
+
+        if ($path === false) {
+            return;
+        }
+
+        try {
+            file_put_contents($path, $qr);
+            $pdf->Image($path, $x, $y, $size, $size, 'PNG');
+        } finally {
+            @unlink($path);
+        }
     }
 
     /**

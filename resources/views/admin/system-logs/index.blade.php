@@ -6,14 +6,18 @@
 .admin-table-error{background:#fef3f2;color:#b42318;border-radius:5px;padding:10px 12px;margin-bottom:15px}
 .system-log-search{flex-wrap:wrap;row-gap:10px}
 .system-log-search input,.system-log-search select{min-width:150px}
+.system-log-search input[type=date]{width:150px;min-width:150px;padding-right:10px;color-scheme:light}
+.system-log-search input[type=text],.system-log-search input:not([type]){width:220px}
 .system-log-search .search-actions{display:flex;gap:9px;margin-left:auto}
 .system-log-event small,.system-log-actor small{display:block;color:var(--admin-muted);margin-top:2px}
 .system-log-mono{font-family:'JetBrains Mono',monospace;font-size:12px}
 .badge.info{background:var(--admin-accent-cool-soft);color:var(--admin-accent-cool)}
 .badge.warning{background:var(--admin-warning-soft);color:var(--admin-warning)}
+@media(max-width:600px){.system-log-search input[type=date],.system-log-search input[type=text],.system-log-search input:not([type]){width:100%;min-width:0}}
 </style>
 <div class="admin-page-head"><div><h1>System Logs</h1><p>Search, filter, and review business, operational, and authentication activity across WellSharp.</p></div></div>
 <div class="card" x-data="systemLogTable(@js(route('admin.system-logs.data')), @js($initialLogs), @js($initialMeta))">
+    <div class="system-log-filter-intro"><div><span class="admin-kicker">Activity filters</span><h2>Find a specific event</h2></div><p>Choose a date range or filter by category, event, user, resource, and result.</p></div>
     <form class="search system-log-search" x-on:submit.prevent="load(1)">
         <input type="date" x-model="dateFrom" x-on:change="load(1)" aria-label="From date">
         <input type="date" x-model="dateTo" x-on:change="load(1)" aria-label="To date">
@@ -43,8 +47,8 @@
             <option value="failed">Failed</option>
             <option value="system">System</option>
         </select>
-        <input x-model="correlationId" x-on:input.debounce.350ms="load(1)" placeholder="Correlation ID" autocomplete="off" aria-label="Correlation ID">
-        <input x-model="search" x-on:input.debounce.350ms="load(1)" placeholder="Search action, actor, or ID" autocomplete="off" aria-label="Search">
+        <label class="system-log-text-filter"><span>Correlation ID</span><input x-model="correlationId" x-on:input.debounce.350ms="load(1)" placeholder="Enter correlation ID" autocomplete="off" aria-label="Correlation ID"></label>
+        <label class="system-log-text-filter"><span>Keyword search</span><input x-model="search" x-on:input.debounce.350ms="load(1)" placeholder="Action, actor, or ID" autocomplete="off" aria-label="Search"></label>
         <span class="search-actions"><button class="btn secondary" type="submit">Apply</button><button class="btn secondary" type="button" x-show="hasFilters()" x-on:click="clearFilters()" x-cloak>Clear</button></span>
     </form>
     <div class="admin-table-error" x-show="error" x-text="error" x-cloak></div>

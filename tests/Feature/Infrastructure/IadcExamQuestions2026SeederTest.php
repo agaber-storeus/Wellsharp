@@ -26,7 +26,8 @@ class IadcExamQuestions2026SeederTest extends TestCase
         $this->assertSame(11, (int) DB::table('courses')->count());
         $this->assertSame(11, (int) DB::table('exams')->count());
         $this->assertSame(1387, (int) DB::table('questions')->count());
-        $this->assertSame(0, (int) DB::table('question_options')->count());
+        $optionCount = (int) DB::table('question_options')->count();
+        $this->assertGreaterThan(0, $optionCount);
         $this->assertSame(1387, (int) DB::table('exam_questions')->count());
 
         $expected = [
@@ -48,9 +49,11 @@ class IadcExamQuestions2026SeederTest extends TestCase
         }
 
         $questionCount = (int) DB::table('questions')->count();
+        $optionCount = (int) DB::table('question_options')->count();
         $examQuestionCount = (int) DB::table('exam_questions')->count();
         $this->seed(IadcExamQuestions2026Seeder::class);
         $this->assertSame($questionCount, (int) DB::table('questions')->count());
+        $this->assertSame($optionCount, (int) DB::table('question_options')->count());
         $this->assertSame($examQuestionCount, (int) DB::table('exam_questions')->count());
         $this->assertSame(11, (int) DB::table('courses')->count());
     }

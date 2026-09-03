@@ -39,14 +39,15 @@ class CertificateManagementTest extends TestCase
             'exam_attempt_id' => $data['attempt']->id,
             'status' => 'issued',
         ]);
-        $this->assertDatabaseCount('certificate_documents', 3);
+        $this->assertDatabaseCount('certificate_documents', 4);
         $this->assertDatabaseHas('certificate_documents', ['type' => 'knowledge_assessment_report']);
         $this->assertDatabaseHas('certificate_documents', ['type' => 'completion_card_front']);
         $this->assertDatabaseHas('certificate_documents', ['type' => 'completion_card_back']);
+        $this->assertDatabaseHas('certificate_documents', ['type' => 'full_certificate']);
 
         $this->assertSame($certificate->id, app(IssueCertificateAction::class)->execute($data['attempt'])?->id);
         $this->assertDatabaseCount('certificates', 1);
-        $this->assertDatabaseCount('certificate_documents', 3);
+        $this->assertDatabaseCount('certificate_documents', 4);
     }
 
     public function test_failed_attempt_is_scored_but_does_not_issue_certificate(): void
@@ -143,7 +144,7 @@ class CertificateManagementTest extends TestCase
 
         $this->assertDatabaseHas('exam_attempts', ['id' => $data['attempt']->id, 'status' => 'submitted', 'passed' => 1]);
         $this->assertDatabaseHas('certificates', ['exam_attempt_id' => $data['attempt']->id, 'status' => 'issued']);
-        $this->assertDatabaseCount('certificate_documents', 3);
+        $this->assertDatabaseCount('certificate_documents', 4);
 
         $this->get(route('student.certificates'))
             ->assertOk()

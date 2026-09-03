@@ -65,6 +65,8 @@ class StudentFlowTest extends TestCase
             'start_date' => now()->toDateString(),
             'end_date' => now()->addDay()->toDateString(),
             'duration_minutes' => 210,
+            'start_mode' => 'manual',
+            'override_started_at' => now(),
             'status' => 'scheduled',
         ]);
 

@@ -3,6 +3,8 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\CertificateDocumentController;
+use App\Http\Controllers\CertificateLookupController;
+use App\Http\Controllers\CertificateVerificationController;
 use App\Http\Controllers\Operational\ExamControlController;
 use App\Http\Controllers\Operational\NavigationController;
 use App\Http\Controllers\Operational\ReportController;
@@ -10,12 +12,18 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login');
 
+Route::get('/iadc_certification', [CertificateLookupController::class, 'index'])
+    ->name('iadc.certification');
+
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store'])->name('login.store');
 });
 
 Route::post('/logout', LogoutController::class)->middleware('auth')->name('logout');
+
+Route::get('/verify/certificates/{certificate:certificate_number}', [CertificateVerificationController::class, 'show'])
+    ->name('certificates.verify');
 
 Route::get('/certificates/{certificate}', [CertificateDocumentController::class, 'show'])
     ->middleware(['auth', 'active.user', 'session.version'])

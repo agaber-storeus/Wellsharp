@@ -18,7 +18,7 @@ Implemented:
 - Question banks per course with admin CRUD, relational options, Excel/CSV preview imports, and audit events
 - Student profile and contact fields, Student Groups, many-to-many memberships, reusable Exams, Subject-scoped exam questions, and Exam scheduling
 - One shared Exam/Class lifecycle: Admin labels the record as an Exam; Proctor, Instructor, and Student interfaces label the same operational record as a Class. Saving an Exam schedule creates or synchronizes its operational Class automatically; Admin never selects a separate Class bridge.
-- Student confirmation, survey persistence, exam instructions, exam attempts, and Proctor/Instructor Class start/end controls gated by a Proctor's ID
+- Student confirmation, survey persistence, exam instructions, and exam attempts; Proctor/Instructor Class start/end controls with Instructor Proctor-ID verification
 - Student exam question rendering, per-question answer autosave, and attempt timers
 - Exam scoring, final student submission, certificate issuance, certificate document PDF rendering/download, and admin certificate details
 - Audit events, login events, correlation IDs, and sensitive-field redaction

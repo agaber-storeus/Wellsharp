@@ -4,6 +4,7 @@
   var pendingExamAction = "start";
   var pendingExamControl = null;
   var pendingProctorId = "";
+  var pendingProctorName = "";
 
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, function (char) {
@@ -262,7 +263,7 @@
                 <td>
                   <template x-if="row.state !== 'notstarted' && row.state !== 'noshow' && row.certificateDownloadUrl">
                     <span>
-                      <a class="release-btn certificate-download" x-bind:href="row.certificateDownloadUrl">Download</a>
+                      <a class="release-btn certificate-download" x-bind:href="row.certificateDownloadUrl">Full Certificate</a>
                       <div class="certificate-actions">
                         <a class="mini-cert-btn" x-show="row.certificateFrontUrl" x-bind:href="row.certificateFrontUrl" target="_blank" rel="noopener">Front</a>
                         <a class="mini-cert-btn" x-show="row.certificateBackUrl" x-bind:href="row.certificateBackUrl" target="_blank" rel="noopener">Back</a>
@@ -320,7 +321,7 @@
 
   function proctorCheckMarkup(action, control) {
     var isEnding = action === "end" || action === "stop";
-    var buttonText = isEnding ? "End Exam" : "Start Exam";
+    var buttonText = isEnding ? "End Exam" : "Launch Class";
     var schedules = control && Array.isArray(control.scheduledFor) ? control.scheduledFor : [];
     var scheduledText = schedules.length
       ? schedules.map(function (schedule) {
@@ -336,10 +337,11 @@
       '<a class="modal-close" href="#" data-proctor-close>x</a>',
       '<h2>Enter Proctor\'s ID:</h2>',
       '<div class="proctor-code-row">',
-      '<input id="proctorCodeInput" placeholder="Proctor ID" autocomplete="off" />',
-      '<button class="tiny-green proctor-check-btn" type="button" data-proctor-check>Check</button>',
+      '<input id="proctorCodeInput" x-model="proctorCode" x-on:keydown.enter.prevent="check" placeholder="Proctor ID" autocomplete="off" />',
+      '<button class="tiny-green proctor-check-btn" type="button" x-on:click="check" x-bind:disabled="checking" x-text="checking ? \'Checking...\' : \'Check\'">Check</button>',
       '</div>',
-      '<button id="proctorLaunchButton" class="tiny-green launch-class disabled" type="button" data-proctor-launch disabled>' + buttonText + '</button>',
+      '<p class="message-bar proctor-check-message" x-show="message" x-text="message" x-bind:class="messageType" x-cloak></p>',
+      '<button id="proctorLaunchButton" class="tiny-green launch-class disabled" type="button" data-proctor-launch x-bind:disabled="!verified">' + buttonText + '</button>',
       '<h3>Linked Exam: ' + scheduledText + '</h3>',
       controlNote,
       '<p class="proctor-note">If a proctor does not show up by the time the assessment is scheduled to begin, call the <strong>emergency proctor</strong> numbers shown below. You will be given an emergency code for beginning the assessment.</p>',
@@ -359,6 +361,7 @@
     pendingExamControl = control;
     pendingExamAction = button.getAttribute("data-exam-action") || (control.status === "active" ? "end" : "start");
     pendingProctorId = "";
+    pendingProctorName = "";
 
     closeProctorCheck();
 
@@ -369,12 +372,14 @@
     var modal = document.createElement("section");
     modal.id = "proctorCheckModal";
     modal.className = "proctor-check";
+    modal.setAttribute("x-data", "proctorCheckForm()");
     modal.setAttribute("role", "dialog");
     modal.setAttribute("aria-modal", "true");
     modal.innerHTML = proctorCheckMarkup(pendingExamAction, pendingExamControl);
 
     document.body.appendChild(overlay);
     document.body.appendChild(modal);
+    window.Alpine?.initTree(modal);
 
     var input = document.getElementById("proctorCodeInput");
     if (input) {
@@ -403,6 +408,8 @@
     var value = input ? input.value.trim() : "";
 
     if (!value) {
+      pendingProctorId = "";
+      pendingProctorName = "";
       setProctorMessage("error", "Enter the Proctor ID first.");
       return;
     }
@@ -411,7 +418,7 @@
     if (verifyButton) verifyButton.disabled = true;
     setProctorMessage("error", "Checking Proctor ID...");
 
-    fetch(pendingExamControl.verifyUrl, {
+    return fetch(pendingExamControl.verifyUrl, {
       method: "POST",
       headers: {
         "Accept": "application/json",
@@ -428,19 +435,40 @@
         var errors = result.data.errors || {};
         var message = errors.proctor_id ? errors.proctor_id[0] : (result.data.message || "No proctor found with this ID");
         pendingProctorId = "";
+        pendingProctorName = "";
         setProctorMessage("error", message);
         return;
       }
 
       pendingProctorId = value;
+      pendingProctorName = result.data.proctor_name || "";
       setProctorMessage("success", "Proctor found: " + result.data.proctor_name);
     }).catch(function () {
       pendingProctorId = "";
+      pendingProctorName = "";
       setProctorMessage("error", "The Proctor ID could not be verified. Try again.");
     }).finally(function () {
       if (verifyButton) verifyButton.disabled = false;
     });
   }
+
+  window.proctorCheckForm = function () {
+    return {
+      proctorCode: '', proctorName: '', checking: false, verified: false, message: '', messageType: '',
+      async check() {
+        this.checking = true;
+        this.verified = false;
+        this.proctorName = '';
+        this.message = '';
+        await checkProctorCode();
+        this.verified = Boolean(pendingProctorId);
+        this.proctorName = pendingProctorName;
+        this.message = this.verified ? 'Proctor found: ' + this.proctorName : 'The Proctor ID could not be verified.';
+        this.messageType = this.verified ? 'success' : 'error';
+        this.checking = false;
+      }
+    };
+  };
 
   function finishExamStateChange(responseData) {
     if (currentClassId && classModalData[currentClassId]) {

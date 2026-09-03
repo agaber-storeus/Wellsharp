@@ -19,7 +19,12 @@
   </div>
 
   <div class="certificate-document-stack">
-    @if($documentType === \App\Enums\CertificateDocumentType::KnowledgeAssessmentReport)
+    @if($documentType === \App\Enums\CertificateDocumentType::FullCertificate)
+      <article class="certificate-document-panel" id="certificate-full-card">
+        <div class="certificate-document-label">Full Completion Certificate</div>
+        <iframe class="certificate-full-pdf-preview" title="Full Certificate PDF" src="{{ route('certificates.documents.preview', [$certificate, $document]) }}"></iframe>
+      </article>
+    @elseif($documentType === \App\Enums\CertificateDocumentType::KnowledgeAssessmentReport)
       @include('certificates.documents.report')
     @elseif($documentType === \App\Enums\CertificateDocumentType::CompletionCardFront)
       @include('certificates.documents.front')

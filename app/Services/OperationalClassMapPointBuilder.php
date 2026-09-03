@@ -146,6 +146,7 @@ class OperationalClassMapPointBuilder
         // passes again (e.g. the override is raised or cleared).
         $currentCertificate = $passed ? $certificate : null;
         $documentsByType = $currentCertificate?->documents->keyBy(fn ($document) => $document->type->value);
+        $fullDocument = $documentsByType?->get(CertificateDocumentType::FullCertificate->value);
         $frontDocument = $documentsByType?->get(CertificateDocumentType::CompletionCardFront->value);
         $backDocument = $documentsByType?->get(CertificateDocumentType::CompletionCardBack->value);
         $isProctor = auth()->user()->hasRole('proctor');
@@ -163,7 +164,7 @@ class OperationalClassMapPointBuilder
             'releasedAt' => $attempt?->released_at?->format('Y-m-d H:i'),
             'reportUrl' => $attempt ? route($isProctor ? 'proctor.analytics.attempts.summary' : 'instructor.analytics.attempts.summary', $attempt) : null,
             'releaseUrl' => $attempt ? route($isProctor ? 'proctor.analytics.attempts.release' : 'instructor.analytics.attempts.release', $attempt) : null,
-            'certificateDownloadUrl' => $frontDocument ? route('certificates.documents.download', [$currentCertificate, $frontDocument]) : null,
+            'certificateDownloadUrl' => $fullDocument ? route('certificates.documents.download', [$currentCertificate, $fullDocument]) : ($frontDocument ? route('certificates.documents.download', [$currentCertificate, $frontDocument]) : null),
             'certificateFrontUrl' => $frontDocument ? route('certificates.documents.standalone', [$currentCertificate, $frontDocument]) : null,
             'certificateBackUrl' => $backDocument ? route('certificates.documents.standalone', [$currentCertificate, $backDocument]) : null,
             'certificateNumber' => $currentCertificate?->certificate_number,

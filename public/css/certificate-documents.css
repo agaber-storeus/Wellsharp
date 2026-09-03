@@ -233,6 +233,7 @@
 .certificate-document-arrow { margin-left: auto; color: #80a0b6; font-size: 18px; }
 
 .certificate-document-stack { display: grid; gap: 26px; }
+.certificate-full-pdf-preview { width: 100%; min-height: 840px; border: 1px solid var(--certificate-line); border-radius: 14px; background: #fff; }
 .certificate-document-panel { scroll-margin-top: 20px; overflow: hidden; padding: 14px; border: 1px solid #ccd9e2; border-radius: 16px; background: #fff; box-shadow: 0 10px 28px rgba(19, 52, 76, .08); }
 .certificate-document-label { display: flex; align-items: center; gap: 9px; margin: 0 0 12px 4px; color: #4f6b7e; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .certificate-document-label::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #e28e28; }
@@ -267,9 +268,9 @@
 .certificate-document-panel .exact-card-back .card-back-logo { grid-column: 1 / -1; width: 205px; }
 .certificate-document-panel .exact-card-back .card-back-copy { padding-top: 2px; }
 .certificate-document-panel .exact-card-back .card-back-copy p { margin: 0 0 18px; color: #111; font-weight: 700; }
-.certificate-document-panel .exact-card-back .card-back-copy p:last-of-type { margin-bottom: 4px; }
-.certificate-document-panel .exact-card-back .card-back-copy strong { display: block; margin: 0; color: #111; font-size: 26px; letter-spacing: 0; text-align: center; }
-.certificate-document-panel .exact-qr { width: 212px; height: 212px; align-self: start; background-color: #fff; background-image: url("https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=https%3A%2F%2Fwww.iadc.org%2Fwellsharp"); background-repeat: no-repeat; background-position: center; background-size: 170px 170px; }
+.certificate-document-panel .exact-card-back .card-back-copy p:last-of-type { display: inline; margin: 0; }
+.certificate-document-panel .exact-card-back .card-back-copy strong { display: inline; margin-left: 4px; color: #111; font-size: 16px; letter-spacing: 0; }
+.certificate-document-panel .exact-card-back .exact-qr { grid-column: 2; grid-row: 2; width: 212px; height: 212px; align-self: start; display: block; object-fit: contain; background: #fff; }
 .certificate-document-panel .certificate-page .exact-card-front,
 .certificate-document-panel .certificate-page .exact-card-back { box-shadow: 0 12px 24px rgba(25, 42, 55, .16); }
 .certificate-document-panel .certificate-page .exact-card-front { max-width: 100%; }

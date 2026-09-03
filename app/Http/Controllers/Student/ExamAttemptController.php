@@ -6,14 +6,12 @@ use App\Actions\Certificates\IssueCertificateAction;
 use App\Actions\Exams\StartExamAttemptAction;
 use App\Actions\Exams\SubmitExamAttemptAction;
 use App\Enums\ExamAttemptStatus;
-use App\Enums\ExamStartMode;
 use App\Enums\QuestionType;
 use App\Http\Controllers\Controller;
 use App\Models\ExamAttempt;
 use App\Models\ExamAttemptQuestion;
 use App\Models\ExamSchedule;
 use App\Services\StudentExamFlowService;
-use App\Actions\Exams\ControlOperationalExamAction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,17 +22,9 @@ use Illuminate\View\View;
 
 class ExamAttemptController extends Controller
 {
-    public function start(Request $request, ExamSchedule $schedule, StartExamAttemptAction $action, StudentExamFlowService $flow, ControlOperationalExamAction $control): RedirectResponse
+    public function start(Request $request, ExamSchedule $schedule, StartExamAttemptAction $action, StudentExamFlowService $flow): RedirectResponse
     {
         $flow->assertReadyForExam($schedule, auth()->user());
-
-        $proctorId = null;
-        if ($schedule->start_mode === ExamStartMode::Manual) {
-            $data = $request->validate(['proctor_id' => ['required', 'string', 'max:32']]);
-            $proctorId = $data['proctor_id'];
-            abort_unless($schedule->trainingClass, 422, 'This exam is not linked to a Class.');
-            $control->executeForStudent($schedule->trainingClass, 'start', auth()->user(), $proctorId);
-        }
 
         $attempt = $action->execute($schedule, auth()->user());
 

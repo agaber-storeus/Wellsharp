@@ -3,6 +3,7 @@
 namespace App\Actions\Groups;
 
 use App\Enums\GroupMembershipStatus;
+use App\Actions\Classes\SyncGroupEnrollmentsAction;
 use App\Models\Group;
 use App\Models\GroupMembership;
 use App\Models\Role;
@@ -13,7 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class AddStudentsToGroupAction
 {
-    public function __construct(private readonly AuditRecorder $audit) {}
+    public function __construct(
+        private readonly AuditRecorder $audit,
+        private readonly SyncGroupEnrollmentsAction $syncGroupEnrollments,
+    ) {}
 
     public function execute(Group $group, array $studentIds): int
     {
@@ -36,6 +40,7 @@ class AddStudentsToGroupAction
                     'created_by_user_id' => auth()->id(),
                 ]);
             }
+            $this->syncGroupEnrollments->executeForGroup($group);
             $this->audit->record('group.student_added', $group, null, ['group_id' => $group->getKey(), 'student_count' => $students->count()]);
 
             return $students->count();

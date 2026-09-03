@@ -43,13 +43,6 @@
       @if($hasFinishedExam)
         <button class="green-btn start-exam-btn" type="button" disabled aria-disabled="true">Exam Completed</button>
         <p class="muted exam-availability-message">{{ $finishedExamMessage }}</p>
-       @elseif($schedule->start_mode?->value === 'manual' && $canStartExam)
-         <label for="proctor_id">Proctor's ID</label>
-         <input id="proctor_id" name="proctor_id" type="text" maxlength="32" autocomplete="off" placeholder="Enter Proctor's ID" required>
-         <button class="green-btn start-exam-btn" type="submit">Start Exam</button>
-       @elseif($schedule->start_mode?->value === 'manual')
-         <button class="green-btn start-exam-btn" type="button" disabled aria-disabled="true">Start Exam</button>
-         <p class="muted exam-availability-message">{{ $startAvailabilityMessage }}</p>
        @elseif($canStartExam)
         <button class="green-btn start-exam-btn" type="submit">Start Exam</button>
       @else

@@ -128,9 +128,10 @@ class ProctorDataBackedSectionsTest extends TestCase
             'class_number' => $class->class_number, 'provider_name' => $provider->name, 'score' => 92, 'passing_score' => 70,
             'issued_at' => now()->subDay(), 'status' => 'issued',
         ]);
-        $front = CertificateDocument::create(['certificate_id' => $certificate->id, 'type' => CertificateDocumentType::CompletionCardFront, 'title' => 'Completion Card - Front', 'issued_at' => $certificate->issued_at]);
+        CertificateDocument::create(['certificate_id' => $certificate->id, 'type' => CertificateDocumentType::CompletionCardFront, 'title' => 'Completion Card - Front', 'issued_at' => $certificate->issued_at]);
         CertificateDocument::create(['certificate_id' => $certificate->id, 'type' => CertificateDocumentType::CompletionCardBack, 'title' => 'Completion Card - Back', 'issued_at' => $certificate->issued_at]);
         CertificateDocument::create(['certificate_id' => $certificate->id, 'type' => CertificateDocumentType::KnowledgeAssessmentReport, 'title' => 'Knowledge Assessment Report', 'issued_at' => $certificate->issued_at]);
+        $full = CertificateDocument::create(['certificate_id' => $certificate->id, 'type' => CertificateDocumentType::FullCertificate, 'title' => 'Full Certificate', 'issued_at' => $certificate->issued_at]);
 
         $session = $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version]);
 
@@ -140,18 +141,19 @@ class ProctorDataBackedSectionsTest extends TestCase
             ->assertDontSee('Clear')
             ->assertDontSee('certificate.show_url', false);
 
-        // The Options-column payload: preview/download point at the real completion card document, not the report or the details bundle.
+        // The Options-column payload points at the complete two-page certificate,
+        // not only one completion-card document or the details bundle.
         $row = collect($session->getJson(route('proctor.certificate.data'))->assertOk()->json('data'))
             ->firstWhere('certificate_number', 'WS-CERT-TEST-002');
         $this->assertNotNull($row);
         $this->assertArrayNotHasKey('show_url', $row);
-        $this->assertSame(route('certificates.documents.preview', [$certificate, $front]), $row['preview_url']);
-        $this->assertSame(route('certificates.documents.download', [$certificate, $front]), $row['download_url']);
+        $this->assertSame(route('certificates.documents.preview', [$certificate, $full]), $row['preview_url']);
+        $this->assertSame(route('certificates.documents.download', [$certificate, $full]), $row['download_url']);
 
         // Preview streams the same branded Certificate of Completion + wallet card PDF as the download, just inline instead of as an attachment.
         $preview = $session->get($row['preview_url'])->assertOk();
         $preview->assertHeader('Content-Type', 'application/pdf');
-        $preview->assertHeader('Content-Disposition', 'inline; filename="'.str($certificate->student_name.'-'.$front->title)->slug('-').'.pdf"');
+        $preview->assertHeader('Content-Disposition', 'inline; filename="'.str($certificate->student_name.'-'.$full->title)->slug('-').'.pdf"');
         $this->assertStringStartsWith('%PDF-', $preview->getContent());
 
         // The PDF's own /Title metadata carries the course name, so the browser's inline PDF viewer
@@ -160,11 +162,11 @@ class ProctorDataBackedSectionsTest extends TestCase
         $decodedTitle = str_starts_with($titleMatch[1], "\xfe\xff")
             ? mb_convert_encoding(substr($titleMatch[1], 2), 'UTF-8', 'UTF-16BE')
             : $titleMatch[1];
-        $this->assertSame($course->name, $decodedTitle);
+        $this->assertSame('Full Certificate - '.$certificate->student_name, $decodedTitle);
 
         $download = $session->get($row['download_url'])->assertOk();
         $download->assertHeader('Content-Type', 'application/pdf');
-        $download->assertHeader('Content-Disposition', 'attachment; filename="'.str($certificate->student_name.'-'.$front->title)->slug('-').'.pdf"');
+        $download->assertHeader('Content-Disposition', 'attachment; filename="'.str($certificate->student_name.'-'.$full->title)->slug('-').'.pdf"');
         $this->assertStringStartsWith('%PDF-', $download->getContent());
     }
 }

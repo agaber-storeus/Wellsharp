@@ -8,9 +8,9 @@ flowchart TD
     B --> C[Admin creates Exam: name, code, question_order_mode, status=draft]
     C --> D[Admin adds Questions to Exam via exam_questions]
     D --> E[Admin publishes Exam: status=published]
-    E --> F[Admin creates Exam Schedule: exam + group + start/end date + duration_minutes]
+    E --> F[Admin creates Exam Schedule: exam + group + provider + dates + duration + start_mode]
     F --> G[ExamClassSynchronizer.sync]
-    G --> H{Matching Class exists?<br/>same course_id + exact start/end dates}
+    G --> H{Matching Class exists?<br/>same course_id + provider + exact start/end dates}
     H -- yes --> I[Reuse existing classes row]
     H -- no --> J[Create new classes row, status=planned]
     I --> K[exam_schedules.training_class_id set]
@@ -27,6 +27,7 @@ flowchart TD
     D --> E{StartExamAttemptAction.assertStudentCanStart}
     E -- "not in schedule's Group" --> X1[403 Forbidden]
     E -- "schedule not 'scheduled'" --> X2[422 not available]
+    E -- "manual start_mode without override_started_at" --> X0[422 Proctor must start]
     E -- "before start_date, no override" --> X3[422 not yet available]
     E -- "past end_date, no override" --> X4[422 schedule ended]
     E -- "already has a submitted attempt" --> X5[422 second attempt not available]
@@ -43,7 +44,7 @@ flowchart TD
     M -- ok --> O[status=submitted, ExamScoringService.calculate]
     O --> P{score >= passing_score?}
     P -- no --> Q[No certificate]
-    P -- yes --> R[IssueCertificateAction: create certificate + 3 documents]
+    P -- yes --> R[IssueCertificateAction: create certificate + 4 documents]
 ```
 
 ## 3. Class start / end — manual (Proctor/Instructor) and automatic (scheduler)
@@ -58,7 +59,7 @@ flowchart TD
         A2 -- yes --> A4
     end
     subgraph Automatic
-        B1[wellsharp:process-exam-schedules, every minute] --> B2[Find planned Classes with starts_at <= now]
+        B1[wellsharp:process-exam-schedules, every minute] --> B2[Find due planned Classes with no manual-start schedule]
         B1 --> B3[Find active Classes with ends_at <= now]
         B2 --> B4[ControlOperationalExamAction.executeAutomatic action=start]
         B3 --> B5[ControlOperationalExamAction.executeAutomatic action=end]
@@ -83,4 +84,5 @@ flowchart TD
 ## Notes
 
 - The Manual and Automatic branches converge on the **same** `ControlOperationalExamAction::execute()` — there is exactly one implementation of Class start/end business logic, differentiated only by `source` and whether an `actor` is attributed.
+- A manual-start schedule blocks automatic start for its shared Class. Once staff starts the Class, students may open the schedule; automatic end still applies when the active Class reaches `ends_at`.
 - Ending a Class is the single highest-blast-radius operation in the system: it can force-submit multiple students' in-progress attempts and issue certificates as a side effect, in one DB transaction (`DB::transaction` wraps the whole thing — all-or-nothing, no partial-completion risk).

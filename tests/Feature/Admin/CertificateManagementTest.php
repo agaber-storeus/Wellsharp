@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Actions\Certificates\IssueCertificateAction;
+use App\Enums\CertificateDocumentType;
 use App\Models\Certificate;
 use App\Models\Course;
 use App\Models\Exam;
@@ -137,6 +138,8 @@ class CertificateManagementTest extends TestCase
             ->get(route('certificates.show', $certificate))
             ->assertOk()
             ->assertSee('Certificate Bundle')
+            ->assertSee('Full Certificate')
+            ->assertSee('Full Certificate PDF')
             ->assertSee('Completion Card - Front')
             ->assertSee('admin-shell')
             ->assertDontSee('css/proctor.css');
@@ -164,6 +167,26 @@ class CertificateManagementTest extends TestCase
         // byte-for-byte copy of the completion card.
         $this->assertNotSame($pdfBytesByType['knowledge_assessment_report'], $pdfBytesByType['completion_card_front']);
         $this->assertNotSame($pdfBytesByType['knowledge_assessment_report'], $pdfBytesByType['completion_card_back']);
+
+        $fullCertificatePdf = $pdfBytesByType[CertificateDocumentType::FullCertificate->value];
+        $temporaryPdf = tempnam(sys_get_temp_dir(), 'full-certificate-test-');
+        $this->assertNotFalse($temporaryPdf);
+        file_put_contents($temporaryPdf, $fullCertificatePdf);
+        try {
+            $parser = new \setasign\Fpdi\Fpdi('P', 'pt');
+            $this->assertSame(2, $parser->setSourceFile($temporaryPdf));
+        } finally {
+            @unlink($temporaryPdf);
+        }
+
+        $decodedPdfText = $this->decodedPdfStreams($fullCertificatePdf);
+        $this->assertStringContainsString($certificate->student_name, $decodedPdfText);
+        $this->assertStringContainsString($data['course']->name, $decodedPdfText);
+        $this->assertStringContainsString($data['provider']->name, $decodedPdfText);
+        $this->assertStringContainsString($data['provider']->provider_number, $decodedPdfText);
+        $this->assertStringContainsString($data['provider']->phone, $decodedPdfText);
+        $this->assertStringContainsString($certificate->certificate_number, $decodedPdfText);
+        $this->assertStringNotContainsString('COMPLETION CARD - BACK', $decodedPdfText);
 
         $this->actingAs($admin)->withSession(['auth.session_version' => $admin->session_version])
             ->getJson(route('admin.certificates.data', [
@@ -199,10 +222,12 @@ class CertificateManagementTest extends TestCase
 
         $this->get(route('student.certificates'))
             ->assertOk()
-            ->assertSee('View 3 certificates');
+            ->assertSee('View 4 documents');
         $certificate = Certificate::query()->firstOrFail();
         $this->get(route('certificates.show', $certificate))
             ->assertOk()
+            ->assertSee('Full Certificate')
+            ->assertSee('Full Certificate PDF')
             ->assertSee('Knowledge Assessment Report')
             ->assertSee('Completion Card - Front')
             ->assertSee('Completion Card - Back')
@@ -302,7 +327,13 @@ class CertificateManagementTest extends TestCase
     {
         $this->seedRoles();
         $student = User::factory()->student()->create();
-        $provider = TrainingProvider::factory()->create(['name' => 'Cairo Well Control Academy']);
+        $student->profile()->update(['first_name' => 'Certificate', 'last_name' => 'Student']);
+        $student->refresh();
+        $provider = TrainingProvider::factory()->create([
+            'name' => 'Cairo Well Control Academy',
+            'provider_number' => '00001179',
+            'phone' => '201012453893',
+        ]);
         $course = Course::factory()->create(['name' => 'Drilling Operations']);
         $trainingClass = TrainingClass::factory()->create([
             'course_id' => $course->id,
@@ -365,5 +396,15 @@ class CertificateManagementTest extends TestCase
         ]);
 
         return compact('attempt', 'student', 'course', 'trainingClass', 'provider');
+    }
+
+    private function decodedPdfStreams(string $pdf): string
+    {
+        preg_match_all('/<<(.*?)>>\s*stream\r?\n(.*?)\r?\nendstream/s', $pdf, $matches, PREG_SET_ORDER);
+
+        return collect($matches)
+            ->filter(fn (array $match): bool => str_contains($match[1], 'FlateDecode'))
+            ->map(fn (array $match): string => (string) (@gzuncompress($match[2]) ?: ''))
+            ->join("\n");
     }
 }

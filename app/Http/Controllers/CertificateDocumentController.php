@@ -86,6 +86,7 @@ class CertificateDocumentController extends Controller
             'exam.subject.stacks',
             'exam.subject.supplements',
             'schedule.group',
+            'provider',
             'trainingClass.provider',
             'attempt.attemptQuestions.question',
             'documents',

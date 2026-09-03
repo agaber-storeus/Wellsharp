@@ -61,6 +61,18 @@ Successful behavior is an HTTP redirect. Failed credentials return to `/login`; 
 
 Requires an authenticated session. Invalidates the session and regenerates the CSRF token, then redirects to `/login`.
 
+## Public certificate lookup and verification
+
+These HTML routes intentionally require no authentication.
+
+### `GET /iadc_certification`
+
+Renders the certificate search page. Optional query parameter `lookup` is trimmed and normalized to uppercase. If it exactly matches `certificates.certificate_number`, the response redirects (`302`) to the certificate verification route. If it matches the `wellsharp_id` of a user whose current role is Instructor, the page lists that instructor's certificates ordered by student name and newest issuance; each result links to verification. An unknown value returns `200` with a not-found message.
+
+### `GET /verify/certificates/{certificate}`
+
+Uses `certificate_number` route binding. A match returns `200` HTML containing the certificate ID, student name, issue/expiry dates, program/exam labels, provider snapshot, and current issued/revoked status. Student email and WellSharp ID are not rendered. An unknown number returns `404`.
+
 ## Admin JSON collection endpoints
 
 All endpoints in this section require an authenticated active user with current role `admin`. Policies are also invoked by the controller.
@@ -85,11 +97,11 @@ Returns up to 25 active Groups matching name or code. Terms shorter than two cha
 
 ### `GET /admin/providers/data`
 
-Provider table data. Query parameters: `search`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `provider_number`, `name`, `email`, `status`, and `created_at`.
+Provider table data. Query parameters: `search`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `provider_number`, `name`, `email`, `status`, and `created_at`; page size is 25. Page values below 1 or beyond the filtered last page are clamped to a valid page.
 
 ### `GET /admin/subjects/data`
 
-Subject table data. `Course` is the technical model/table naming; the Admin UI labels this domain as Subjects. The legacy `/admin/courses` resource remains available for the broader Subject CRUD pages, but `/admin/courses/data` is not a registered endpoint. Query parameters: `search`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `code`, `name`, `provider`, `level`, `status`, and `created_at`.
+Subject table data. `Course` is the technical model/table naming; the Admin UI labels this domain as Subjects. The legacy `/admin/courses` resource remains available for the broader Subject CRUD pages, but `/admin/courses/data` is not a registered endpoint. Query parameters: `search`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `code`, `name`, `level`, `status`, and `created_at`; page size is 25. Provider is no longer a Subject field or sort option. Page values below 1 or beyond the filtered last page are clamped to a valid page.
 
 ### `GET /admin/questions/data`
 
@@ -109,7 +121,7 @@ Exam definition data scoped to a single Subject's exam list page. Query paramete
 
 ### `GET /admin/exam-schedules/data`
 
-Exam schedule data. Query parameters: `search`, `exam_id`, `group_id`, `course_id`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `exam`, `subject`, `group`, `start_date`, `end_date`, `duration_minutes`, and `status`.
+Exam schedule data. Query parameters: `search`, `exam_id`, `group_id`, `course_id`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `exam`, `subject`, `group`, `start_date`, `end_date`, `duration_minutes`, and `status`. Each row includes `provider`, `start_mode` (`automatic` or `manual`), and `start_mode_label`.
 
 ### `GET /admin/classes/data`
 
@@ -153,11 +165,15 @@ The IDs must be distinct existing IDs for that configuration type. Success retur
 
 ### `POST /admin/users/{user}/reveal-password`
 
-Reveals any account's recoverable password (see [Recoverable password management](#recoverable-password-management) below). Admin may reveal any user's password regardless of the Admin's own active status.
+Reveals any account's recoverable password (see [Recoverable password management](#recoverable-password-management) below). The route requires an authenticated, active Admin session.
+
+### `PUT /admin/users/{user}` changed identity fields
+
+The Admin edit form may update `wellsharp_id` (`sometimes|required|string|max:64|alpha_dash|unique`, normalized to uppercase). For a Proctor target, `proctor_id` is required, nullable/string/max 32/`alpha_dash`, and unique in `exam_control_credentials`; it is normalized to uppercase and updates the Proctor's exam-control credential. Changing the WellSharp ID or password increments `session_version`, invalidating the target user's other sessions.
 
 ## Recoverable password management
 
-Every account keeps a separately encrypted, reversible copy of its current login password for Admin account management. The operational endpoint remains limited to Student targets:
+Application account-creation and password-update workflows store a separately encrypted, reversible copy of the supplied login password for Admin account management. The nullable column is not backfilled for legacy/nonstandard records, so an account may have no recoverable copy until a new password is set. The operational endpoint remains limited to Student targets:
 
 ```text
 POST /admin/users/{user}/reveal-password
@@ -208,6 +224,21 @@ Starts or ends the shared operational Class/Exam. The route-model identifier is 
 ### `POST /{role}/students/{student}/reveal-password`
 
 See [Recoverable password management](#recoverable-password-management) above.
+
+### `POST /{role}/classes/{trainingClass}/student-passwords`
+
+Batch-reveals passwords for the distinct Students enrolled in one Class Dashboard. Requires an active Proctor/Instructor assigned to the Class (`viewStudentPasswords` policy). No request body. Success returns `200` with `Cache-Control: no-store`:
+
+```json
+{
+  "students": [
+    { "student_id": "01KZMH1TX1B89J3BTTSPBW04VXJ", "password": "Ab3kq" },
+    { "student_id": "01KZMH1TX1B89J3BTTSPBW04VYK", "password": null }
+  ]
+}
+```
+
+`student_id` is the User public ULID; `password` is null when the enrolled account is no longer a Student or has no recoverable copy. The request writes one `student_passwords.class_roster_viewed` audit event containing actor/Class/count metadata and no password values. Unauthorized or unassigned callers receive `403`.
 
 ### `POST /{role}/enrollments/{enrollment}/skills-score`
 
@@ -274,7 +305,7 @@ GET /certificates/{certificate}/documents/{document}/download
 GET /certificates/{certificate}/documents/{document}/preview
 ```
 
-These are authenticated web routes, not JSON endpoints. `documents/{document}` renders a certificate document page with the surrounding app chrome; `documents/{document}/view` (`standalone`) renders the same completion-card document with no app chrome, for the Class Dashboard's Front/Back buttons to open in a new tab; `download` renders the real branded PDF (`CertificatePdfService`) and returns `200` with `Content-Type: application/pdf` and an `attachment` disposition; `preview` renders the identical PDF `inline` instead, for the Options column's "Preview Certificate" action. `preview`/`download` are only meaningful for the two Completion Card document types. The document must belong to the certificate (`404` otherwise). Admins may view all certificates; students may view their own; active Proctors/Instructors may view certificates.
+These are authenticated web routes, not JSON endpoints. `documents/{document}` renders a certificate document page with the surrounding app chrome; `documents/{document}/view` (`standalone`) renders a completion card without app chrome for operational Front/Back actions; `download` renders the PDF (`CertificatePdfService`) and returns `200` with `Content-Type: application/pdf`, an `attachment` disposition, and no-cache headers; `preview` renders the identical PDF `inline` with the same cache protection. Supported document types are `full_certificate`, `knowledge_assessment_report`, `completion_card_front`, and `completion_card_back`. The Full Certificate matches the official two-page PDF template and contains generated verification QRs on both pages; Completion Card Back also contains its generated verification QR. The document must belong to the certificate (`404` otherwise). Admins may view all certificates; students may view their own; active Proctors/Instructors may view certificates.
 
 ### Operational certificate CSV
 
@@ -289,17 +320,20 @@ Returns `wellsharp-certificates.csv` for Classes visible to the active Proctor/I
 The following are page/redirect routes rather than JSON APIs:
 
 - Admin CRUD pages under `/admin` for users, Students, providers, Subjects, Groups, Questions, Exams, schedules, Classes, and certificates.
+- Public certificate search at `/iadc_certification` and certificate-number verification at `/verify/certificates/{certificate}`.
 - Proctor/Instructor pages under `/{role}/profile`, `/analytics`, `/analytics/search`, `/analytics/results`, `/classes`, `/browse`, `/browse/results`, and `/certificate`.
 - Student flow under `/student/schedules/{schedule}/confirm`, `/survey`, `/survey/form`, `/proctor`, `/start`, `/attempts/{attempt}`, `/submit`, and `/report`.
 
 State-changing browser forms use Laravel's CSRF token and return redirects with session flash messages unless the controller explicitly supports JSON.
 
+Adding a Student to an existing Group (including through Student create/edit) immediately synchronizes Enrollment rows for that Group's linked, non-completed/non-cancelled Classes. Removing Group membership does not automatically withdraw an existing Enrollment.
+
 ## Business rules consumers must preserve
 
 - Exam and Class are two interface labels for the same operational domain; do not create a second bridge record.
-- Schedule availability is date-based; per-student duration starts when the attempt starts.
+- Schedule availability is date-based; per-student duration starts when the attempt starts. Manual-start schedules also require a staff start override before students can open them.
 - Static Exam order is shared; shuffle order is persisted per student attempt.
 - Manual-selection Exams keep a persisted, shared question bank; random-selection Exams keep none and draw `question_count` active Subject questions per student at attempt start (forcing static order), fixed for that attempt once created.
 - Students must confirm contact information and complete the survey before starting.
 - Only the Proctor role owns a Proctor's ID; a Proctor controls a Class directly, an Instructor must supply an active Proctor's ID belonging to someone else.
-- Passing submitted attempts are scored and receive three certificate documents; failed attempts do not receive certificates.
+- Passing submitted attempts are scored and receive four certificate documents; failed attempts do not receive certificates.

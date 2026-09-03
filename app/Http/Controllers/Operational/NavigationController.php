@@ -367,7 +367,9 @@ class NavigationController extends Controller
 
     private function certificatePayload(Certificate $certificate): array
     {
+        $fullDocument = $certificate->documents->firstWhere('type', CertificateDocumentType::FullCertificate);
         $frontDocument = $certificate->documents->firstWhere('type', CertificateDocumentType::CompletionCardFront);
+        $primaryDocument = $fullDocument ?: $frontDocument;
         $courseLabel = collect([
             $certificate->subject_name ?: $certificate->exam?->subject?->name,
             $certificate->exam?->subject?->level?->name,
@@ -383,8 +385,8 @@ class NavigationController extends Controller
             'instructor' => $certificate->instructor_name ?: $certificate->instructor?->display_name ?: null,
             'course' => $courseLabel ?: $certificate->exam_name,
             'certificate_number' => $certificate->certificate_number,
-            'preview_url' => $frontDocument ? route('certificates.documents.preview', [$certificate, $frontDocument]) : null,
-            'download_url' => $frontDocument ? route('certificates.documents.download', [$certificate, $frontDocument]) : null,
+            'preview_url' => $primaryDocument ? route('certificates.documents.preview', [$certificate, $primaryDocument]) : null,
+            'download_url' => $primaryDocument ? route('certificates.documents.download', [$certificate, $primaryDocument]) : null,
         ];
     }
 

@@ -1,6 +1,6 @@
 # Database Map — WellSharp
 
-37 migrations, MySQL 8+ target / SQLite for tests. Every business table has: `id` (bigint PK), most also have a `public_id` ULID (unique, used in routes), `created_at`/`updated_at` as `timestampTz`. Status columns are plain `string(24)`, not native DB enums — validity is enforced by PHP backed enums (`app/Enums/*`) at the application layer only.
+41 migrations, MySQL 8+ target / SQLite for tests. Every business table has: `id` (bigint PK), most also have a `public_id` ULID (unique, used in routes), `created_at`/`updated_at` as `timestampTz`. Status columns are plain `string(24)`, not native DB enums — validity is enforced by PHP backed enums (`app/Enums/*`) at the application layer only.
 
 ## Core ER Diagram
 
@@ -29,6 +29,7 @@ erDiagram
 
     EXAMS ||--o{ EXAM_SCHEDULES : scheduled
     STUDENT_GROUPS ||--o{ EXAM_SCHEDULES : "group_id (nullable)"
+    TRAINING_PROVIDERS ||--o{ EXAM_SCHEDULES : "training_provider_id"
     CLASSES ||--o{ EXAM_SCHEDULES : "training_class_id (synced)"
 
     CLASSES ||--o{ ENROLLMENTS : has
@@ -42,7 +43,7 @@ erDiagram
     QUESTIONS ||--o{ EXAM_ATTEMPT_QUESTIONS : "answered in"
 
     EXAM_ATTEMPTS ||--o| CERTIFICATES : "1:1, only if passed"
-    CERTIFICATES ||--o{ CERTIFICATE_DOCUMENTS : "3 per certificate"
+    CERTIFICATES ||--o{ CERTIFICATE_DOCUMENTS : "4 per certificate"
 
     USERS ||--o{ STUDENT_SURVEYS : "student_user_id"
     STUDENT_SURVEYS ||--o{ STUDENT_SURVEY_ANSWERS : has
@@ -57,7 +58,7 @@ erDiagram
 PK `id`; `key` (unique: admin/proctor/instructor/student), `name`, `description`.
 
 ### `users`
-PK `id`, `public_id` (ULID), `wellsharp_id` (unique login ID), `email` (nullable unique), `password` (hashed — the only value ever checked at login), `password_ciphertext` (nullable text, added `2026_08_16_000002_add_password_ciphertext_to_users_table.php` — `Crypt`-encrypted plaintext, populated only for Student-role accounts so Admin/Proctor/Instructor can look it up; see BUSINESS_RULES.md BR-037..BR-042), `status` (`UserStatus`), `current_role_id` → roles, `session_version` (int, default 1 — bumped to force logout), `last_login_at`, `archived_at`, `remember_token`.
+PK `id`, `public_id` (ULID), `wellsharp_id` (unique login ID), `email` (nullable unique), `password` (hashed — the only value checked at login), `password_ciphertext` (nullable `Crypt`-encrypted recovery copy; application create/password-update paths populate it for every role, while legacy or nonstandard records may remain null; see BUSINESS_RULES.md BR-037..BR-042), `status` (`UserStatus`), `current_role_id` → roles, `session_version` (int, default 1 — bumped to force logout), `last_login_at`, `archived_at`, `remember_token`.
 
 ### `role_assignments`
 History of role changes. `user_id`, `role_id`, `assigned_by_user_id` (nullable), `started_at`, `ended_at` (nullable = current).
@@ -75,7 +76,7 @@ Provider directory; coordinates added later (map display). Status: `ProviderStat
 `course_levels`, `course_stacks`... (Levels/Stacks/Supplements/Languages) — simple lookup tables with `name`, `sort_order`, active flag, referenced by `courses`/exam configuration. Admin-editable via `/admin/subject-configuration/{type}`.
 
 ### `courses` (UI label: **Subject**)
-`provider_id`?/`code`, `name`, `level`/`stack`/`supplement`/`language` references, `status` (`CourseStatus`: active/retired).
+`code`, `name`, `description`, `course_level_id`, `status` (`CourseStatus`: active/retired), plus Stack/Supplement/Language pivots. Migration `2026_09_01_000003_move_provider_ownership_to_exam_schedules.php` removes `training_provider_id`; provider selection belongs to each Exam Schedule.
 
 ### `classes` (UI label: **Class**, Admin label: **Exam** operational twin)
 PK `id`, `public_id`, `class_number` (unique), `course_id` → courses (restrict delete), `training_provider_id` (nullable, null on provider delete), `status` (`ClassStatus`), `starts_at`/`ends_at` (nullable, indexed), `notes`. Later migration adds `actual_started_at`/`actual_ended_at` (manual-control timestamps, distinct from configured `starts_at`/`ends_at`). Migration `2026_08_23_000002` adds `proctor_id`/`instructor_id` (both nullable FKs → `users`, `restrictOnDelete`, indexed with `status`) — the authoritative staff-assignment fields (see BUSINESS_RULES.md BR-007a). Nullable at the DB level only to keep pre-existing rows valid; every new/edited Class must supply both at the application/validation layer.
@@ -102,7 +103,7 @@ Join of Exam ↔ Question with `display_order` and `points`. Unique on `(exam_id
 `exam_id`, `group_id`, `status` (`ExamGroupAssignmentStatus`), `assigned_by_user_id`, `assigned_at`, `removed_at`. Unique on `(exam_id, group_id, status)`.
 
 ### `exam_schedules`
-`exam_id`, `group_id` (nullable, null on group delete), `starts_at`/`ends_at` (later migration converts to `start_date`/`end_date`-based availability — see `2026_08_09_000008_convert_exam_schedule_availability_to_dates.php`), `duration_minutes` (nullable — per-student attempt duration), `status` (`ExamScheduleStatus`), `timezone`. `training_class_id` and `override_started_at`/`override_started_by_user_id`/`override_ended_at`/`override_ended_by_user_id` are added by later migrations for the Exam/Class sync + manual-control override mechanism.
+`exam_id`, `group_id` (nullable, null on group delete), `start_date`/`end_date`, `duration_minutes` (nullable — per-student attempt duration), `status` (`ExamScheduleStatus`), and `timezone`. Later migrations add `training_class_id`, manual-control override fields, `start_mode` (`automatic` or `manual`, default/indexed), and nullable `training_provider_id` (null on provider delete, indexed with `start_date`). Migration `2026_09_01_000003_move_provider_ownership_to_exam_schedules.php` backfills the provider from the linked Class first, then the Exam's Subject, before removing Subject-level ownership.
 
 ### `questions`
 `course_id`, `question_text` (+ hash column added later for de-dup/versioning), `type` (`QuestionType`: true_false/mcq/input), `difficulty` (`QuestionDifficulty`), `default_marks`, `correct_answer_boolean`/`correct_answer_text` (type-dependent), `is_active`, image path columns (added later), creation audit columns.
@@ -120,7 +121,7 @@ Per-attempt **snapshot** of the question set: `exam_attempt_id`, `question_id`, 
 1:1 with `exam_attempts` (unique FK). Denormalized snapshot columns: `student_name`, `student_email`, `student_wellsharp_id`, `exam_name`, `exam_code`, `subject_name`, `class_number`, `group_name`, `provider_name`, `instructor_name`. Plus `score`, `passing_score`, `issued_at`, `status` (`CertificateStatus`), `revoked_at`/`revocation_reason` (unused today), `pdf_path`. A later migration adds `expires_at`.
 
 ### `certificate_documents`
-`certificate_id` (cascade delete), `type` (`CertificateDocumentType`: knowledge_assessment_report / completion_card_front / completion_card_back), `title`, `path` (nullable — populated when PDF is rendered), `issued_at`. Unique on `(certificate_id, type)` — exactly one document per type per certificate.
+`certificate_id` (cascade delete), `type` (`CertificateDocumentType`: `full_certificate`, `knowledge_assessment_report`, `completion_card_front`, `completion_card_back`), `title`, `path` (nullable — PDFs are rendered on demand), `issued_at`. Unique on `(certificate_id, type)` — exactly one document per type per certificate. Migration `2026_09_02_000001_add_full_certificate_document.php` backfills the full-certificate row for existing certificates.
 
 ### `student_surveys` / `student_survey_answers`
 Per-student persisted survey (contact confirmation / pre-exam questionnaire per `StudentSurveyDefinition` service). Not deeply traced this pass.
@@ -134,5 +135,5 @@ No table uses Laravel's `SoftDeletes` trait/`deleted_at` column (not observed in
 
 ## Orphan / Integrity Notes
 
-- `classes.training_provider_id`, `exam_schedules.group_id`, `certificates.training_class_id/training_provider_id/instructor_user_id` are all `nullOnDelete()` — these can legitimately be `null`, so code reading them must handle absence (already done in `IssueCertificateAction` via `?->`).
+- `classes.training_provider_id`, `exam_schedules.training_provider_id`, `exam_schedules.group_id`, and `certificates.training_class_id/training_provider_id/instructor_user_id` are `nullOnDelete()` — these can legitimately be `null`, so code reading them must handle absence.
 - Almost everything else uses `restrictOnDelete()` — the DB itself blocks deleting a Course/Exam/User/etc. that still has dependent rows, which is consistent with the no-SoftDeletes/status-based-archival pattern above.

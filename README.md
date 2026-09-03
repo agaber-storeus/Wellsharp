@@ -11,16 +11,16 @@ Implemented:
 - Admin, Proctor, Instructor, and Student roles
 - Admin user and role management
 - Training providers and course reference values
-- Subjects and Subject relationships (technical model/table name: Course/courses)
+- Subjects and Subject relationships (technical model/table name: Course/courses); training-provider ownership is selected per Exam Schedule rather than per Subject
 - Classes, enrollments, and withdrawals
-- All-Class Proctor and Instructor dashboards; Classes are not assigned to individual staff members
+- Assignment-scoped Proctor and Instructor dashboards; each Class carries one Proctor and one Instructor assignment
 - Enrollment-scoped Student dashboard
 - Question banks per course with admin CRUD, relational options, Excel/CSV preview imports, and audit events
 - Student profile and contact fields, Student Groups, many-to-many memberships, reusable Exams, Subject-scoped exam questions, and Exam scheduling
 - One shared Exam/Class lifecycle: Admin labels the record as an Exam; Proctor, Instructor, and Student interfaces label the same operational record as a Class. Saving an Exam schedule creates or synchronizes its operational Class automatically; Admin never selects a separate Class bridge.
-- Student confirmation, survey persistence, exam instructions, and exam attempts; Proctor/Instructor Class start/end controls with Instructor Proctor-ID verification
+- Student confirmation, survey persistence, exam instructions, and exam attempts; per-schedule automatic/manual start modes; Proctor/Instructor Class start/end controls with Instructor Proctor-ID verification
 - Student exam question rendering, per-question answer autosave, and attempt timers
-- Exam scoring, final student submission, certificate issuance, certificate document PDF rendering/download, and admin certificate details
+- Exam scoring, final student submission, four-document certificate issuance, public certificate/instructor lookup, QR-backed verification, certificate PDF rendering/download, and admin certificate details
 - Audit events, login events, correlation IDs, and sensitive-field redaction
 
 Not implemented yet:
@@ -65,7 +65,7 @@ For local interface testing, seed repeatable demo records for the implemented us
 php artisan wellsharp:seed-demo
 ```
 
-The command is restricted to local/testing environments. It creates 13 providers (including active, inactive, and archived records with map coordinates), 18 Subjects, active and inactive reference values, 270 questions with all supported types/difficulties and 360 options, 8 groups with active and removed memberships, 54 reusable exams covering draft/published/archived and static/shuffle order, 108 exam-group assignment history records, 72 Exam Schedules, and 72 Classes covering planned/active/completed/cancelled lifecycles with configured and actual transition timestamps. It also creates 40 active Students plus disabled/minimal edge accounts, active and disabled Proctors, active and archived Instructors, a stable Proctor's ID per Proctor, role-specific profiles, enrolled/withdrawn/completed enrollments, completed/started surveys with answers, submitted/in-progress/expired attempts, passing and failing retakes, issued and revoked certificate bundles (three document rows per issued bundle), audit records, and login records. It creates `DEMO-*` accounts using the development-only password printed by the command; passwords are still stored as hashes.
+The command is restricted to local/testing environments. It imports 11 Subjects and 1,387 de-duplicated questions from the embedded IADC dataset, then creates 13 providers (including active, inactive, and archived records with map coordinates), active and inactive reference values, 8 groups with active and removed memberships, reusable Exams covering draft/published/archived and static/shuffle order, Exam Schedules, and Classes covering planned/active/completed/cancelled lifecycles. It also creates 40 active Students plus disabled/minimal edge accounts, active and disabled Proctors, active and archived Instructors, a stable Proctor's ID per Proctor, role-specific profiles, enrollments, surveys, attempts, issued/revoked certificate bundles (four document rows per bundle), audit records, and login records. It creates `DEMO-*` accounts using the development-only password printed by the command; login passwords remain hashed and the application also stores the policy-controlled encrypted recovery copy described in the API documentation.
 
 The Excel question-bank template/import requires PHP `ext-zip` in the runtime environment. CSV import remains available for environments where that extension has not yet been enabled.
 
@@ -136,6 +136,8 @@ The production example configuration uses database-backed sessions, cache, and q
 ## Production security notes
 
 - Set `APP_ENV=production` and `APP_DEBUG=false`.
+- Set `APP_URL` to the externally reachable HTTPS origin; certificate QR codes encode the public verification URL generated from this value.
+- Preserve `APP_KEY` during deployment and rotation. Recoverable password ciphertext depends on Laravel application encryption; use `APP_PREVIOUS_KEYS` during a controlled key rotation or reset affected passwords.
 - Serve the application over HTTPS and set `SESSION_SECURE_COOKIE=true`.
 - Use strong, non-committed database and application credentials.
 - Restrict access to the `public/` directory; Laravel source, storage, and prototype reference files must not be web-accessible.
@@ -162,7 +164,7 @@ The original static prototype files remain in the repository as reference materi
 
 - MySQL migrations and the repeatable demo seed have been verified in the configured environment.
 - Class lifecycle transitions are centralized in `ControlOperationalExamAction`; a separate state-machine package is not used.
-- Legacy class staff-assignment tables/models remain for migration and historical display compatibility, but they are not used to authorize, filter, or require Proctor/Instructor access. The business rule is that any active Proctor may control any Class directly, and any active Instructor may do so by providing an active Proctor's ID.
+- Legacy class staff-assignment tables/models remain for migration compatibility but are not used for authorization. Direct `classes.proctor_id` and `classes.instructor_id` fields scope operational visibility and control.
 - First-admin provisioning is available through `wellsharp:create-admin` and should be run from a trusted deployment shell.
 - Exam definitions, Subject question composition, publication validation, Exam scheduling, Student flow, per-question autosave, timers, scoring, final submission, release/finalization, staff reporting, certificate issuance, PDF document rendering/download, admin certificate details, and shared Exam/Class lifecycle controls are implemented.
 
@@ -171,8 +173,9 @@ The original static prototype files remain in the repository as reference materi
 Classes and Exams are the same operational record. The Admin interface calls it an Exam; Proctor, Instructor, and Student interfaces call it a Class. A Class is never assigned to a particular Proctor or Instructor.
 
 - Only the Proctor role owns a **Proctor's ID**: a unique credential (`exam_control_credentials.control_id`) generated automatically the moment a user's active role becomes Proctor, and revoked the moment they leave the Proctor role (including a change to Instructor). Instructors, Students, and Admins never own one.
-- Any active Proctor may manually start or end any Class directly — no Proctor's ID entry is required, since the system already knows they are an authenticated Proctor.
-- An active Instructor may manually start or end any Class by entering a Proctor's ID belonging to a currently active, eligible Proctor, as a dual-control/oversight check. An Instructor's own credential (they don't have one) or another Instructor's is always rejected.
+- An active Proctor may manually start or end a Class assigned to them directly — no Proctor's ID entry is required, since the system already knows they are an authenticated Proctor.
+- An active Instructor may manually start or end a Class assigned to them by entering a Proctor's ID belonging to a currently active, eligible Proctor, as a dual-control/oversight check. An Instructor's own credential (they don't have one) or another Instructor's is always rejected.
 - Manual start/end can happen before the configured schedule and stores `actual_started_at`/`actual_ended_at` while preserving configured `starts_at`/`ends_at`.
 - `wellsharp:process-exam-schedules` runs every minute in the Laravel scheduler. It automatically starts planned Classes at `starts_at` and ends active Classes at `ends_at`.
+- Automatic transitions skip a Class while any linked Exam Schedule has `start_mode=manual`; a manual schedule remains unavailable to students until staff starts its Class and `override_started_at` is recorded.
 - Manual and automatic transitions share one transaction/row-lock action, are idempotent, and write distinct audit actions (`class.manual_start`, `class.automatic_start`, `class.manual_end`, and `class.automatic_end`). Instructor-triggered audit events also carry the verified Proctor's identity (`verified_proctor_user_id`/`verified_proctor_wellsharp_id`).

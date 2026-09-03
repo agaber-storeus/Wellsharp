@@ -8,9 +8,10 @@ The application reads configuration through Laravel's `.env` file. `.env.example
 | --- | ---: | --- | --- |
 | `APP_NAME` | No | `WellSharp` | Application display name. |
 | `APP_ENV` | Yes | `local` | Environment name. Demo seeding is allowed only in `local` and `testing`. |
-| `APP_KEY` | Yes | — | Laravel encryption key; generate with `php artisan key:generate`. |
+| `APP_KEY` | Yes | — | Laravel encryption key; generate with `php artisan key:generate`. It encrypts recoverable password copies, so losing or replacing it without a rotation plan makes those copies unreadable. |
 | `APP_DEBUG` | No | `false` | Debug output switch. Keep `false` in production. |
-| `APP_URL` | Yes | `http://localhost` | Base URL used for generated URLs and public storage URLs. |
+| `APP_URL` | Yes | `http://localhost` | Base URL used for generated URLs, public storage URLs, and certificate-verification URLs encoded into QR codes. Production must use the externally reachable HTTPS origin. |
+| `APP_PREVIOUS_KEYS` | Key rotation only | empty | Comma-separated prior application keys Laravel may use to decrypt existing values during a controlled `APP_KEY` rotation. Never commit real keys. |
 | `APP_LOCALE` | No | `en` | Application locale. |
 | `APP_FALLBACK_LOCALE` | No | `en` | Fallback locale. |
 | `APP_FAKER_LOCALE` | No | `en_US` | Faker locale for factories/tests. |

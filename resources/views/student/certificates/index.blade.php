@@ -9,7 +9,7 @@
   @forelse($certificates as $certificate)
     <section class="wide-panel certificate-list-card">
       <div><strong>{{ $certificate->subject_name }}</strong><span>{{ $certificate->certificate_number }}</span><small>Issued {{ $certificate->issued_at?->format('F j, Y') }} · Valid through {{ $certificate->expires_at?->format('F j, Y') ?: $certificate->issued_at?->copy()->addYears(2)->format('F j, Y') }}</small></div>
-      <a class="green-btn" href="{{ route('certificates.show', $certificate) }}">View 3 certificates</a>
+      <a class="green-btn" href="{{ route('certificates.show', $certificate) }}">View {{ $certificate->documents->count() }} documents</a>
     </section>
   @empty
     <section class="wide-panel"><div class="panel-body">No certificates have been issued yet.</div></section>

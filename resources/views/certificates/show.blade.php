@@ -11,10 +11,14 @@
     $validThrough = $certificate->expires_at?->format('F j, Y')
         ?: $certificate->issued_at?->copy()->addYears(2)->format('F j, Y')
         ?: 'Not configured';
-    $documents = [
-        ['number' => '01', 'id' => 'certificate-report', 'type' => 'Assessment', 'title' => 'Knowledge Assessment Report', 'description' => 'Score and completion record'],
-        ['number' => '02', 'id' => 'certificate-front', 'type' => 'Completion card', 'title' => 'Card front', 'description' => 'Trainee credential details'],
-        ['number' => '03', 'id' => 'certificate-back', 'type' => 'Completion card', 'title' => 'Card back', 'description' => 'Verification and provider guidance'],
+    $fullDocument = $certificate->documents->first(
+        fn ($document) => $document->type === \App\Enums\CertificateDocumentType::FullCertificate
+    );
+    $documentLinks = [
+        ['number' => '01', 'id' => 'certificate-full', 'type' => 'Official PDF', 'title' => 'Full Certificate', 'description' => 'Complete two-page IADC certificate'],
+        ['number' => '02', 'id' => 'certificate-report', 'type' => 'Assessment', 'title' => 'Knowledge Assessment Report', 'description' => 'Score and completion record'],
+        ['number' => '03', 'id' => 'certificate-front', 'type' => 'Completion card', 'title' => 'Card front', 'description' => 'Trainee credential details'],
+        ['number' => '04', 'id' => 'certificate-back', 'type' => 'Completion card', 'title' => 'Card back', 'description' => 'Verification and provider guidance'],
     ];
 @endphp
 
@@ -67,11 +71,11 @@
 
   <div class="certificate-documents-heading">
     <div><span class="certificate-section-kicker">Your documents</span><h2>Certificate package</h2></div>
-    <span>Three official views · scroll to review</span>
+    <span>{{ count($documentLinks) }} official documents · scroll to review</span>
   </div>
 
   <nav class="certificate-document-nav" aria-label="Certificate documents">
-    @foreach($documents as $document)
+    @foreach($documentLinks as $document)
       <a class="certificate-document-nav-item" href="#{{ $document['id'] }}">
         <span class="certificate-document-number">{{ $document['number'] }}</span>
         <span class="certificate-document-nav-copy"><small>{{ $document['type'] }}</small><strong>{{ $document['title'] }}</strong><em>{{ $document['description'] }}</em></span>
@@ -81,6 +85,12 @@
   </nav>
 
   <div class="certificate-document-stack">
+    @if($fullDocument)
+      <article id="certificate-full" class="certificate-document-panel">
+        <div class="certificate-document-label">Full Certificate</div>
+        <iframe class="certificate-full-pdf-preview" title="Full Certificate PDF" src="{{ route('certificates.documents.preview', [$certificate, $fullDocument]) }}"></iframe>
+      </article>
+    @endif
     @include('certificates.documents.report')
     @include('certificates.documents.front')
     @include('certificates.documents.back')

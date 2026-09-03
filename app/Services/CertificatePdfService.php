@@ -34,6 +34,7 @@ class CertificatePdfService
             'exam.subject.level',
             'exam.subject.stacks',
             'exam.subject.supplements',
+            'provider',
             'trainingClass.provider',
         ])->firstOrFail();
 
@@ -77,46 +78,29 @@ class CertificatePdfService
         $pdf->SetTitle('Full Certificate - '.$data['traineeName']);
         $pdf->setSourceFile(resource_path(self::TEMPLATE_PATH));
 
-        // Full Certificate contains both dynamic certificate pages. Its back
-        // page intentionally has no QR; the QR belongs only to the separate
-        // Completion Card - Back document.
+        // The official full certificate is a two-page document: the full-size
+        // certificate followed by the printable completion-card sheet. Keep
+        // both original pages and replace every sample value and QR with this
+        // certificate's own data.
         $this->stampPage($pdf, 1, self::PAGE1_HEIGHT_PT, $this->page1Fields($data));
         $this->clearTemplateQrCodes($pdf, 1);
-        $this->renderFullCertificateBackPage($pdf, $data);
+        $this->stampQrCode($pdf, $certificate, 1);
+        $this->stampPage($pdf, 2, self::PAGE2_HEIGHT_PT, $this->page2Fields($data));
+        $this->clearTemplateQrCodes($pdf, 2);
+        $this->stampQrCode($pdf, $certificate, 2);
 
         return $pdf->Output('S');
     }
 
-    private function renderFullCertificateBackPage(Fpdi $pdf, array $data): void
+    private function stampQrCode(Fpdi $pdf, Certificate $certificate, int $page = 2): void
     {
-        $pdf->AddPage('P', [612, 792]);
-        $pdf->SetFillColor(247, 248, 250);
-        $pdf->Rect(0, 0, 612, 792, 'F');
-        $pdf->SetDrawColor(205, 210, 216);
-        $pdf->SetLineWidth(1);
-        $pdf->Rect(56, 190, 500, 330, 'D');
+        if ($page === 1) {
+            $this->stampQrCodeAt($pdf, $certificate, 56.69, 708.66, 55.5);
 
-        $logo = public_path('images/iadcLoginLgo.png');
-        if (is_file($logo)) {
-            $pdf->Image($logo, 80, 220, 150);
+            return;
         }
 
-        $pdf->SetFont(self::FONT, 'B', 11);
-        $pdf->SetTextColor(31, 41, 55);
-        $pdf->Text(80, 305, 'COMPLETION CARD - BACK');
-        $pdf->SetFont(self::FONT, '', 11);
-        $pdf->SetTextColor(55, 65, 81);
-        $pdf->SetXY(80, 330);
-        $pdf->MultiCell(310, 17, 'This individual has successfully completed a well control course at an institution accredited by the International Association of Drilling Contractors.');
-        $pdf->SetXY(80, 390);
-        $pdf->MultiCell(310, 17, 'For scheduling training or replacement of a lost card, please call the training provider with the information provided on this completion card.');
-        $pdf->SetFont(self::FONT, 'B', 10);
-        $pdf->Text(80, 475, 'Certificate Number: '.$data['certificateNumber']);
-    }
-
-    private function stampQrCode(Fpdi $pdf, Certificate $certificate): void
-    {
-        $this->stampQrCodeAt($pdf, $certificate, 235, 242, 70);
+        $this->stampQrCodeAt($pdf, $certificate, 223.94, 116.22, 55.5);
     }
 
     private function clearTemplateQrCodes(Fpdi $pdf, int $page): void
@@ -125,10 +109,9 @@ class CertificatePdfService
         // every generated document so a generic external QR can never remain.
         $pdf->SetFillColor(255, 255, 255);
         if ($page === 1) {
-            $pdf->Rect(42, 560, 85, 85, 'F');
+            $pdf->Rect(55.5, 707.5, 58, 58, 'F');
         } else {
-            $pdf->Rect(42, 18, 105, 105, 'F');
-            $pdf->Rect(215, 220, 105, 105, 'F');
+            $pdf->Rect(222.75, 115, 58, 58, 'F');
         }
     }
 
@@ -300,14 +283,14 @@ class CertificatePdfService
         $courseName = collect([$certificate->subject_name, $subject?->level?->name, $subject?->stacks?->pluck('name')->join(', ')])
             ->filter()
             ->join(', ');
-        $provider = $certificate->trainingClass?->provider;
+        $provider = $certificate->provider ?: $certificate->trainingClass?->provider;
 
         return [
             'traineeName' => $certificate->student_name,
             'courseName' => $courseName ?: $certificate->exam_name,
             'supplementName' => $subject?->supplements?->pluck('name')->join(', ') ?: '',
-            'completionDate' => $certificate->issued_at?->format('j F Y') ?: 'Not configured',
-            'expirationDate' => ($certificate->expires_at ?: $certificate->issued_at?->copy()->addYears(2))?->format('j F Y') ?: 'Not configured',
+            'completionDate' => $certificate->issued_at?->format('d F Y') ?: 'Not configured',
+            'expirationDate' => ($certificate->expires_at ?: $certificate->issued_at?->copy()->addYears(2))?->format('d F Y') ?: 'Not configured',
             'providerName' => $certificate->provider_name ?: $provider?->name ?: 'Not configured',
             'providerNumber' => $provider?->provider_number ?: 'Not configured',
             'providerPhone' => $provider?->phone ?: 'Not configured',

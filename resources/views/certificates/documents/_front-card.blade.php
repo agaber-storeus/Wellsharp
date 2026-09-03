@@ -2,9 +2,9 @@
     $subject = $certificate->exam?->subject;
     $courseName = collect([$certificate->subject_name, $subject?->level?->name, $subject?->stacks?->pluck('name')->join(', ')])->filter()->join(', ');
     $supplement = $subject?->supplements?->pluck('name')->join(', ');
-    $provider = $certificate->trainingClass?->provider;
-    $completionDate = $certificate->issued_at?->format('j F Y') ?: 'Not configured';
-    $expirationDate = ($certificate->expires_at ?: $certificate->issued_at?->copy()->addYears(2))?->format('j F Y') ?: 'Not configured';
+    $provider = $certificate->provider ?: $certificate->trainingClass?->provider;
+    $completionDate = $certificate->issued_at?->format('d F Y') ?: 'Not configured';
+    $expirationDate = ($certificate->expires_at ?: $certificate->issued_at?->copy()->addYears(2))?->format('d F Y') ?: 'Not configured';
 @endphp
 <main class="completion-card certificate-standalone exact-card-front">
   <h2>IADC WellSharp Course Completion Card</h2>

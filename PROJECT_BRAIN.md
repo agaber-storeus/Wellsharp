@@ -6,7 +6,7 @@
 
 ## 1. Executive Summary
 
-WellSharp is a single-tenant **Laravel 12** web application (PHP 8.2+, Blade + Alpine.js, session auth, no separate REST/bearer API) that runs training-provider exam operations end to end: Subjects (stored as `courses`) → Question banks → Exams → Exam Schedules (linked to Student Groups) → Classes (the operational/lifecycle twin of an Exam Schedule) → Student attempts → Scoring → Certificates (3 documents per pass). **CONFIRMED** (docs/architecture.md, migrations, actions read directly).
+WellSharp is a single-tenant **Laravel 12** web application (PHP 8.2+, Blade + Alpine.js, session auth, no separate REST/bearer API) that runs training-provider exam operations end to end: Subjects (stored as `courses`) → Question banks → Exams → Exam Schedules (linked to Student Groups and providers) → Classes (the operational/lifecycle twin of an Exam Schedule) → Student attempts → Scoring → Certificates (4 documents per pass, with public certificate-number verification). **CONFIRMED** (docs/architecture.md, migrations, actions read directly).
 
 ## 2. Product Purpose
 
@@ -78,7 +78,7 @@ Operational role restriction elsewhere is enforced by **route middleware** (`cur
 8. **Classes (Operational)** — the shared Exam/Class record Proctors/Instructors start and end; source of the student-facing "Class" concept.
 9. **Enrollment** — Students enrolled/withdrawn/completed per Class.
 10. **Student Assessment Flow** — survey, exam instructions, attempt start, per-question autosave, submit, scoring.
-11. **Certificates** — auto-issued on passing submission; 3 documents (Knowledge Assessment Report, Completion Card front/back) rendered to PDF.
+11. **Certificates** — auto-issued on passing submission; 4 documents (Full Certificate, Knowledge Assessment Report, Completion Card front/back) rendered to PDF, with a public lookup/verification route and dynamic verification QRs on Completion Card Back and both official Full Certificate pages.
 12. **Reporting/Export** — Operational reporting dashboards and certificate CSV export for Proctor/Instructor.
 
 ## 8. Database Entities
@@ -130,7 +130,7 @@ All enums live in `app/Enums/*.php` as PHP backed enums (string-valued), stored 
 - `session_version` column on `users` + `session.version` middleware: bumping it (on role/password/status change) invalidates all other active sessions for that user — a forced-logout mechanism. **CONFIRMED** (docs/architecture.md, `users.session_version`).
 - `active.user` middleware logs out disabled/archived users mid-session.
 - Separate from login: the **Proctor's ID** (`exam_control_credentials` table, one `control_id` per Proctor — never an Instructor) gates the start/end-Class action — this is a second, narrower "who is physically running this session" credential, not a login mechanism. **CONFIRMED**.
-- **Deliberate business exception, confirmed 2026-09-03**: Every account password is additionally stored as an app-key-encrypted, reversible copy (`users.password_ciphertext`), separate from the hash used for login. Admins may reveal passwords for any account; active Proctors/Instructors may reveal Student passwords only. `UserPolicy::viewPassword()` gates access and every reveal is audited (`student.password_viewed` or `user.password_viewed`). See BUSINESS_RULES.md BR-037..BR-042. Plaintext is never stored directly or embedded in initial page data.
+- **Deliberate business exception, confirmed 2026-09-03**: Application account-creation and password-update paths store an app-key-encrypted, reversible copy (`users.password_ciphertext`) for every role, separate from the hash used for login. The nullable column is not backfilled, so legacy/nonstandard records may lack a recoverable copy. Admins may reveal passwords for any account; active Proctors/Instructors may reveal Student passwords only. `UserPolicy::viewPassword()` gates access and every successful reveal is audited (`student.password_viewed` or `user.password_viewed`). See BUSINESS_RULES.md BR-037..BR-042. Plaintext is never stored directly or embedded in initial page data.
 
 ## 14. API Architecture
 
@@ -188,7 +188,7 @@ TrainingClass (operational)
  │     └── ExamAttempt (per student, per schedule)
  │           ├── ExamAttemptQuestion (frozen per-attempt question snapshot: order + points)
  │           └── Certificate (1:1, only if passed)
- │                 └── CertificateDocument (3 per certificate)
+ │                 └── CertificateDocument (4 per certificate)
  ├── Enrollment (per student)
  ├── proctor_id / instructor_id (direct FK columns → User — the real staff-assignment mechanism, BR-007a)
  └── ClassStaffAssignment (unused legacy table, never wired to authorization — superseded by proctor_id/instructor_id)
@@ -220,7 +220,7 @@ Documented thoroughly in docs/architecture.md §Security boundaries. Notable add
 ## 26. Potential Bugs / Risks
 
 - **Ending a Class force-submits every in-progress attempt for its schedules**, even attempts started seconds ago, with no grace period — by design, but a foot-gun if a Proctor ends the wrong Class. No confirmation-of-consequences step was observed in the JSON contract (docs/api.md's `/exam-control` endpoint doesn't mention a preview/warning).
-- Certificate `expires_at` is set to `issued_at + 2 years` (`IssueCertificateAction`) but this constant is **hardcoded**, not configurable — flag if a future request wants provider- or course-specific expiration.
+- Certificate `expires_at` is snapshotted at issuance from `exams.certificate_validity_years`, falling back to 2 years when unset; later Exam edits do not alter existing certificates.
 - `ExamClassSynchronizer::sync()` matches an existing Class by `course_id` + exact `starts_at`/`ends_at` date match; two schedules for the same course on the same days will silently share one Class. This is likely intentional (multiple schedules/groups under one physical class session) but worth confirming with the user before assuming otherwise.
 
 ## 27. Needs Business Confirmation

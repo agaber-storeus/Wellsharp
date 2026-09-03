@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: WellSharp Same-Origin JSON Contract
-  version: 1.0.0
+  version: 1.1.0
   description: |
     JSON endpoints used by the authenticated Laravel Blade/Alpine.js interfaces.
     This is not a bearer-token REST API: the application uses Laravel session
@@ -13,8 +13,10 @@ servers:
         default: http://localhost
 tags:
   - name: Authentication
+  - name: Public certificates
   - name: Admin data
   - name: Admin configuration
+  - name: Password recovery
   - name: Operational control
   - name: Student attempt
 paths:
@@ -40,6 +42,34 @@ paths:
         '302': { description: Redirect to the current role landing page. }
         '429': { $ref: '#/components/responses/RateLimited' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /iadc_certification:
+    get:
+      tags: [Public certificates]
+      operationId: publicCertificateLookup
+      summary: Search by certificate number or Instructor WellSharp ID
+      parameters:
+        - name: lookup
+          in: query
+          required: false
+          schema: { type: string }
+          description: Trimmed and normalized to uppercase. A certificate match redirects to verification; an Instructor match renders that instructor's certificate list.
+      responses:
+        '200': { description: "Certificate search HTML, optionally containing an Instructor's matching certificates or a not-found message." }
+        '302': { description: Exact certificate-number match; redirects to public verification. }
+  /verify/certificates/{certificate}:
+    get:
+      tags: [Public certificates]
+      operationId: verifyCertificate
+      summary: Render public certificate verification
+      parameters:
+        - name: certificate
+          in: path
+          required: true
+          schema: { type: string, example: WS-CERT-2026-ABCDEFGHIJ }
+          description: Exact certificate_number route key.
+      responses:
+        '200': { description: Verification HTML with certificate snapshot and issued/revoked status; excludes student email and WellSharp ID. }
+        '404': { $ref: '#/components/responses/NotFound' }
   /admin/users/data:
     get:
       tags: [Admin data]
@@ -54,8 +84,24 @@ paths:
         - { $ref: '#/components/parameters/Direction' }
         - { $ref: '#/components/parameters/Page' }
       responses:
-        '200': { $ref: '#/components/responses/PaginatedUserPayload' }
+        '200': { $ref: '#/components/responses/PaginatedPayload' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/users/{user}/reveal-password:
+    post:
+      tags: [Password recovery]
+      security: [{ laravelSession: [] }]
+      operationId: adminRevealUserPassword
+      summary: Reveal an account's encrypted recovery copy
+      description: Requires an active Admin session. The successful reveal is audited and the response is marked Cache-Control no-store.
+      parameters:
+        - name: user
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/PasswordReveal' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: User not found or no recoverable password is stored for the account. }
   /admin/students/data:
     get:
       tags: [Admin data]
@@ -106,7 +152,8 @@ paths:
       security: [{ laravelSession: [] }]
       operationId: adminProvidersData
       summary: List training providers
-      parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
+      description: Returns 25 rows per page and clamps stale page numbers to the filtered last page.
+      parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { name: sort, in: query, schema: { type: string, enum: [provider_number, name, email, status, created_at], default: created_at } }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
       responses:
         '200': { $ref: '#/components/responses/PaginatedPayload' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -116,7 +163,8 @@ paths:
       security: [{ laravelSession: [] }]
       operationId: adminSubjectsData
       summary: 'List Subjects (technical model: Course)'
-      parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
+      description: Returns 25 rows per page and clamps stale page numbers to the filtered last page. Provider is schedule-owned and is not a Subject field or sort option.
+      parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { name: sort, in: query, schema: { type: string, enum: [code, name, level, status, created_at], default: created_at } }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
       responses:
         '200': { $ref: '#/components/responses/PaginatedPayload' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -146,6 +194,7 @@ paths:
       security: [{ laravelSession: [] }]
       operationId: adminExamSchedulesData
       summary: List Exam Schedules
+      description: Row payloads include provider, start_mode (automatic or manual), and start_mode_label.
       parameters: [ { $ref: '#/components/parameters/Search' }, { name: exam_id, in: query, schema: { type: integer } }, { name: group_id, in: query, schema: { type: integer } }, { name: course_id, in: query, schema: { type: integer } }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
       responses:
         '200': { $ref: '#/components/responses/PaginatedPayload' }
@@ -202,6 +251,46 @@ paths:
         '200': { description: Transition applied, content: { application/json: { schema: { $ref: '#/components/schemas/ControlExamResponse' } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /{role}/students/{student}/reveal-password:
+    post:
+      tags: [Password recovery]
+      security: [{ laravelSession: [] }]
+      operationId: operationalRevealStudentPassword
+      summary: Reveal a Student's encrypted recovery copy
+      description: Requires an active Proctor or Instructor session and a Student target. The successful reveal is audited and the response is marked Cache-Control no-store.
+      parameters:
+        - { $ref: '#/components/parameters/RolePath' }
+        - name: student
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/PasswordReveal' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { description: Student not found or no recoverable password is stored. }
+  /{role}/classes/{trainingClass}/student-passwords:
+    post:
+      tags: [Password recovery]
+      security: [{ laravelSession: [] }]
+      operationId: operationalRevealClassStudentPasswords
+      summary: Reveal the enrolled Student passwords for one assigned Class
+      description: Requires an assigned active Proctor or Instructor. The response is marked Cache-Control no-store and one roster-level audit event is written without password values.
+      parameters:
+        - { $ref: '#/components/parameters/RolePath' }
+        - name: trainingClass
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Distinct enrolled Students and their nullable recoverable passwords.
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClassStudentPasswordsResponse' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /student/attempts/{attempt}/questions/{attemptQuestion}/answer:
     patch:
       tags: [Student attempt]
@@ -309,7 +398,29 @@ components:
     ExpireResponse:
       type: object
       properties: { expired: { type: boolean } }
+    PasswordRevealResponse:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, format: password, description: "Plaintext returned only for this explicit, authorized request." }
+    ClassStudentPasswordsResponse:
+      type: object
+      required: [students]
+      properties:
+        students:
+          type: array
+          items:
+            type: object
+            required: [student_id, password]
+            properties:
+              student_id: { type: string, description: Student User public ULID. }
+              password: { type: string, format: password, nullable: true, description: Null when no recoverable Student password is available. }
   responses:
+    PaginatedPayload:
+      description: Paginated collection payload.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PaginatedPayload' }
     Forbidden: { description: Authorization failed. }
     NotFound: { description: Resource not found. }
     RateLimited: { description: Too many login attempts. }
@@ -322,3 +433,11 @@ components:
             properties:
               message: { type: string }
               errors: { type: object, additionalProperties: { type: array, items: { type: string } } }
+    PasswordReveal:
+      description: Recoverable password returned for an explicit authorized reveal. Response includes Cache-Control no-store.
+      headers:
+        Cache-Control:
+          schema: { type: string, example: no-store }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PasswordRevealResponse' }

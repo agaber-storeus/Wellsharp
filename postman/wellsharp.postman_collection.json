@@ -15,7 +15,11 @@
     { "key": "attempt", "value": "replace-with-attempt-id" },
     { "key": "attempt_question", "value": "1" },
     { "key": "proctor_id", "value": "replace-with-a-proctors-id" },
+    { "key": "user", "value": "replace-with-user-public-id" },
+    { "key": "student", "value": "replace-with-student-public-id" },
     { "key": "certificate", "value": "replace-with-certificate-id" },
+    { "key": "certificate_number", "value": "replace-with-certificate-number" },
+    { "key": "instructor_number", "value": "replace-with-instructor-wellsharp-id" },
     { "key": "document", "value": "replace-with-document-id" }
   ],
   "item": [
@@ -99,6 +103,36 @@
       ]
     },
     {
+      "name": "Password recovery",
+      "description": "Explicit, audited password reveals. Responses contain plaintext credentials; do not save response examples or copy values into collection variables.",
+      "item": [
+        {
+          "name": "Admin reveal account password",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "url": { "raw": "{{base_url}}/admin/users/{{user}}/reveal-password", "host": ["{{base_url}}"], "path": ["admin", "users", "{{user}}", "reveal-password"] }
+          }
+        },
+        {
+          "name": "Operational reveal Student password",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "url": { "raw": "{{base_url}}/{{role}}/students/{{student}}/reveal-password", "host": ["{{base_url}}"], "path": ["{{role}}", "students", "{{student}}", "reveal-password"] }
+          }
+        },
+        {
+          "name": "Operational reveal assigned Class roster passwords",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "url": { "raw": "{{base_url}}/{{role}}/classes/{{training_class}}/student-passwords", "host": ["{{base_url}}"], "path": ["{{role}}", "classes", "{{training_class}}", "student-passwords"] }
+          }
+        }
+      ]
+    },
+    {
       "name": "Operational control",
       "item": [
         {
@@ -146,6 +180,22 @@
     {
       "name": "Certificates and exports",
       "item": [
+        {
+          "name": "Public certificate search",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Accept", "value": "text/html" } ],
+            "url": { "raw": "{{base_url}}/iadc_certification?lookup={{instructor_number}}", "host": ["{{base_url}}"], "path": ["iadc_certification"], "query": [ { "key": "lookup", "value": "{{instructor_number}}" } ] }
+          }
+        },
+        {
+          "name": "Public certificate verification",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Accept", "value": "text/html" } ],
+            "url": { "raw": "{{base_url}}/verify/certificates/{{certificate_number}}", "host": ["{{base_url}}"], "path": ["verify", "certificates", "{{certificate_number}}"] }
+          }
+        },
         {
           "name": "Download certificate PDF",
           "request": {

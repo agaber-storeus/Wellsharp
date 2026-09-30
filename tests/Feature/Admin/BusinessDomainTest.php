@@ -316,6 +316,90 @@ class BusinessDomainTest extends TestCase
         $this->assertDatabaseMissing('exams', ['name' => 'Invalid Exam']);
     }
 
+    public function test_exams_display_and_sort_by_created_at_with_newest_first_by_default(): void
+    {
+        $oldest = Exam::factory()->create(['course_id' => $this->subject->id, 'name' => 'Oldest Exam', 'created_at' => now()->subDays(3)]);
+        $newest = Exam::factory()->create(['course_id' => $this->subject->id, 'name' => 'Newest Exam', 'created_at' => now()->subDay()]);
+
+        $this->get(route('admin.exams.index'))
+            ->assertOk()
+            ->assertSee("sortBy('created_at')", false)
+            ->assertSee('Created At');
+
+        $this->getJson(route('admin.exams.data'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $oldest->id)
+            ->assertJsonPath('data.0.created_at', $newest->created_at->format('M j, Y H:i'));
+
+        $this->getJson(route('admin.exams.data', ['sort' => 'created_at', 'direction' => 'asc']))
+            ->assertJsonPath('data.0.id', $oldest->id)
+            ->assertJsonPath('data.1.id', $newest->id);
+
+        $this->getJson(route('admin.exams.data', ['sort' => 'created_at', 'direction' => 'desc']))
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $oldest->id);
+    }
+
+    public function test_exam_schedules_display_and_sort_by_created_at_with_newest_first_by_default(): void
+    {
+        $oldest = ExamSchedule::factory()->create(['created_at' => now()->subDays(3)]);
+        $newest = ExamSchedule::factory()->create(['created_at' => now()->subDay()]);
+
+        $this->get(route('admin.exam-schedules.index'))
+            ->assertOk()
+            ->assertSee("sortBy('created_at')", false)
+            ->assertSee('Created At');
+
+        $this->getJson(route('admin.exam-schedules.data'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $oldest->id)
+            ->assertJsonPath('data.0.created_at', $newest->created_at->format('M j, Y H:i'));
+
+        $this->getJson(route('admin.exam-schedules.data', ['sort' => 'created_at', 'direction' => 'asc']))
+            ->assertJsonPath('data.0.id', $oldest->id)
+            ->assertJsonPath('data.1.id', $newest->id);
+
+        $this->getJson(route('admin.exam-schedules.data', ['sort' => 'created_at', 'direction' => 'desc']))
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $oldest->id);
+    }
+
+    public function test_created_at_sort_preserves_exam_and_schedule_filtering_and_pagination(): void
+    {
+        Exam::factory()->count(26)->create(['course_id' => $this->subject->id, 'status' => 'draft']);
+        Exam::factory()->create(['course_id' => $this->otherSubject->id, 'status' => 'published']);
+
+        $this->getJson(route('admin.exams.data', [
+            'course_id' => $this->subject->id,
+            'status' => 'draft',
+            'sort' => 'created_at',
+            'direction' => 'desc',
+            'page' => 2,
+        ]))->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 26)
+            ->assertJsonPath('meta.current_page', 2);
+
+        $exam = Exam::factory()->create(['course_id' => $this->subject->id]);
+        $group = Group::factory()->create();
+        ExamSchedule::factory()->count(26)->create(['exam_id' => $exam->id, 'group_id' => $group->id, 'status' => 'scheduled']);
+        ExamSchedule::factory()->cancelled()->create();
+
+        $this->getJson(route('admin.exam-schedules.data', [
+            'exam_id' => $exam->id,
+            'group_id' => $group->id,
+            'status' => 'scheduled',
+            'sort' => 'created_at',
+            'direction' => 'desc',
+            'page' => 2,
+        ]))->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 26)
+            ->assertJsonPath('meta.current_page', 2);
+    }
+
     public function test_global_exam_create_loads_selected_subject_questions_and_saves_status(): void
     {
         $subjectQuestion = Question::create([

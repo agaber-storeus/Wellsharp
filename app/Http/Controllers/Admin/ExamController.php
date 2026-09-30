@@ -306,6 +306,7 @@ class ExamController extends Controller
             'question_order_mode_label' => $exam->question_order_mode->label(),
             'status' => $exam->status->value,
             'status_label' => $exam->status->label(),
+            'created_at' => $exam->created_at?->format('M j, Y H:i'),
             'can_archive' => $exam->status !== ExamStatus::Archived,
             'exam_url' => route('admin.exams.show', $exam),
             'edit_url' => route('admin.exams.edit', $exam),

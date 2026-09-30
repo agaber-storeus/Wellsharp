@@ -25,10 +25,10 @@ class ExamScheduleController extends Controller
     {
         $this->authorize('viewAny', ExamSchedule::class);
         $query = $this->filteredQuery($request);
-        $sort = (string) $request->input('sort', 'start_date');
+        $sort = (string) $request->input('sort', 'created_at');
         $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
-        $allowedSorts = ['exam', 'subject', 'group', 'start_date', 'end_date', 'duration_minutes', 'status'];
-        $sort = in_array($sort, $allowedSorts, true) ? $sort : 'start_date';
+        $allowedSorts = ['exam', 'subject', 'group', 'start_date', 'end_date', 'duration_minutes', 'status', 'created_at'];
+        $sort = in_array($sort, $allowedSorts, true) ? $sort : 'created_at';
 
         if ($sort === 'exam') {
             $query->join('exams as schedule_exam_sort', 'schedule_exam_sort.id', '=', 'exam_schedules.exam_id')->select('exam_schedules.*')->orderBy('schedule_exam_sort.name', $direction);
@@ -63,7 +63,7 @@ class ExamScheduleController extends Controller
         $status = request('status');
         $subjectId = request('course_id');
         $examId = $examId ?: $exam?->getKey();
-        $schedules = $this->filteredQuery(request()->merge(['exam_id' => $examId]))->latest('start_date')->paginate(25)->withQueryString();
+        $schedules = $this->filteredQuery(request()->merge(['exam_id' => $examId]))->latest('exam_schedules.created_at')->paginate(25)->withQueryString();
         $exams = Exam::query()->with('subject')->where('status', 'published')->orderBy('name')->get();
         $groups = Group::query()->where('status', 'active')->orderBy('name')->get();
         $subjects = Course::query()->where('status', 'active')->orderBy('name')->get();
@@ -163,6 +163,7 @@ class ExamScheduleController extends Controller
             'start_mode_label' => $schedule->start_mode?->label() ?? 'Automatic — follow start/end dates',
             'status' => $schedule->status->value,
             'status_label' => $schedule->status->label(),
+            'created_at' => $schedule->created_at?->format('M j, Y H:i'),
             'edit_url' => route('admin.exam-schedules.edit', $schedule),
             'cancel_url' => route('admin.exam-schedules.cancel', $schedule),
         ];

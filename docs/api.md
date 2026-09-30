@@ -121,7 +121,7 @@ Exam definition data scoped to a single Subject's exam list page. Query paramete
 
 ### `GET /admin/exam-schedules/data`
 
-Exam schedule data. Query parameters: `search`, `exam_id`, `group_id`, `course_id`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `exam`, `subject`, `group`, `start_date`, `end_date`, `duration_minutes`, and `status`. Each row includes `provider`, `start_mode` (`automatic` or `manual`), and `start_mode_label`.
+Exam schedule data. Query parameters: `search`, `exam_id`, `group_id`, `course_id`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `exam`, `subject`, `group`, `start_date`, `end_date`, `duration_minutes`, `status`, and `created_at`; the default is `created_at` descending. Each row includes `provider`, `start_mode` (`automatic` or `manual`), `start_mode_label`, and formatted `created_at`.
 
 ### `GET /admin/classes/data`
 

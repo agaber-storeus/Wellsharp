@@ -30,6 +30,51 @@ class AuthenticationTest extends TestCase
         $this->assertDatabaseHas('login_events', ['wellsharp_id' => 'ADMIN-001', 'outcome' => 'success']);
     }
 
+    public function test_username_login_is_normalized_and_works_for_every_role(): void
+    {
+        foreach ([
+            'admin' => 'admin.dashboard',
+            'proctor' => 'proctor.dashboard',
+            'instructor' => 'instructor.dashboard',
+            'student' => 'student.dashboard',
+        ] as $role => $dashboard) {
+            $user = User::factory()->withRole($role)->create(['username' => substr($role.'login', 0, 8)]);
+
+            $this->post(route('login.store'), [
+                'wellsharp_id' => '  '.strtoupper($user->username).'  ',
+                'password' => 'test-password-123',
+            ])->assertRedirect(route($dashboard));
+
+            $this->assertAuthenticatedAs($user);
+            auth()->logout();
+        }
+    }
+
+    public function test_wrong_username_or_password_is_rejected(): void
+    {
+        User::factory()->admin()->create(['username' => 'loginusr']);
+
+        $this->from(route('login'))->post(route('login.store'), [
+            'wellsharp_id' => 'loginusr',
+            'password' => 'wrong-password',
+        ])->assertRedirect(route('login'))->assertSessionHasErrors('wellsharp_id');
+
+        $this->assertGuest();
+    }
+
+    public function test_legacy_ambiguous_identifier_is_rejected(): void
+    {
+        User::factory()->admin()->create(['wellsharp_id' => 'SHAREDID']);
+        User::factory()->student()->create(['username' => 'sharedid']);
+
+        $this->post(route('login.store'), [
+            'wellsharp_id' => 'sharedid',
+            'password' => 'test-password-123',
+        ])->assertRedirect(route('login'))->assertSessionHasErrors('wellsharp_id');
+
+        $this->assertGuest();
+    }
+
     public function test_invalid_credentials_are_rejected_without_disclosing_which_field_failed(): void
     {
         User::factory()->admin()->create(['wellsharp_id' => 'ADMIN-002']);
@@ -86,5 +131,15 @@ class AuthenticationTest extends TestCase
         }
 
         $this->post(route('login.store'), ['wellsharp_id' => 'ADMIN-004', 'password' => 'wrong-password'])->assertStatus(429);
+    }
+
+    public function test_login_rate_limit_uses_the_normalized_submitted_identifier(): void
+    {
+        User::factory()->admin()->create(['username' => 'ratelimt']);
+        foreach (['RATELIMT', ' ratelimt ', 'RateLimt', 'ratelimt', 'RATELIMT'] as $identifier) {
+            $this->post(route('login.store'), ['wellsharp_id' => $identifier, 'password' => 'wrong-password']);
+        }
+
+        $this->post(route('login.store'), ['wellsharp_id' => 'ratelimt', 'password' => 'wrong-password'])->assertStatus(429);
     }
 }

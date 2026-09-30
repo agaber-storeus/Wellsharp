@@ -348,7 +348,7 @@ components:
       type: object
       required: [wellsharp_id, password]
       properties:
-        wellsharp_id: { type: string, maxLength: 64, example: DEMO-ADMIN-001 }
+        wellsharp_id: { type: string, maxLength: 64, example: DEMO-ADMIN-001, description: WellSharp ID or username; the field name is retained for backward compatibility. }
         password: { type: string, format: password, example: 'use-a-local-demo-password' }
     ControlIdRequest:
       type: object

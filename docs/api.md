@@ -46,7 +46,7 @@ Returns the login form. No authentication required.
 
 ### `POST /login`
 
-Authenticates using a WellSharp ID and password and redirects to the role landing page.
+Authenticates using a WellSharp ID or username and password and redirects to the role landing page. The existing `wellsharp_id` form field accepts either identifier for backward compatibility.
 
 Request fields:
 
@@ -169,7 +169,7 @@ Reveals any account's recoverable password (see [Recoverable password management
 
 ### `PUT /admin/users/{user}` changed identity fields
 
-The Admin edit form may update `wellsharp_id` (`sometimes|required|string|max:64|alpha_dash|unique`, normalized to uppercase). For a Proctor target, `proctor_id` is required, nullable/string/max 32/`alpha_dash`, and unique in `exam_control_credentials`; it is normalized to uppercase and updates the Proctor's exam-control credential. Changing the WellSharp ID or password increments `session_version`, invalidating the target user's other sessions.
+The Admin edit form may update `wellsharp_id` (normalized to uppercase) and `username` (normalized to lowercase). Both are unique across both login-identifier columns to prevent ambiguous authentication. For a Proctor target, `proctor_id` is required, nullable/string/max 32/`alpha_dash`, and unique in `exam_control_credentials`; it is normalized to uppercase and updates the Proctor's exam-control credential. Changing the WellSharp ID, username, or password increments `session_version`, invalidating the target user's other sessions.
 
 ## Recoverable password management
 

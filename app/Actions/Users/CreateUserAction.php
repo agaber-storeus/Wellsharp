@@ -32,9 +32,11 @@ class CreateUserAction
             $lastName = trim($data['last_name']);
 
             $wellsharpId = filled($data['wellsharp_id'] ?? null)
-                ? strtoupper(trim($data['wellsharp_id']))
+                ? $this->identity->normalizeWellsharpId($data['wellsharp_id'])
                 : $this->identity->generateWellsharpId($firstName, $lastName);
-            $username = $this->identity->generateUsername($firstName, $lastName);
+            $username = filled($data['username'] ?? null)
+                ? $this->identity->normalizeUsername($data['username'])
+                : $this->identity->generateUsername($firstName, $lastName);
             $generatedPassword = filled($data['password'] ?? null) ? null : $this->generatePassword($role->key, $wellsharpId, $username);
             $password = $generatedPassword ?? $data['password'];
 

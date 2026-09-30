@@ -10,26 +10,33 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthenticateUserAction
 {
-    public function execute(string $wellsharpId, string $password, ?string $ip, ?string $userAgent, ?string $correlationId): ?User
+    public function execute(string $identifier, string $password, ?string $ip, ?string $userAgent, ?string $correlationId): ?User
     {
-        $normalizedId = strtoupper(trim($wellsharpId));
-        $user = User::where('wellsharp_id', $normalizedId)->first();
+        $submittedIdentifier = trim($identifier);
+        $normalizedIdentifier = strtolower($submittedIdentifier);
+        $matches = User::query()
+            ->whereRaw('LOWER(wellsharp_id) = ?', [$normalizedIdentifier])
+            ->orWhereRaw('LOWER(username) = ?', [$normalizedIdentifier])
+            ->limit(2)
+            ->get();
+        $user = $matches->count() === 1 ? $matches->first() : null;
+        $eventIdentifier = $user?->wellsharp_id ?? strtoupper($submittedIdentifier);
 
         if (! $user || ! Hash::check($password, $user->password)) {
-            $this->event($normalizedId, null, 'invalid_credentials', $ip, $userAgent, $correlationId);
+            $this->event($eventIdentifier, null, 'invalid_credentials', $ip, $userAgent, $correlationId);
 
             return null;
         }
 
         if ($user->status !== UserStatus::Active || $user->archived_at !== null) {
-            $this->event($normalizedId, $user, 'inactive', $ip, $userAgent, $correlationId);
+            $this->event($eventIdentifier, $user, 'inactive', $ip, $userAgent, $correlationId);
 
             return null;
         }
 
         Auth::login($user);
         $user->forceFill(['last_login_at' => now()])->save();
-        $this->event($normalizedId, $user, 'success', $ip, $userAgent, $correlationId);
+        $this->event($eventIdentifier, $user, 'success', $ip, $userAgent, $correlationId);
 
         return $user->fresh('currentRole');
     }

@@ -6,7 +6,7 @@ WellSharp is a Laravel application foundation for managing training and assessme
 
 Implemented:
 
-- WellSharp ID and password authentication
+- WellSharp ID or username and password authentication
 - Password hashing, login throttling, logout, session regeneration, and session revocation
 - Admin, Proctor, Instructor, and Student roles
 - Admin user and role management

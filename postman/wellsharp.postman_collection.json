@@ -7,7 +7,7 @@
   },
   "variable": [
     { "key": "base_url", "value": "http://localhost" },
-    { "key": "wellsharp_id", "value": "DEMO-ADMIN-001" },
+    { "key": "wellsharp_id", "value": "DEMO-ADMIN-001", "description": "A WellSharp ID or username." },
     { "key": "password", "value": "" },
     { "key": "csrf_token", "value": "" },
     { "key": "role", "value": "proctor" },

@@ -38,9 +38,7 @@
             <div class="field"><x-admin.label for="first_name" required>First name</x-admin.label><input id="first_name" name="first_name" value="{{ old('first_name', $user->profile?->first_name) }}" required></div>
             <div class="field"><x-admin.label for="last_name" required>Last name</x-admin.label><input id="last_name" name="last_name" value="{{ old('last_name', $user->profile?->last_name) }}" required></div>
             <div class="field"><x-admin.label for="wellsharp_id" :required="$user->exists">WellSharp ID</x-admin.label><input id="wellsharp_id" name="wellsharp_id" value="{{ old('wellsharp_id', $user->wellsharp_id) }}" {{ $user->exists ? 'required' : '' }}>@unless($user->exists)<small class="muted"><span class="admin-badge-generated">Auto-generated</span> Leave blank to generate from the first/last name below.</small>@endunless</div>
-            @if($user->exists)
-                <div class="field"><x-admin.label>Username</x-admin.label><input value="{{ $user->username }}" readonly><small class="muted"><span class="admin-badge-generated">System-generated</span> Display-only; not used to log in.</small></div>
-            @endif
+            <div class="field"><x-admin.label for="username" :required="$user->exists">Username</x-admin.label><input id="username" name="username" value="{{ old('username', $user->username) }}" maxlength="8" {{ $user->exists ? 'required' : '' }}>@unless($user->exists)<small class="muted"><span class="admin-badge-generated">Auto-generated</span> Leave blank to generate from the first/last name below.</small>@else<small class="muted">Used as an alternative login identifier.</small>@endunless</div>
             @if(!$user->exists && !($studentOnly ?? false))
                 <div class="field"><x-admin.label for="role_id" required>Role</x-admin.label><select id="role_id" name="role_id" x-model="selectedRole" required><option value="">Select role</option>@foreach($roles as $role)<option value="{{ $role->id }}">{{ $role->name }}</option>@endforeach</select></div>
             @endif

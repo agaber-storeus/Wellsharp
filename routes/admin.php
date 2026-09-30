@@ -34,6 +34,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::post('users/{user}/reveal-password', [UserController::class, 'revealPassword'])->name('users.reveal-password');
 
     Route::get('providers/data', [TrainingProviderController::class, 'data'])->name('providers.data');
+    Route::put('providers/location-drafts/{draftToken}', [TrainingProviderController::class, 'autosaveDraftLocations'])->name('providers.location-drafts.update');
+    Route::put('providers/{provider}/locations/autosave', [TrainingProviderController::class, 'autosaveLocations'])->name('providers.locations.autosave');
     Route::resource('providers', TrainingProviderController::class)->except(['destroy']);
     Route::patch('providers/{provider}/archive', [TrainingProviderController::class, 'archive'])->name('providers.archive');
     Route::patch('providers/{provider}/unarchive', [TrainingProviderController::class, 'unarchive'])->name('providers.unarchive');

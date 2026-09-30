@@ -242,7 +242,7 @@ class NavigationController extends Controller
     {
         $instructor = $trainingClass->instructor?->display_name ?: 'Not assigned';
         $proctor = $trainingClass->proctor?->display_name ?: 'Not assigned';
-        $location = $trainingClass->provider?->address ?: 'Not assigned';
+        $location = $trainingClass->providerLocation?->location ?: $trainingClass->provider?->address ?: 'Not assigned';
         $retakes = $trainingClass->examSchedules
             ->flatMap(fn ($schedule) => $schedule->attempts)
             ->where('attempt_number', '>', 1)
@@ -291,7 +291,7 @@ class NavigationController extends Controller
                 $trainingClass->class_number,
                 $trainingClass->status->label(),
                 $trainingClass->provider?->name,
-                $trainingClass->provider?->address,
+                $trainingClass->providerLocation?->location ?: $trainingClass->provider?->address,
                 $trainingClass->course->name,
                 $instructor,
                 $proctor,
@@ -465,7 +465,7 @@ class NavigationController extends Controller
     {
         return TrainingClass::query()
             ->visibleTo(auth()->user())
-            ->with(['course.languages', 'course.level', 'course.stacks', 'course.supplements', 'provider', 'proctor.profile', 'instructor.profile', 'enrollments.student.profile', 'examSchedules.exam', 'examSchedules.attempts.student.profile', 'examSchedules.attempts.exam'])
+            ->with(['course.languages', 'course.level', 'course.stacks', 'course.supplements', 'provider', 'providerLocation', 'proctor.profile', 'instructor.profile', 'enrollments.student.profile', 'examSchedules.exam', 'examSchedules.attempts.student.profile', 'examSchedules.attempts.exam'])
             ->withCount('enrollments')
             ->latest()
             ->get();

@@ -635,6 +635,125 @@ class BusinessDomainTest extends TestCase
         }
     }
 
+    public function test_schedule_auto_resolves_one_location_and_rejects_invalid_multi_provider_locations(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $groups = Group::factory()->count(3)->create(['status' => 'active']);
+        $single = TrainingProvider::factory()->create();
+        $multi = TrainingProvider::factory()->create();
+        $multiSecond = $multi->locations()->create(['location' => 'Second Site']);
+        $other = TrainingProvider::factory()->create();
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+        $base = [
+            'exam_id' => $exam->id,
+            'start_date' => now()->addDays(8)->toDateString(),
+            'end_date' => now()->addDays(9)->toDateString(),
+            'duration_minutes' => 60,
+            'proctor_id' => $proctor->id,
+            'instructor_id' => $instructor->id,
+        ];
+
+        $this->post(route('admin.exam-schedules.store'), $base + [
+            'group_id' => $groups[0]->id,
+            'training_provider_id' => $single->id,
+        ])->assertRedirect();
+        $singleSchedule = ExamSchedule::where('group_id', $groups[0]->id)->firstOrFail();
+        $this->assertSame($single->locations()->firstOrFail()->id, $singleSchedule->training_provider_location_id);
+        $this->assertSame($singleSchedule->training_provider_location_id, $singleSchedule->trainingClass->training_provider_location_id);
+
+        $this->post(route('admin.exam-schedules.store'), $base + [
+            'group_id' => $groups[1]->id,
+            'training_provider_id' => $multi->id,
+        ])->assertSessionHasErrors('training_provider_location_id');
+
+        $this->post(route('admin.exam-schedules.store'), $base + [
+            'group_id' => $groups[1]->id,
+            'training_provider_id' => $multi->id,
+            'training_provider_location_id' => $other->locations()->firstOrFail()->id,
+        ])->assertSessionHasErrors('training_provider_location_id');
+
+        $this->post(route('admin.exam-schedules.store'), $base + [
+            'group_id' => $groups[1]->id,
+            'training_provider_id' => $multi->id,
+            'training_provider_location_id' => $multiSecond->id,
+        ])->assertRedirect();
+    }
+
+    public function test_same_provider_and_dates_at_different_locations_create_separate_classes(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $provider = TrainingProvider::factory()->create();
+        $locations = collect([$provider->locations()->firstOrFail(), $provider->locations()->create(['location' => 'Remote Site'])]);
+        $groups = Group::factory()->count(2)->create(['status' => 'active']);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+
+        foreach ($locations as $index => $location) {
+            $this->post(route('admin.exam-schedules.store'), [
+                'exam_id' => $exam->id,
+                'group_id' => $groups[$index]->id,
+                'training_provider_id' => $provider->id,
+                'training_provider_location_id' => $location->id,
+                'start_date' => now()->addDays(10)->toDateString(),
+                'end_date' => now()->addDays(11)->toDateString(),
+                'duration_minutes' => 60,
+                'proctor_id' => $proctor->id,
+                'instructor_id' => $instructor->id,
+            ])->assertRedirect();
+        }
+
+        $this->assertDatabaseCount('classes', 2);
+        foreach ($locations as $location) {
+            $this->assertDatabaseHas('classes', ['training_provider_id' => $provider->id, 'training_provider_location_id' => $location->id]);
+        }
+    }
+
+    public function test_schedule_edit_preserves_location_and_in_use_location_deactivation_preserves_history(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $provider = TrainingProvider::factory()->create();
+        $location = $provider->locations()->firstOrFail();
+        $group = Group::factory()->create(['status' => 'active']);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+        $payload = [
+            'exam_id' => $exam->id,
+            'group_id' => $group->id,
+            'training_provider_id' => $provider->id,
+            'training_provider_location_id' => $location->id,
+            'start_date' => now()->addDays(12)->toDateString(),
+            'end_date' => now()->addDays(13)->toDateString(),
+            'duration_minutes' => 60,
+            'proctor_id' => $proctor->id,
+            'instructor_id' => $instructor->id,
+        ];
+        $this->post(route('admin.exam-schedules.store'), $payload)->assertRedirect();
+        $schedule = ExamSchedule::firstOrFail();
+
+        $this->get(route('admin.exam-schedules.edit', $schedule))
+            ->assertOk()
+            ->assertSee((string) $location->id);
+        $this->put(route('admin.exam-schedules.update', $schedule), [...$payload, 'duration_minutes' => 75])->assertRedirect();
+        $this->assertSame($location->id, $schedule->fresh()->training_provider_location_id);
+
+        $otherProvider = TrainingProvider::factory()->create();
+        $this->put(route('admin.exam-schedules.update', $schedule), [
+            ...$payload,
+            'training_provider_id' => $otherProvider->id,
+        ])->assertSessionHasErrors('training_provider_location_id');
+
+        $this->put(route('admin.providers.update', $provider), [
+            'provider_number' => $provider->provider_number,
+            'name' => $provider->name,
+            'locations' => [],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('training_provider_locations', ['id' => $location->id, 'is_active' => false]);
+        $this->assertSame($location->id, $schedule->fresh()->training_provider_location_id);
+        $this->assertSame($location->id, $schedule->trainingClass->fresh()->training_provider_location_id);
+    }
+
     public function test_updating_a_schedule_provider_keeps_its_linked_class_in_sync(): void
     {
         $exam = Exam::create(['course_id' => $this->subject->id, 'name' => 'Provider Update Exam', 'question_order_mode' => 'static', 'status' => 'published']);

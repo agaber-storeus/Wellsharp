@@ -17,7 +17,10 @@ class ExamClassSynchronizer
         $schedule->loadMissing(['exam', 'trainingClass', 'group']);
         $class = $schedule->trainingClass;
 
-        if ($class && (int) $class->training_provider_id !== (int) $schedule->training_provider_id) {
+        if ($class && (
+            (int) $class->training_provider_id !== (int) $schedule->training_provider_id
+            || (int) $class->training_provider_location_id !== (int) $schedule->training_provider_location_id
+        )) {
             $sharedWithOtherSchedules = $class->examSchedules()
                 ->whereKeyNot($schedule->getKey())
                 ->exists();
@@ -25,7 +28,10 @@ class ExamClassSynchronizer
             if ($sharedWithOtherSchedules) {
                 $class = null;
             } else {
-                $class->forceFill(['training_provider_id' => $schedule->training_provider_id])->save();
+                $class->forceFill([
+                    'training_provider_id' => $schedule->training_provider_id,
+                    'training_provider_location_id' => $schedule->training_provider_location_id,
+                ])->save();
             }
         }
 
@@ -33,6 +39,7 @@ class ExamClassSynchronizer
             $class = TrainingClass::query()
                 ->where('course_id', $schedule->exam->course_id)
                 ->where('training_provider_id', $schedule->training_provider_id)
+                ->where('training_provider_location_id', $schedule->training_provider_location_id)
                 ->whereDate('starts_at', $schedule->start_date)
                 ->whereDate('ends_at', $schedule->end_date)
                 ->first();
@@ -43,6 +50,7 @@ class ExamClassSynchronizer
                 'class_number' => 'EXAM-CLASS-'.$schedule->public_id,
                 'course_id' => $schedule->exam->course_id,
                 'training_provider_id' => $schedule->training_provider_id,
+                'training_provider_location_id' => $schedule->training_provider_location_id,
                 'status' => ClassStatus::Planned,
                 'starts_at' => $schedule->start_date?->copy()->startOfDay(),
                 'ends_at' => $schedule->end_date?->copy()->endOfDay(),

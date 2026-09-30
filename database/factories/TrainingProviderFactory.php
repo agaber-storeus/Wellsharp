@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\TrainingProvider;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class TrainingProviderFactory extends Factory
@@ -16,6 +17,19 @@ class TrainingProviderFactory extends Factory
             'address' => fake()->address(),
             'status' => 'active',
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (TrainingProvider $provider): void {
+            if ($provider->locations()->doesntExist() && filled($provider->address)) {
+                $provider->locations()->create([
+                    'location' => $provider->address,
+                    'latitude' => $provider->latitude,
+                    'longitude' => $provider->longitude,
+                ]);
+            }
+        });
     }
 
     public function inactive(): static

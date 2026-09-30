@@ -79,7 +79,7 @@ class ExamScheduleController extends Controller
         $this->authorize('create', ExamSchedule::class);
         $exams = Exam::query()->with(['subject'])->withCount('questions')->where('status', 'published')->orderBy('name')->get();
         $groups = Group::query()->where('status', 'active')->orderBy('name')->get();
-        $providers = TrainingProvider::query()->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get();
+        $providers = TrainingProvider::query()->with(['locations' => fn ($query) => $query->where('is_active', true)->orderBy('location')])->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get();
 
         return view('admin.exam-schedules.create', ['exams' => $exams, 'groups' => $groups, 'providers' => $providers, 'selectedExamId' => request('exam_id') ?: $exam?->id, 'schedule' => new ExamSchedule, ...$this->staffOptions()]);
     }
@@ -97,7 +97,7 @@ class ExamScheduleController extends Controller
         $this->authorize('update', $schedule);
         $exams = Exam::query()->with('subject')->withCount('questions')->where('status', 'published')->orderBy('name')->get();
         $groups = Group::query()->where('status', 'active')->orderBy('name')->get();
-        $providers = TrainingProvider::query()->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get();
+        $providers = TrainingProvider::query()->with(['locations' => fn ($query) => $query->where(fn ($locations) => $locations->where('is_active', true)->orWhere('id', $schedule->training_provider_location_id))->orderBy('location')])->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get();
 
         return view('admin.exam-schedules.edit', ['exams' => $exams, 'groups' => $groups, 'providers' => $providers, 'schedule' => $schedule->load('exam.subject', 'trainingClass'), ...$this->staffOptions()]);
     }
@@ -134,7 +134,7 @@ class ExamScheduleController extends Controller
         $status = $request->input('status');
         $subjectId = $request->input('course_id');
 
-        return ExamSchedule::query()->with(['exam.subject', 'group', 'provider'])
+        return ExamSchedule::query()->with(['exam.subject', 'group', 'provider', 'providerLocation'])
             ->when($search, fn ($query) => $query->where(function ($query) use ($search): void {
                 $query->whereHas('exam', fn ($exam) => $exam->where('name', 'like', "%{$search}%"))
                     ->orWhereHas('group', fn ($group) => $group->where('name', 'like', "%{$search}%"))
@@ -156,6 +156,7 @@ class ExamScheduleController extends Controller
             'subject' => $schedule->exam?->subject?->name,
             'group' => $schedule->group?->name,
             'provider' => $schedule->provider?->name ?: 'Not assigned',
+            'provider_location' => $schedule->providerLocation?->location ?: $schedule->provider?->address ?: 'Not assigned',
             'start_date' => $schedule->start_date?->format('Y-m-d'),
             'end_date' => $schedule->end_date?->format('Y-m-d'),
             'duration' => $schedule->duration_minutes ? $schedule->duration_minutes.' min' : '—',

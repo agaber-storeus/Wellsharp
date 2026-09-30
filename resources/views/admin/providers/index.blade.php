@@ -32,11 +32,11 @@
     <div class="admin-table-error" x-show="error" x-text="error" x-cloak></div>
     <div class="table-wrap" x-bind:class="loading ? 'admin-table-loading' : ''">
         <table class="table">
-            <thead><tr><th><button class="admin-sort" type="button" x-on:click="sortBy('provider_number')">Provider number <span class="admin-sort-icon" x-text="sortIcon('provider_number')"></span></button></th><th><button class="admin-sort" type="button" x-on:click="sortBy('name')">Name <span class="admin-sort-icon" x-text="sortIcon('name')"></span></button></th><th><button class="admin-sort" type="button" x-on:click="sortBy('email')">Contact <span class="admin-sort-icon" x-text="sortIcon('email')"></span></button></th><th><button class="admin-sort" type="button" x-on:click="sortBy('status')">Status <span class="admin-sort-icon" x-text="sortIcon('status')"></span></button></th><th></th></tr></thead>
+            <thead><tr><th><button class="admin-sort" type="button" x-on:click="sortBy('provider_number')">Provider number <span class="admin-sort-icon" x-text="sortIcon('provider_number')"></span></button></th><th><button class="admin-sort" type="button" x-on:click="sortBy('name')">Name <span class="admin-sort-icon" x-text="sortIcon('name')"></span></button></th><th>Locations</th><th><button class="admin-sort" type="button" x-on:click="sortBy('email')">Contact <span class="admin-sort-icon" x-text="sortIcon('email')"></span></button></th><th><button class="admin-sort" type="button" x-on:click="sortBy('status')">Status <span class="admin-sort-icon" x-text="sortIcon('status')"></span></button></th><th></th></tr></thead>
             <tbody>
                 <template x-for="provider in rows" :key="provider.id">
                     <tr>
-                        <td x-text="provider.provider_number"></td><td x-text="provider.name"></td><td x-text="provider.email"></td>
+                        <td x-text="provider.provider_number"></td><td x-text="provider.name"></td><td x-text="provider.locations"></td><td x-text="provider.email"></td>
                         <td>
                             <div class="provider-status-cell">
                                 <template x-if="provider.status === 'archived'"><span class="badge archived">Archived</span></template>

@@ -1,8 +1,18 @@
 import L from 'leaflet';
+import { maplibreGL } from '@maplibre/maplibre-gl-leaflet';
+import { setWorkerUrl } from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'leaflet/dist/leaflet.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+const BASEMAP_CONFIG = Object.freeze({
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+});
+
+setWorkerUrl(maplibreWorkerUrl);
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -13,27 +23,17 @@ L.Icon.Default.mergeOptions({
 
 window.L = L;
 window.wellsharpMapTiles = function (map, onUnavailable) {
-    let fallbackStarted = false;
-    const primary = L.tileLayer('https://iadc.wellsharp.org/MapTiles/{z}-{x}-{y}.png', { attribution: '' }).addTo(map);
+    let unavailableReported = false;
+    const basemap = maplibreGL(BASEMAP_CONFIG).addTo(map);
 
-    primary.on('tileerror', function () {
-        if (fallbackStarted) {
-            return;
+    basemap.getMaplibreMap().on('error', function () {
+        if (!unavailableReported && onUnavailable) {
+            unavailableReported = true;
+            onUnavailable();
         }
-
-        fallbackStarted = true;
-        map.removeLayer(primary);
-        const fallback = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors',
-        }).addTo(map);
-        fallback.on('tileerror', function () {
-            if (onUnavailable) {
-                onUnavailable();
-            }
-        });
     });
 
-    return primary;
+    return basemap;
 };
 
 window.wellsharpClassDurationLabel = function (point) {

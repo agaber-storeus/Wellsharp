@@ -104,6 +104,7 @@ class SaveExamAction
             'exam_id' => $exam->getKey(),
             'group_id' => $data['group_id'],
             'training_provider_id' => $data['training_provider_id'] ?? null,
+            'training_provider_location_id' => $data['training_provider_location_id'] ?? null,
             'start_date' => $data['start_date'],
             'end_date' => $data['end_date'],
             'duration_minutes' => $data['duration_minutes'] ?? null,

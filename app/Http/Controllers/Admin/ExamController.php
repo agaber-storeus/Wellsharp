@@ -191,7 +191,7 @@ class ExamController extends Controller
     private function staffOptions(): array
     {
         return [
-            'providers' => TrainingProvider::query()->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get(),
+            'providers' => TrainingProvider::query()->with(['locations' => fn ($query) => $query->where('is_active', true)->orderBy('location')])->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get(),
             'proctors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::PROCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
             'instructors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::INSTRUCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
         ];

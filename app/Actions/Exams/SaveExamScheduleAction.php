@@ -6,6 +6,7 @@ use App\Enums\ExamScheduleStatus;
 use App\Models\Exam;
 use App\Models\ExamSchedule;
 use App\Models\Group;
+use App\Models\TrainingProviderLocation;
 use App\Services\AuditRecorder;
 use App\Services\ExamClassSynchronizer;
 use Illuminate\Support\Carbon;
@@ -28,6 +29,7 @@ class SaveExamScheduleAction
                 throw ValidationException::withMessages(['group_id' => 'Only active groups can be scheduled.']);
             }
             $creating = $schedule === null;
+            $providerLocationId = $this->resolveProviderLocation($schedule, $data);
             $startDate = Carbon::createFromFormat('Y-m-d', $data['start_date'])->toDateString();
             $endDate = Carbon::createFromFormat('Y-m-d', $data['end_date'])->toDateString();
             if ($creating && ExamSchedule::query()
@@ -53,6 +55,7 @@ class SaveExamScheduleAction
             $attributes = [
                 'exam_id' => $exam->getKey(), 'group_id' => $group->getKey(),
                 'training_provider_id' => $data['training_provider_id'] ?? null,
+                'training_provider_location_id' => $providerLocationId,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'duration_minutes' => $data['duration_minutes'],
@@ -74,5 +77,36 @@ class SaveExamScheduleAction
 
             return $schedule->fresh(['exam', 'group', 'trainingClass']);
         });
+    }
+
+    private function resolveProviderLocation(?ExamSchedule $schedule, array $data): ?int
+    {
+        $providerId = $data['training_provider_id'] ?? null;
+        $locationId = $data['training_provider_location_id'] ?? null;
+
+        if (! $providerId) {
+            if ($locationId) {
+                throw ValidationException::withMessages(['training_provider_location_id' => 'Select the training provider for this location.']);
+            }
+
+            return null;
+        }
+
+        if (! $locationId) {
+            $locations = TrainingProviderLocation::query()->where('training_provider_id', $providerId)->where('is_active', true)->pluck('id');
+            if ($locations->count() === 1) {
+                return (int) $locations->first();
+            }
+
+            throw ValidationException::withMessages(['training_provider_location_id' => 'Select a location for this training provider.']);
+        }
+
+        $location = TrainingProviderLocation::query()->find($locationId);
+        $isCurrent = (int) $schedule?->training_provider_location_id === (int) $locationId;
+        if (! $location || (int) $location->training_provider_id !== (int) $providerId || (! $location->is_active && ! $isCurrent)) {
+            throw ValidationException::withMessages(['training_provider_location_id' => 'Select an active location belonging to the selected training provider.']);
+        }
+
+        return $location->getKey();
     }
 }

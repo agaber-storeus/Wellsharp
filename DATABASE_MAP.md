@@ -70,6 +70,10 @@ History of role changes. `user_id`, `role_id`, `assigned_by_user_id` (nullable),
 1:1 with `users` (Proctor only — generated when a user's active role becomes Proctor, revoked when they leave it). `control_id` (unique, e.g. `PR-XXXXXXXXXX`) — the Proctor's ID checked by `ControlOperationalExamAction`. Backfilled from a legacy `users.proctor_id` column which was then dropped.
 
 ### `training_providers`
+Legacy provider identity/contact fields remain on this table, including the primary `address`/map coordinates used by older consumers. A provider now owns zero or more normalized `training_provider_locations` rows.
+
+### `training_provider_locations`
+`training_provider_id`, `location`, optional `latitude`/`longitude`, and `is_active`. Removed locations are deactivated rather than deleted so Schedule and Class history retains its exact location. Existing provider addresses are backfilled as active location rows.
 Provider directory; coordinates added later (map display). Status: `ProviderStatus` (active/inactive/archived).
 
 ### Course reference tables (`2026_08_07_000003_create_course_reference_tables.php`)

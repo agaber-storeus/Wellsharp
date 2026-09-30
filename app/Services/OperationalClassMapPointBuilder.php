@@ -23,7 +23,7 @@ class OperationalClassMapPointBuilder
             return [
                 'classNumber' => $trainingClass->class_number,
                 'title' => $trainingClass->displayTitle(),
-                'location' => $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Location not assigned',
+                'location' => $trainingClass->providerLocation?->location ?: $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Location not assigned',
                 'provider' => $trainingClass->provider?->name ?: 'Provider not assigned',
                 'status' => $status->value,
                 'group' => match ($status) {
@@ -35,8 +35,8 @@ class OperationalClassMapPointBuilder
                 'startsAt' => $trainingClass->starts_at?->toIso8601String(),
                 'endsAt' => $trainingClass->ends_at?->toIso8601String(),
                 'durationDays' => $this->durationDays($trainingClass),
-                'lat' => $trainingClass->provider?->latitude,
-                'lng' => $trainingClass->provider?->longitude,
+                'lat' => $trainingClass->providerLocation?->latitude ?? $trainingClass->provider?->latitude,
+                'lng' => $trainingClass->providerLocation?->longitude ?? $trainingClass->provider?->longitude,
             ];
         })->values()->all();
     }
@@ -84,7 +84,7 @@ class OperationalClassMapPointBuilder
                     ['Exam Date/Time:', $this->examAvailability($trainingClass)],
                     ['Started On:', $this->startedAt($trainingClass, $status)],
                     ['Ended On:', $this->endedAt($trainingClass, $status)],
-                    ['Address:', $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Not assigned'],
+                    ['Address:', $trainingClass->providerLocation?->location ?: $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Not assigned'],
                     ['Course Level:', $trainingClass->course->level?->name ?: 'Not assigned'],
                     ['Stacks Offered:', $trainingClass->course->stacks->pluck('name')->join(', ') ?: 'None'],
                     ['Supplement Offered:', $trainingClass->course->supplements->pluck('name')->join(', ') ?: 'None'],

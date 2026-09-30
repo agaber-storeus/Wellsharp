@@ -172,6 +172,10 @@ class DemoDataSeeder extends Seeder
                     'archived_at' => null,
                 ],
             );
+            $provider->locations()->updateOrCreate(
+                ['location' => $providerAddresses[$number - 1]],
+                ['latitude' => $coordinates[$number - 1][0], 'longitude' => $coordinates[$number - 1][1], 'is_active' => true],
+            );
             $providers[] = $provider;
         }
 

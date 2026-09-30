@@ -29,6 +29,16 @@ class TrainingProvider extends Model
         return $this->hasMany(TrainingClass::class);
     }
 
+    public function locations(): HasMany
+    {
+        return $this->hasMany(TrainingProviderLocation::class, 'training_provider_id');
+    }
+
+    public function activeLocations(): HasMany
+    {
+        return $this->locations()->where('is_active', true);
+    }
+
     public function examSchedules(): HasMany
     {
         return $this->hasMany(ExamSchedule::class, 'training_provider_id');

@@ -7,6 +7,7 @@ use App\Enums\ExamQuestionSelectionMode;
 use App\Models\Course;
 use App\Models\Group;
 use App\Models\Role;
+use App\Models\TrainingProviderLocation;
 use App\Rules\ActiveStaffWithRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,6 +26,12 @@ class StoreExamRequest extends FormRequest
                 : ($this->input('question_order_mode') ?: ExamQuestionOrderMode::Static->value),
             'start_mode' => $this->input('start_mode') ?: 'automatic',
         ]);
+        if ($this->filled('training_provider_id') && ! $this->filled('training_provider_location_id')) {
+            $locations = TrainingProviderLocation::query()->where('training_provider_id', $this->input('training_provider_id'))->where('is_active', true)->pluck('id');
+            if ($locations->count() === 1) {
+                $this->merge(['training_provider_location_id' => $locations->first()]);
+            }
+        }
     }
 
     public function authorize(): bool
@@ -56,6 +63,7 @@ class StoreExamRequest extends FormRequest
             // visit a separate "Create Exam Schedule" screen for the first Class.
             'group_id' => ['nullable', 'integer', Rule::exists('student_groups', 'id')],
             'training_provider_id' => ['nullable', 'integer', Rule::exists('training_providers', 'id')],
+            'training_provider_location_id' => ['nullable', 'integer', Rule::exists('training_provider_locations', 'id')],
             'start_date' => ['nullable', 'date_format:Y-m-d'],
             'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
@@ -125,6 +133,13 @@ class StoreExamRequest extends FormRequest
             }
             if (! $this->filled('instructor_id')) {
                 $validator->errors()->add('instructor_id', 'Select an Instructor to schedule this Exam\'s first Class.');
+            }
+            $providerId = $this->integer('training_provider_id');
+            $locationId = $this->integer('training_provider_location_id');
+            if ($providerId && ! $locationId) {
+                $validator->errors()->add('training_provider_location_id', 'Select a location for this training provider.');
+            } elseif ($providerId && ! TrainingProviderLocation::query()->whereKey($locationId)->where('training_provider_id', $providerId)->where('is_active', true)->exists()) {
+                $validator->errors()->add('training_provider_location_id', 'Select an active location belonging to the selected training provider.');
             }
         });
     }

@@ -122,8 +122,6 @@ class NavigationController extends Controller
             'knowledge_score' => $row['score'],
             'passed' => $row['passed'],
             'certificate_download_url' => $row['certificateDownloadUrl'],
-            'certificate_front_url' => $row['certificateFrontUrl'],
-            'certificate_back_url' => $row['certificateBackUrl'],
             'certificate_number' => $row['certificateNumber'],
         ]);
     }

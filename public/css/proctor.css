@@ -3095,26 +3095,6 @@ body {
   min-width: 86px;
 }
 
-.certificate-actions {
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 2px;
-}
-
-.mini-cert-btn {
-  display: inline-block;
-  min-width: 38px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: #0b9a1a;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.1;
-  text-decoration: none;
-}
-
 .edit-score {
   color: #555;
   text-decoration: none;

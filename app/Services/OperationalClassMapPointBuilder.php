@@ -143,8 +143,6 @@ class OperationalClassMapPointBuilder
         } : 'notstarted';
         $documentsByType = $certificate?->documents->keyBy(fn($document) => $document->type->value);
         $fullDocument = $documentsByType?->get(CertificateDocumentType::FullCertificate->value);
-        $frontDocument = $documentsByType?->get(CertificateDocumentType::CompletionCardFront->value);
-        $backDocument = $documentsByType?->get(CertificateDocumentType::CompletionCardBack->value);
         $isProctor = auth()->user()->hasRole('proctor');
         $result = $attempt && $attempt->score !== null ? $this->knowledgeResults->resolve($attempt) : null;
 
@@ -159,9 +157,7 @@ class OperationalClassMapPointBuilder
             'releasedAt' => $attempt?->released_at?->format('Y-m-d H:i'),
             'reportUrl' => $attempt ? route($isProctor ? 'proctor.analytics.attempts.summary' : 'instructor.analytics.attempts.summary', $attempt) : null,
             'releaseUrl' => $attempt ? route($isProctor ? 'proctor.analytics.attempts.release' : 'instructor.analytics.attempts.release', $attempt) : null,
-            'certificateDownloadUrl' => $fullDocument ? route('certificates.documents.download', [$certificate, $fullDocument]) : ($frontDocument ? route('certificates.documents.download', [$certificate, $frontDocument]) : null),
-            'certificateFrontUrl' => $frontDocument ? route('certificates.documents.standalone', [$certificate, $frontDocument]) : null,
-            'certificateBackUrl' => $backDocument ? route('certificates.documents.standalone', [$certificate, $backDocument]) : null,
+            'certificateDownloadUrl' => $fullDocument ? route('certificates.documents.download', [$certificate, $fullDocument]) : null,
             'certificateNumber' => $certificate?->certificate_number,
         ];
     }

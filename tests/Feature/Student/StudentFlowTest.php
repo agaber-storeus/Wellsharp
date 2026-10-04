@@ -100,7 +100,9 @@ class StudentFlowTest extends TestCase
             ->assertSee('WellSharp Energy')
             ->assertSee('EMP-001')
             ->assertDontSee('Class and Exam');
-        $this->post(route('student.exams.start', $schedule))->assertStatus(422);
+        $this->get(route('student.proctor', $schedule))
+            ->assertOk()
+            ->assertDontSee('Complete the survey before starting the exam.', false);
 
         $this->post(route('student.confirm.store', $schedule))->assertRedirect(route('student.survey.start', $schedule));
         $this->get(route('student.survey.form', $schedule))->assertOk()->assertSee('What is your current job position?');
@@ -139,6 +141,64 @@ class StudentFlowTest extends TestCase
             ->assertJsonPath('saved', true)
             ->assertJsonPath('answered', true);
         $this->assertDatabaseHas('exam_attempt_questions', ['id' => $attemptQuestion->id, 'answer' => 'Student answer']);
+    }
+
+    public function test_student_can_open_proctor_page_without_submitting_survey(): void
+    {
+        [$student, $schedule] = $this->readyStudentAndScheduleWithoutSurvey();
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+
+        $this->get(route('student.proctor', $schedule))
+            ->assertOk()
+            ->assertSee('Start Exam')
+            ->assertDontSee('Complete the survey before starting the exam.', false);
+
+        $this->assertDatabaseMissing('student_surveys', [
+            'student_user_id' => $student->id,
+            'exam_schedule_id' => $schedule->id,
+        ]);
+    }
+
+    public function test_student_can_start_exam_without_submitting_survey_and_no_survey_is_created(): void
+    {
+        [$student, $schedule] = $this->readyStudentAndScheduleWithoutSurvey();
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+
+        $this->post(route('student.exams.start', $schedule))->assertRedirect();
+
+        $this->assertDatabaseHas('exam_attempts', [
+            'exam_schedule_id' => $schedule->id,
+            'student_user_id' => $student->id,
+            'status' => 'in_progress',
+        ]);
+        $this->assertDatabaseMissing('student_surveys', [
+            'student_user_id' => $student->id,
+            'exam_schedule_id' => $schedule->id,
+        ]);
+    }
+
+    public function test_student_can_start_exam_with_incomplete_survey_without_auto_completing_it(): void
+    {
+        [$student, $schedule] = $this->readyStudentAndScheduleWithoutSurvey();
+        StudentSurvey::create([
+            'student_user_id' => $student->id,
+            'exam_schedule_id' => $schedule->id,
+            'status' => 'started',
+            'contact_confirmed_at' => now(),
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+
+        $this->post(route('student.exams.start', $schedule))->assertRedirect();
+
+        $this->assertDatabaseHas('student_surveys', [
+            'student_user_id' => $student->id,
+            'exam_schedule_id' => $schedule->id,
+            'status' => 'started',
+            'completed_at' => null,
+        ]);
     }
 
     public function test_student_dashboard_uses_the_latest_assigned_class_for_continue(): void
@@ -699,6 +759,17 @@ class StudentFlowTest extends TestCase
             'contact_confirmed_at' => now(),
             'completed_at' => now(),
         ]);
+
+        return [$student, $schedule];
+    }
+
+    private function readyStudentAndScheduleWithoutSurvey(array $scheduleAttributes = []): array
+    {
+        [$student, $schedule] = $this->readyStudentAndSchedule($scheduleAttributes);
+        StudentSurvey::query()
+            ->where('student_user_id', $student->id)
+            ->where('exam_schedule_id', $schedule->id)
+            ->delete();
 
         return [$student, $schedule];
     }

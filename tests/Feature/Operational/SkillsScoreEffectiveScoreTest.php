@@ -4,8 +4,10 @@ namespace Tests\Feature\Operational;
 
 use App\Actions\Certificates\IssueCertificateAction;
 use App\Actions\Classes\UpdateEnrollmentSkillsScoreAction;
+use App\Enums\CertificateDocumentType;
 use App\Models\AuditEvent;
 use App\Models\Certificate;
+use App\Models\CertificateDocument;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\Exam;
@@ -142,9 +144,28 @@ class SkillsScoreEffectiveScoreTest extends TestCase
         $response->assertJsonPath('skills_score', 40)
             ->assertJsonPath('knowledge_score', '90.00')
             ->assertJsonPath('passed', true)
-            ->assertJsonPath('certificate_number', $certificate->certificate_number);
+            ->assertJsonPath('certificate_number', $certificate->certificate_number)
+            ->assertJsonMissingPath('certificate_front_url')
+            ->assertJsonMissingPath('certificate_back_url');
         $this->assertNotNull($response->json('certificate_download_url'));
         $this->assertDatabaseHas('certificates', ['id' => $certificate->id, 'score' => 90]);
+    }
+
+    public function test_class_dashboard_certificate_download_uses_only_full_certificate_document(): void
+    {
+        $data = $this->makeSubmittedAttempt(passingScore: 70, correctCount: 9);
+        $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+        CertificateDocument::query()
+            ->where('certificate_id', $certificate->id)
+            ->where('type', CertificateDocumentType::FullCertificate)
+            ->delete();
+
+        $this->actingAs(User::factory()->proctor()->create());
+
+        $row = app(OperationalClassMapPointBuilder::class)->scoreRowForEnrollment($data['enrollment']);
+
+        $this->assertSame($certificate->certificate_number, $row['certificateNumber']);
+        $this->assertNull($row['certificateDownloadUrl']);
     }
 
     public function test_admin_active_proctor_and_active_instructor_can_update_skills_score(): void

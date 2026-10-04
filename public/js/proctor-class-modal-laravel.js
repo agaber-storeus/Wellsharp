@@ -90,8 +90,6 @@
     row.score = data.knowledge_score;
     row.passed = data.passed;
     row.certificateDownloadUrl = data.certificate_download_url;
-    row.certificateFrontUrl = data.certificate_front_url;
-    row.certificateBackUrl = data.certificate_back_url;
     row.certificateNumber = data.certificate_number;
   }
 
@@ -258,13 +256,7 @@
                 </td>
                 <td>
                   <template x-if="row.state !== 'notstarted' && row.state !== 'noshow' && row.certificateDownloadUrl">
-                    <span>
-                      <a class="release-btn certificate-download" x-bind:href="row.certificateDownloadUrl">Full Certificate</a>
-                      <div class="certificate-actions">
-                        <a class="mini-cert-btn" x-show="row.certificateFrontUrl" x-bind:href="row.certificateFrontUrl" target="_blank" rel="noopener">Front</a>
-                        <a class="mini-cert-btn" x-show="row.certificateBackUrl" x-bind:href="row.certificateBackUrl" target="_blank" rel="noopener">Back</a>
-                      </div>
-                    </span>
+                    <a class="release-btn certificate-download" x-bind:href="row.certificateDownloadUrl">DOWNLOAD</a>
                   </template>
                   <template x-if="!(row.state !== 'notstarted' && row.state !== 'noshow' && row.certificateDownloadUrl)">-</template>
                 </td>

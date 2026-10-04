@@ -31,8 +31,8 @@ class CertificateDocumentController extends Controller
 
     /**
      * The bare completion card, with no app chrome — this is what the
-     * Class Dashboard's Certificate column Front/Back buttons open in a
-     * new tab, matching the standalone card design exactly.
+     * standalone completion-card requests use, matching the standalone card
+     * design exactly.
      */
     public function standalone(Certificate $certificate, CertificateDocument $document): View
     {

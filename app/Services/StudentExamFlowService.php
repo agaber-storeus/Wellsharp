@@ -53,7 +53,7 @@ class StudentExamFlowService
 
     public function assertExamLaunchAvailable(ExamSchedule $schedule, User $student): void
     {
-        $this->assertSurveyCompleted($schedule, $student);
+        $this->assertStudentCanAccess($schedule, $student);
 
         if ($this->availability->isPastForLogin($schedule)) {
             abort(422, 'This exam schedule has ended.');
@@ -91,7 +91,7 @@ class StudentExamFlowService
 
     public function assertReadyForExam(ExamSchedule $schedule, User $student): void
     {
-        $this->assertSurveyCompleted($schedule, $student);
+        $this->assertStudentCanAccess($schedule, $student);
 
         if ($message = $this->finishedExamMessage($schedule, $student)) {
             abort(422, $message);

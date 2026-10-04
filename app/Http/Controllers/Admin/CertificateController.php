@@ -3,8 +3,16 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\CertificateStatus;
+use App\Enums\KnowledgeControlType;
+use App\Actions\Certificates\IssueCertificateAction;
+use App\Actions\Exams\ManageKnowledgeScoreControlAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ReasonRequest;
+use App\Http\Requests\Admin\StoreKnowledgeScoreControlRequest;
 use App\Models\Certificate;
+use App\Models\ExamAttemptScoreControl;
+use App\Services\AuditRecorder;
+use App\Services\KnowledgeResultService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,11 +50,86 @@ class CertificateController extends Controller
         ]);
     }
 
-    public function show(Certificate $certificate): View
+    public function show(Certificate $certificate, KnowledgeResultService $results): View
     {
-        $certificate->load(['student.profile', 'exam.subject', 'schedule.group', 'trainingClass', 'provider', 'instructor.profile', 'attempt.attemptQuestions.question', 'documents']);
+        $certificate->load([
+            'student.profile',
+            'exam.subject',
+            'schedule.group',
+            'trainingClass',
+            'provider',
+            'instructor.profile',
+            'attempt.attemptQuestions.question.options',
+            'attempt.scoreControls.createdBy.profile',
+            'attempt.scoreControls.revertedBy.profile',
+            'attempt.scoreControls.attemptQuestion.question',
+            'documents',
+        ]);
 
-        return view('admin.certificates.show', compact('certificate'));
+        $examReview = [];
+        $knowledgeResult = null;
+        if ($certificate->attempt) {
+            $knowledgeResult = $results->resolve($certificate->attempt);
+            $questions = $certificate->attempt->attemptQuestions->keyBy('id');
+            $examReview = collect($knowledgeResult['breakdown'])
+                ->map(function (array $row) use ($questions): array {
+                    $question = $questions->get($row['id'])?->question;
+
+                    return $row + [
+                        'code' => $question?->code,
+                        'type_label' => $question?->type?->label(),
+                        'difficulty_label' => $question?->difficulty?->label(),
+                        'solution_text' => $question?->solution_text,
+                    ];
+                })
+                ->all();
+        }
+
+        return view('admin.certificates.show', compact('certificate', 'examReview', 'knowledgeResult'));
+    }
+
+    public function storeKnowledgeControl(StoreKnowledgeScoreControlRequest $request, Certificate $certificate, ManageKnowledgeScoreControlAction $action): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($certificate->attempt, 404);
+        $data = $request->validated();
+        $action->create($certificate->attempt, KnowledgeControlType::from($data['type']), $data, $request->user());
+
+        return back()->with('status', 'Knowledge score control added.');
+    }
+
+    public function revertKnowledgeControl(ReasonRequest $request, Certificate $certificate, ExamAttemptScoreControl $control, ManageKnowledgeScoreControlAction $action): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($certificate->attempt, 404);
+        $action->revert($certificate->attempt, $control, $request->validated('reason'), $request->user());
+
+        return back()->with('status', 'Knowledge score control reverted.');
+    }
+
+    public function restoreKnowledgeControls(ReasonRequest $request, Certificate $certificate, ManageKnowledgeScoreControlAction $action): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($certificate->attempt, 404);
+        $action->restore($certificate->attempt, $request->validated('reason'), $request->user());
+
+        return back()->with('status', 'Calculated Knowledge result restored.');
+    }
+
+    public function issue(Certificate $certificate, IssueCertificateAction $issuer): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($certificate->attempt, 404);
+        $issued = $issuer->execute($certificate->attempt);
+
+        return back()->with('status', $issued ? 'Certificate is issued.' : 'The current Knowledge result is not eligible.');
+    }
+
+    public function revoke(ReasonRequest $request, Certificate $certificate, AuditRecorder $audit): \Illuminate\Http\RedirectResponse
+    {
+        if ($certificate->status !== CertificateStatus::Revoked) {
+            $before = $certificate->toArray();
+            $certificate->update(['status' => CertificateStatus::Revoked, 'revoked_at' => now(), 'revocation_reason' => $request->validated('reason')]);
+            $audit->record('certificate.revoked', $certificate, $before, $certificate->fresh()->toArray(), $request->validated('reason'));
+        }
+
+        return back()->with('status', 'Certificate revoked.');
     }
 
     private function filteredQuery(Request $request): Builder

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: WellSharp Same-Origin JSON Contract
-  version: 1.1.0
+  version: 1.2.0
   description: |
     JSON endpoints used by the authenticated Laravel Blade/Alpine.js interfaces.
     This is not a bearer-token REST API: the application uses Laravel session
@@ -16,6 +16,8 @@ tags:
   - name: Public certificates
   - name: Admin data
   - name: Admin configuration
+  - name: Admin provider locations
+  - name: Admin Knowledge controls
   - name: Password recovery
   - name: Operational control
   - name: Student attempt
@@ -157,6 +159,41 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/PaginatedPayload' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/providers/location-drafts/{draftToken}:
+    put:
+      tags: [Admin provider locations]
+      security: [{ laravelSession: [] }]
+      operationId: autosaveProviderLocationDraft
+      summary: Autosave create-Provider locations to the owning Admin session
+      parameters:
+        - { name: draftToken, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderLocationsRequest' }
+      responses:
+        '200': { description: Synchronized draft locations with stable client keys. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/providers/{provider}/locations/autosave:
+    put:
+      tags: [Admin provider locations]
+      security: [{ laravelSession: [] }]
+      operationId: autosaveProviderLocations
+      summary: Autosave locations owned by an existing Provider
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProviderLocationsRequest' }
+      responses:
+        '200': { description: Synchronized persisted locations with stable client keys and IDs. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /admin/subjects/data:
     get:
       tags: [Admin data]
@@ -218,6 +255,81 @@ paths:
       parameters: [ { $ref: '#/components/parameters/Search' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Direction' }, { $ref: '#/components/parameters/Page' } ]
       responses:
         '200': { $ref: '#/components/responses/PaginatedPayload' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/certificates/{certificate}/knowledge-controls:
+    post:
+      tags: [Admin Knowledge controls]
+      security: [{ laravelSession: [] }]
+      operationId: addKnowledgeControl
+      summary: Add an auditable control to the linked attempt's canonical Knowledge result
+      parameters: [ { name: certificate, in: path, required: true, schema: { type: string } } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { $ref: '#/components/schemas/KnowledgeControlRequest' }
+      responses:
+        '302': { description: Redirect back to Admin Certificate details. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/certificates/{certificate}/knowledge-controls/{control}/revert:
+    patch:
+      tags: [Admin Knowledge controls]
+      security: [{ laravelSession: [] }]
+      operationId: revertKnowledgeControl
+      summary: Revert one active Knowledge control without deleting its history
+      parameters:
+        - { name: certificate, in: path, required: true, schema: { type: string } }
+        - { name: control, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '302': { description: Redirect back to Admin Certificate details. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /admin/certificates/{certificate}/knowledge-controls/restore:
+    post:
+      tags: [Admin Knowledge controls]
+      security: [{ laravelSession: [] }]
+      operationId: restoreCalculatedKnowledgeResult
+      summary: Revert every active control and restore the calculated Knowledge result
+      parameters: [ { name: certificate, in: path, required: true, schema: { type: string } } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '302': { description: Redirect back to Admin Certificate details. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/certificates/{certificate}/issue:
+    post:
+      tags: [Admin Knowledge controls]
+      security: [{ laravelSession: [] }]
+      operationId: issueEligibleCertificate
+      summary: Explicitly issue an eligible certificate without duplicating an existing one
+      parameters: [ { name: certificate, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '302': { description: Redirect back with issued or ineligible status. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /admin/certificates/{certificate}/revoke:
+    post:
+      tags: [Admin Knowledge controls]
+      security: [{ laravelSession: [] }]
+      operationId: revokeCertificate
+      summary: Explicitly revoke a certificate with an audited reason
+      parameters: [ { name: certificate, in: path, required: true, schema: { type: string } } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '302': { description: Redirect back to Admin Certificate details. }
         '403': { $ref: '#/components/responses/Forbidden' }
   /{role}/proctor-id/verify:
     post:
@@ -344,6 +456,35 @@ components:
     PerPage: { name: per_page, in: query, schema: { type: integer, enum: [15, 30, 50, 100], default: 15 } }
     RolePath: { name: role, in: path, required: true, schema: { type: string, enum: [proctor, instructor] } }
   schemas:
+    ProviderLocationsRequest:
+      type: object
+      required: [locations]
+      properties:
+        locations:
+          type: array
+          items:
+            type: object
+            required: [client_key]
+            properties:
+              client_key: { type: string, maxLength: 100 }
+              id: { type: integer, nullable: true }
+              location: { type: string, nullable: true, maxLength: 500 }
+              latitude: { type: number, format: double, nullable: true, minimum: -90, maximum: 90 }
+              longitude: { type: number, format: double, nullable: true, minimum: -180, maximum: 180 }
+    KnowledgeControlRequest:
+      type: object
+      required: [type, reason]
+      properties:
+        type: { type: string, enum: [question_points, score_adjustment, final_score, pass_fail] }
+        numeric_value: { type: number, nullable: true, minimum: -100, maximum: 100 }
+        boolean_value: { type: boolean, nullable: true }
+        exam_attempt_question_id: { type: integer, nullable: true }
+        reason: { type: string, minLength: 3, maxLength: 2000 }
+    ReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 2000 }
     LoginRequest:
       type: object
       required: [wellsharp_id, password]

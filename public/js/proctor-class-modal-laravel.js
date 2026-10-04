@@ -81,15 +81,14 @@
     };
   };
 
-  // Applies a Skills Score save response onto a roster row. Shared by
+  // Applies a Practical / Skills Score save response onto a roster row. Shared by
   // saveScore() (the Alpine component's own, ephemeral row copy) and the
   // classModalData cache sync below, so both always receive identical
   // fields.
   function applyScoreRowResult(row, data) {
     row.skillsScore = data.skills_score;
-    row.effectiveScore = data.effective_score;
+    row.score = data.knowledge_score;
     row.passed = data.passed;
-    row.overridden = data.overridden;
     row.certificateDownloadUrl = data.certificate_download_url;
     row.certificateFrontUrl = data.certificate_front_url;
     row.certificateBackUrl = data.certificate_back_url;
@@ -131,15 +130,12 @@
         }).then(function (result) {
           if (!result.ok) {
             var errors = result.data.errors || {};
-            row.error = errors.skills_score ? errors.skills_score[0] : (result.data.message || "The Skills Score could not be saved.");
+            row.error = errors.skills_score ? errors.skills_score[0] : (result.data.message || "The Practical / Skills Score could not be saved.");
             return;
           }
 
-          // The backend is the sole authority on pass/fail and certificate
-          // state (see EffectiveScoreService / UpdateEnrollmentSkillsScoreAction) -
-          // apply its full response onto the row so the Certificate cell,
-          // which is already Alpine-bound to these same row.* properties,
-          // updates reactively without any markup change or page reload.
+          // Apply the saved independent Practical / Skills Score and the
+          // unchanged Knowledge/certificate row state without a page reload.
           applyScoreRowResult(row, result.data);
           row.editing = false;
 
@@ -161,7 +157,7 @@
             }
           }
         }).catch(function () {
-          row.error = "The Skills Score could not be saved. Try again.";
+          row.error = "The Practical / Skills Score could not be saved. Try again.";
         }).finally(function () {
           row.saving = false;
         });
@@ -226,7 +222,7 @@
         <table class="scores-table class-scores-table">
           <thead><tr>
             <th>Name</th>
-            <th>Skills Score</th>
+            <th>Practical / Skills Score</th>
             <th>Knowledge Exam</th>
             <th>Certificate</th>
           </tr></thead>
@@ -243,7 +239,7 @@
                   </template>
                   <template x-if="row.editing">
                     <span class="score-edit-cell">
-                      <input class="score-input" type="number" min="0" max="100" x-model="row.draft" aria-label="Skills Score">
+                      <input class="score-input" type="number" min="0" max="100" x-model="row.draft" aria-label="Practical / Skills Score">
                       <a href="#" class="save-score" x-on:click.prevent="saveScore(row)">&#128190;</a>
                     </span>
                   </template>
@@ -682,7 +678,7 @@
     var isCodes = type === "codes";
     var title = isCodes ? "Class Roster &amp; Trainee Codes" : "Class Results Report";
     var subtitle = isCodes ? "Enrollment and WellSharp identification details" : "Assessment outcomes and certificate status";
-    var headers = isCodes ? ["Name", "Username", "Company"] : ["Name", "Skills Score", "Knowledge Exam", "Certificate"];
+    var headers = isCodes ? ["Name", "Username", "Company"] : ["Name", "Practical / Skills Score", "Knowledge Exam", "Certificate"];
     var generatedAt = new Date().toLocaleString();
     var tableClass = isCodes ? "codes-print-table" : "results-print-table";
     var documentMarkup = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + title.replace(/&amp;/g, "&") + '</title><style>' +

@@ -65,10 +65,10 @@
     <p class="dash-note">"Unique students" counts distinct students; "Enrollments" counts every Class enrollment (a student enrolled in 3 Classes counts once and three times, respectively).</p>
 </section>
 
-{{-- Exam performance + Skills Score overrides --}}
+{{-- Knowledge Exam performance + independent Practical / Skills assessment --}}
 <div class="dash-cols-2 dash-section">
     <section class="card" aria-labelledby="exam-performance-title">
-        <div class="admin-section-head"><div><span class="admin-kicker">Effective score</span><h2 id="exam-performance-title">Exam performance</h2></div></div>
+        <div class="admin-section-head"><div><span class="admin-kicker">Knowledge score</span><h2 id="exam-performance-title">Exam performance</h2></div></div>
 
         @php($scored = $dashboard['exam_performance']['scored_total'])
         <div class="dash-bar-row">
@@ -84,25 +84,23 @@
 
         <div class="dash-mini-stats">
             <div class="dash-mini-stat"><strong>{{ $dashboard['exam_performance']['pass_rate'] !== null ? number_format($dashboard['exam_performance']['pass_rate'], 1).'%' : '—' }}</strong><span>Pass rate</span></div>
-            <div class="dash-mini-stat"><strong>{{ $dashboard['exam_performance']['average_effective_score'] !== null ? number_format($dashboard['exam_performance']['average_effective_score'], 1) : '—' }}</strong><span>Average effective score</span></div>
+            <div class="dash-mini-stat"><strong>{{ $dashboard['exam_performance']['average_knowledge_score'] !== null ? number_format($dashboard['exam_performance']['average_knowledge_score'], 1) : '—' }}</strong><span>Average Knowledge score</span></div>
             <div class="dash-mini-stat"><strong>{{ number_format($dashboard['exam_performance']['attempts_completed']) }}</strong><span>Attempts completed</span></div>
             <div class="dash-mini-stat"><strong>{{ number_format($dashboard['exam_performance']['attempts_pending']) }}</strong><span>Pending / in progress</span></div>
         </div>
-        <p class="dash-note">Pass/fail uses the effective score — the Skills Score override when set, otherwise the raw Knowledge Exam score — over the {{ number_format($scored) }} attempts that have been scored.</p>
+        <p class="dash-note">Pass/fail uses only the Knowledge Exam score over the {{ number_format($scored) }} attempts that have been scored.</p>
     </section>
 
-    <section class="card" aria-labelledby="skills-overrides-title">
-        <div class="admin-section-head"><div><span class="admin-kicker">Manual overrides</span><h2 id="skills-overrides-title">Skills Score overrides</h2></div></div>
+    <section class="card" aria-labelledby="skills-assessments-title">
+        <div class="admin-section-head"><div><span class="admin-kicker">Independent assessment</span><h2 id="skills-assessments-title">Practical / Skills Scores</h2></div></div>
         <div class="dash-mini-stats">
-            <div class="dash-mini-stat"><strong>{{ number_format($dashboard['skills_overrides']['active']) }}</strong><span>Active overrides</span></div>
-            <div class="dash-mini-stat"><strong>{{ number_format($dashboard['skills_overrides']['fail_to_pass']) }}</strong><span>Changed Fail &rarr; Pass</span></div>
-            <div class="dash-mini-stat"><strong>{{ number_format($dashboard['skills_overrides']['pass_to_fail']) }}</strong><span>Changed Pass &rarr; Fail</span></div>
-            <div class="dash-mini-stat"><strong>{{ number_format($dashboard['skills_overrides']['no_change']) }}</strong><span>No change to outcome</span></div>
+            <div class="dash-mini-stat"><strong>{{ number_format($dashboard['skills_assessments']['recorded']) }}</strong><span>Scores recorded</span></div>
+            <div class="dash-mini-stat"><strong>{{ $dashboard['skills_assessments']['average'] !== null ? number_format($dashboard['skills_assessments']['average'], 1) : '—' }}</strong><span>Average practical score</span></div>
+            <div class="dash-mini-stat"><strong>{{ $dashboard['skills_assessments']['lowest'] ?? '—' }}</strong><span>Lowest practical score</span></div>
+            <div class="dash-mini-stat"><strong>{{ $dashboard['skills_assessments']['highest'] ?? '—' }}</strong><span>Highest practical score</span></div>
         </div>
-        @if($dashboard['skills_overrides']['active'] === 0)
-            <p class="dash-note">No enrollments currently have a Skills Score override.</p>
-        @elseif($dashboard['skills_overrides']['not_yet_scored'] > 0)
-            <p class="dash-note">{{ number_format($dashboard['skills_overrides']['not_yet_scored']) }} override(s) belong to a student with no scored Knowledge Exam attempt yet, so no change-in-outcome could be determined.</p>
+        @if($dashboard['skills_assessments']['recorded'] === 0)
+            <p class="dash-note">No Practical / Skills Scores have been recorded.</p>
         @endif
     </section>
 </div>
@@ -119,7 +117,7 @@
             <div class="dash-mini-stat"><strong>{{ number_format($dashboard['certificates']['revoked']) }}</strong><span>Revoked</span></div>
         @endif
     </div>
-    <p class="dash-note">A certificate remains on record once issued even if a later Skills Score change would now fail the student — "currently valid" reflects expiration only, not current eligibility.</p>
+    <p class="dash-note">Certificate eligibility is based only on the Knowledge Exam score. Practical / Skills Scores do not affect certificate status.</p>
 </section>
 
 {{-- Staff overview --}}

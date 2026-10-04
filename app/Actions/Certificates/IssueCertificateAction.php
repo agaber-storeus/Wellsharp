@@ -9,8 +9,8 @@ use App\Models\Certificate;
 use App\Models\CertificateDocument;
 use App\Models\ExamAttempt;
 use App\Services\AuditRecorder;
-use App\Services\EffectiveScoreService;
 use App\Services\ExamScoringService;
+use App\Services\KnowledgeResultService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -19,7 +19,7 @@ class IssueCertificateAction
 {
     public function __construct(
         private readonly ExamScoringService $scoring,
-        private readonly EffectiveScoreService $effectiveScore,
+        private readonly KnowledgeResultService $knowledgeResults,
         private readonly AuditRecorder $audit,
     ) {}
 
@@ -31,21 +31,13 @@ class IssueCertificateAction
                 return null;
             }
 
-            // The raw automated Knowledge Exam result is always recalculated and
-            // persisted here exactly as before (BR-027) - a Skills Score override
-            // never touches exam_attempts.score/passed, only which number counts
-            // for certification purposes, decided below via the effective score.
-            $result = $this->scoring->calculate($attempt);
-            $attempt->update(['score' => $result['score'], 'passed' => $result['passed'], 'scored_at' => $attempt->scored_at ?: now()]);
+            if ($attempt->score === null) {
+                $calculated = $this->scoring->calculate($attempt);
+                $attempt->update(['score' => $calculated['score'], 'passed' => $calculated['passed'], 'scored_at' => $attempt->scored_at ?: now()]);
+            }
+            $result = $this->knowledgeResults->resolve($attempt->fresh());
 
-            $effective = $this->effectiveScore->forAttempt($attempt);
-
-            if (! $effective['passed']) {
-                // Covers both "never passed" and "was overridden from passing to
-                // failing after an earlier issuance": either way, an existing
-                // Certificate row is left completely untouched - certificates are
-                // immutable snapshots once issued (BR-031), and this domain has no
-                // implemented revocation workflow (BR-033) to safely retract one.
+            if (! $result['certificate_eligible']) {
                 return null;
             }
 
@@ -86,13 +78,7 @@ class IssueCertificateAction
                 'group_name' => $attempt->schedule?->group?->name,
                 'provider_name' => $attempt->schedule?->provider?->name ?: $trainingClass?->provider?->name,
                 'instructor_name' => $trainingClass?->instructor?->display_name,
-                // The certificate records the *effective* score - the one that
-                // actually cleared the passing threshold - so the printed
-                // "score / passing score" pair is always internally consistent.
-                // The original Knowledge Exam result is never lost: it stays on
-                // exam_attempts.score, and enrollments.skills_score keeps the
-                // override, if any - both untouched by this write.
-                'score' => $effective['score'],
+                'score' => $result['final_knowledge_score'],
                 'passing_score' => $attempt->exam?->passing_score ?? 0,
                 'issued_at' => $issuedAt,
                 'expires_at' => $this->expirationDate($issuedAt, $attempt->exam?->certificate_validity_years),

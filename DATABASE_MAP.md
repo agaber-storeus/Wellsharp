@@ -1,6 +1,6 @@
 # Database Map — WellSharp
 
-41 migrations, MySQL 8+ target / SQLite for tests. Every business table has: `id` (bigint PK), most also have a `public_id` ULID (unique, used in routes), `created_at`/`updated_at` as `timestampTz`. Status columns are plain `string(24)`, not native DB enums — validity is enforced by PHP backed enums (`app/Enums/*`) at the application layer only.
+53 migrations, MySQL 8+ target / SQLite for tests. Every business table has: `id` (bigint PK), most also have a `public_id` ULID (unique, used in routes), `created_at`/`updated_at` as `timestampTz`. Status columns are plain `string(24)`, not native DB enums — validity is enforced by PHP backed enums (`app/Enums/*`) at the application layer only.
 
 ## Core ER Diagram
 
@@ -41,6 +41,8 @@ erDiagram
     USERS ||--o{ EXAM_ATTEMPTS : "student_user_id"
     EXAM_ATTEMPTS ||--o{ EXAM_ATTEMPT_QUESTIONS : "snapshot"
     QUESTIONS ||--o{ EXAM_ATTEMPT_QUESTIONS : "answered in"
+    EXAM_ATTEMPTS ||--o{ EXAM_ATTEMPT_SCORE_CONTROLS : "admin controls"
+    EXAM_ATTEMPT_QUESTIONS ||--o{ EXAM_ATTEMPT_SCORE_CONTROLS : "optional question override"
 
     EXAM_ATTEMPTS ||--o| CERTIFICATES : "1:1, only if passed"
     CERTIFICATES ||--o{ CERTIFICATE_DOCUMENTS : "4 per certificate"
@@ -58,7 +60,7 @@ erDiagram
 PK `id`; `key` (unique: admin/proctor/instructor/student), `name`, `description`.
 
 ### `users`
-PK `id`, `public_id` (ULID), `wellsharp_id` (unique login ID), `email` (nullable unique), `password` (hashed — the only value checked at login), `password_ciphertext` (nullable `Crypt`-encrypted recovery copy; application create/password-update paths populate it for every role, while legacy or nonstandard records may remain null; see BUSINESS_RULES.md BR-037..BR-042), `status` (`UserStatus`), `current_role_id` → roles, `session_version` (int, default 1 — bumped to force logout), `last_login_at`, `archived_at`, `remember_token`.
+PK `id`, `public_id` (ULID), `wellsharp_id` (unique login ID), `email` (nullable unique), `password` (hashed — the only value checked at login), `password_ciphertext` (nullable `Crypt`-encrypted recovery copy; application create/password-update paths populate it for every role, while legacy or nonstandard records may remain null; see BUSINESS_RULES.md BR-041..BR-046), `status` (`UserStatus`), `current_role_id` → roles, `session_version` (int, default 1 — bumped to force logout), `last_login_at`, `archived_at`, `remember_token`.
 
 ### `role_assignments`
 History of role changes. `user_id`, `role_id`, `assigned_by_user_id` (nullable), `started_at`, `ended_at` (nullable = current).
@@ -86,7 +88,7 @@ Provider directory; coordinates added later (map display). Status: `ProviderStat
 PK `id`, `public_id`, `class_number` (unique), `course_id` → courses (restrict delete), `training_provider_id` (nullable, null on provider delete), `status` (`ClassStatus`), `starts_at`/`ends_at` (nullable, indexed), `notes`. Later migration adds `actual_started_at`/`actual_ended_at` (manual-control timestamps, distinct from configured `starts_at`/`ends_at`). Migration `2026_08_23_000002` adds `proctor_id`/`instructor_id` (both nullable FKs → `users`, `restrictOnDelete`, indexed with `status`) — the authoritative staff-assignment fields (see BUSINESS_RULES.md BR-007a). Nullable at the DB level only to keep pre-existing rows valid; every new/edited Class must supply both at the application/validation layer.
 
 ### `enrollments`
-`class_id`, `student_user_id`, `status` (`EnrollmentStatus`), `enrolled_at`, `withdrawn_at`. Unique on `(class_id, student_user_id)` — a student enrolls in a given Class at most once (across its whole lifetime, not per-status). A later migration adds `skills_score` (nullable unsigned tinyint) — a manual override of the trainee's final/effective percentage, not an independent score; see BR-035/BR-036.
+`class_id`, `student_user_id`, `status` (`EnrollmentStatus`), `enrolled_at`, `withdrawn_at`. Unique on `(class_id, student_user_id)` — a student enrolls in a given Class at most once (across its whole lifetime, not per-status). A later migration adds `skills_score` (nullable unsigned tinyint), the independent Practical / Skills Score. It never affects Knowledge pass/fail or certificate eligibility; see BR-035/BR-036.
 
 ### `class_staff_assignments` — superseded/unused legacy table
 `class_id`, `user_id`, `assignment_role` (`StaffAssignmentRole`: proctor/instructor), `status` (`StaffAssignmentStatus`), `assigned_by_user_id`, `assigned_at`, `ended_at`. Unique on `(class_id, user_id, assignment_role)`. **Confirmed (2026-08-23) this never restricted Class control or visibility** — no controller/route ever called `AssignClassStaffAction`, and no policy read this table. The real ownership rule (BUSINESS_RULES.md BR-007a) is implemented via direct `classes.proctor_id`/`classes.instructor_id` columns instead (a many-role-per-class join table can't naturally enforce "exactly one," and every other single-owner relationship in this schema is a direct FK column, not a role-discriminated pivot). This table/model/Action are left in place as unused code — a candidate for removal in a future cleanup pass, not done here.
@@ -121,8 +123,11 @@ Belongs to `questions` for MCQ type. `option_text`, `is_correct`, `image_path` (
 ### `exam_attempt_questions`
 Per-attempt **snapshot** of the question set: `exam_attempt_id`, `question_id`, `display_order`, `points`. Unique on `(exam_attempt_id, question_id)` and `(exam_attempt_id, display_order)`. A later migration adds the student's `answer` (free text/option public_id) directly onto this row — i.e. answers are stored per attempt-question, not in a separate answers table. `2026_08_16_000001_add_option_order_to_exam_attempt_questions.php` adds `option_order` (nullable JSON array of `question_options.public_id`) — the frozen per-student MCQ answer-option order when the exam is in `shuffle` mode; `null` for static exams and non-MCQ questions (see BUSINESS_RULES.md BR-020a).
 
+### `exam_attempt_score_controls`
+Immutable-by-convention Admin Knowledge control history. Each row belongs to an `exam_attempt`; per-question controls also reference an `exam_attempt_question`. `type` is `question_points`, `score_adjustment`, `final_score`, or `pass_fail`; value columns are `numeric_value`/`boolean_value`. Every change stores required `reason`, actor, canonical `before_state`/`after_state`, and timestamps. Reversion updates `reverted_at`, `reverted_by_user_id`, and `revert_reason` rather than deleting history. There may be only one active final-score control, one active pass/fail control, and one active points control per attempt question; additive score adjustments may coexist.
+
 ### `certificates`
-1:1 with `exam_attempts` (unique FK). Denormalized snapshot columns: `student_name`, `student_email`, `student_wellsharp_id`, `exam_name`, `exam_code`, `subject_name`, `class_number`, `group_name`, `provider_name`, `instructor_name`. Plus `score`, `passing_score`, `issued_at`, `status` (`CertificateStatus`), `revoked_at`/`revocation_reason` (unused today), `pdf_path`. A later migration adds `expires_at`.
+1:1 with `exam_attempts` (unique FK). Denormalized snapshot columns: `student_name`, `student_email`, `student_wellsharp_id`, `exam_name`, `exam_code`, `subject_name`, `class_number`, `group_name`, `provider_name`, `instructor_name`. Plus `score`, `passing_score`, `issued_at`, `status` (`CertificateStatus`), `revoked_at`/`revocation_reason`, `pdf_path`. Admin revocation sets the status, timestamp, and required reason explicitly. A later migration adds `expires_at`.
 
 ### `certificate_documents`
 `certificate_id` (cascade delete), `type` (`CertificateDocumentType`: `full_certificate`, `knowledge_assessment_report`, `completion_card_front`, `completion_card_back`), `title`, `path` (nullable — PDFs are rendered on demand), `issued_at`. Unique on `(certificate_id, type)` — exactly one document per type per certificate. Migration `2026_09_02_000001_add_full_certificate_document.php` backfills the full-certificate row for existing certificates.
@@ -131,7 +136,7 @@ Per-attempt **snapshot** of the question set: `exam_attempt_id`, `question_id`, 
 Per-student persisted survey (contact confirmation / pre-exam questionnaire per `StudentSurveyDefinition` service). Not deeply traced this pass.
 
 ### `audit_events` / `login_events`
-Immutable-by-convention event logs; `AuditRecorder` service writes `audit_events` with before/after JSON, actor, correlation context. `AuditPolicy` denies all read access except Admin's `before()` override, and even Admin's `viewAny`/`view` explicitly return `false` — meaning **audit events currently have no UI read path even for Admin**, unless read directly via another mechanism not covered by this policy. Flagged as a **CONFLICT-shaped** finding worth confirming (README doesn't mention an audit viewer UI, so this may be intentional — logs-only, no admin screen yet).
+Immutable-by-convention event logs; `AuditRecorder` writes `audit_events` with before/after JSON, actor, reason, and correlation context. Admins can search and inspect merged audit/login activity through `/admin/system-logs`; the dedicated service/controller enforce the Admin boundary without exposing logs to other roles.
 
 ## Soft-delete / Archival Pattern
 

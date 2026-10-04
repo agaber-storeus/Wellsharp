@@ -103,16 +103,7 @@ class NavigationController extends Controller
         return response()->json(['students' => $payload])->header('Cache-Control', 'no-store');
     }
 
-    /**
-     * `skills_score` is a manual override of the trainee's final/effective
-     * percentage (see EffectiveScoreService), not a second informational
-     * score - `null` explicitly means "no override, use the Knowledge Exam
-     * result," so it must stay a legal, distinct value from `0` (a real
-     * score) and from omitting the field entirely. Delegates to
-     * UpdateEnrollmentSkillsScoreAction, which is also responsible for
-     * reconciling certificate eligibility through the real certificate
-     * domain rather than this controller touching it directly.
-     */
+    /** Practical / Skills Score is stored independently from Knowledge Exam results. */
     public function updateSkillsScore(Request $request, Enrollment $enrollment, UpdateEnrollmentSkillsScoreAction $action, OperationalClassMapPointBuilder $mapPointBuilder): JsonResponse
     {
         $this->authorize('updateSkillsScore', $enrollment);
@@ -128,9 +119,8 @@ class NavigationController extends Controller
 
         return response()->json([
             'skills_score' => $row['skillsScore'],
-            'effective_score' => $row['effectiveScore'],
+            'knowledge_score' => $row['score'],
             'passed' => $row['passed'],
-            'overridden' => $row['overridden'],
             'certificate_download_url' => $row['certificateDownloadUrl'],
             'certificate_front_url' => $row['certificateFrontUrl'],
             'certificate_back_url' => $row['certificateBackUrl'],

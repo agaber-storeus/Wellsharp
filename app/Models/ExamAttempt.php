@@ -58,6 +58,11 @@ class ExamAttempt extends Model
         return $this->hasMany(ExamAttemptQuestion::class)->orderBy('display_order');
     }
 
+    public function scoreControls(): HasMany
+    {
+        return $this->hasMany(ExamAttemptScoreControl::class)->orderBy('id');
+    }
+
     public function getRouteKeyName(): string
     {
         return 'public_id';

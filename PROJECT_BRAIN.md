@@ -78,7 +78,7 @@ Operational role restriction elsewhere is enforced by **route middleware** (`cur
 8. **Classes (Operational)** — the shared Exam/Class record Proctors/Instructors start and end; source of the student-facing "Class" concept.
 9. **Enrollment** — Students enrolled/withdrawn/completed per Class.
 10. **Student Assessment Flow** — survey, exam instructions, attempt start, per-question autosave, submit, scoring.
-11. **Certificates** — auto-issued on passing submission; 4 documents (Full Certificate, Knowledge Assessment Report, Completion Card front/back) rendered to PDF, with a public lookup/verification route and dynamic verification QRs on Completion Card Back and both official Full Certificate pages.
+11. **Certificates** — issued for canonically eligible submitted attempts; 4 documents (Full Certificate, Knowledge Assessment Report, Completion Card front/back) rendered to PDF, with explicit Admin issue/revoke actions, Admin Exam Review/Knowledge controls, a public lookup/verification route, and dynamic verification QRs on Completion Card Back and both official Full Certificate pages.
 12. **Reporting/Export** — Operational reporting dashboards and certificate CSV export for Proctor/Instructor.
 
 ## 8. Database Entities
@@ -110,13 +110,13 @@ All enums live in `app/Enums/*.php` as PHP backed enums (string-valued), stored 
 | `TrainingClass` (`ClassStatus`) | planned → active → completed / cancelled |
 | `Enrollment` (`EnrollmentStatus`) | enrolled → withdrawn / completed |
 | `ExamAttempt` (`ExamAttemptStatus`) | in_progress → submitted / expired |
-| `Certificate` (`CertificateStatus`) | issued → revoked (**revocation workflow itself is NOT implemented** — README says so explicitly; the enum/column exist but no action sets `revoked`) |
+| `Certificate` (`CertificateStatus`) | issued → revoked (explicit, reason-required Admin action) |
 | `Group` (`GroupStatus`) | active ⇄ archived |
 | `GroupMembership`/`ExamGroupAssignment` (shared shape) | active → removed |
 | `ProviderStatus` | active / inactive / archived |
 | `StaffAssignmentStatus` | active / ended |
 
-**UNCERTAIN / gap**: Certificate revocation — enum case `Revoked` and `revoked_at`/`revocation_reason` columns exist (migration `2026_08_10_000002_create_certificates_table.php`), but no Action/controller sets a certificate to `Revoked` (README §Not implemented yet confirms this). Treat any future "revoke certificate" request as **net-new feature work**, not a bug fix.
+Certificate revocation is implemented on the Admin Certificate details page. It is explicit rather than a score-change side effect, requires a reason, records the revocation timestamp/reason, and emits `certificate.revoked` audit history.
 
 ## 12. Financial Logic
 
@@ -130,7 +130,7 @@ All enums live in `app/Enums/*.php` as PHP backed enums (string-valued), stored 
 - `session_version` column on `users` + `session.version` middleware: bumping it (on role/password/status change) invalidates all other active sessions for that user — a forced-logout mechanism. **CONFIRMED** (docs/architecture.md, `users.session_version`).
 - `active.user` middleware logs out disabled/archived users mid-session.
 - Separate from login: the **Proctor's ID** (`exam_control_credentials` table, one `control_id` per Proctor — never an Instructor) gates the start/end-Class action — this is a second, narrower "who is physically running this session" credential, not a login mechanism. **CONFIRMED**.
-- **Deliberate business exception, confirmed 2026-09-03**: Application account-creation and password-update paths store an app-key-encrypted, reversible copy (`users.password_ciphertext`) for every role, separate from the hash used for login. The nullable column is not backfilled, so legacy/nonstandard records may lack a recoverable copy. Admins may reveal passwords for any account; active Proctors/Instructors may reveal Student passwords only. `UserPolicy::viewPassword()` gates access and every successful reveal is audited (`student.password_viewed` or `user.password_viewed`). See BUSINESS_RULES.md BR-037..BR-042. Plaintext is never stored directly or embedded in initial page data.
+- **Deliberate business exception, confirmed 2026-09-03**: Application account-creation and password-update paths store an app-key-encrypted, reversible copy (`users.password_ciphertext`) for every role, separate from the hash used for login. The nullable column is not backfilled, so legacy/nonstandard records may lack a recoverable copy. Admins may reveal passwords for any account; active Proctors/Instructors may reveal Student passwords only. `UserPolicy::viewPassword()` gates access and every successful reveal is audited (`student.password_viewed` or `user.password_viewed`). See BUSINESS_RULES.md BR-041..BR-046. Plaintext is never stored directly or embedded in initial page data.
 
 ## 14. API Architecture
 
@@ -152,7 +152,7 @@ No mobile app or separate SPA. Server-rendered Blade + Alpine.js only. Student f
 
 ## 18. Integrations
 
-None. See §3 — no payment, SMS, cloud storage (beyond optional unused S3 env), or third-party SDK integration exists in the codebase today. **CONFIRMED**.
+The browser map stack loads the public OpenFreeMap Liberty vector style through MapLibre GL's Leaflet integration. It needs no account or API key. There are no payment, SMS, webhook, or notification-provider integrations; optional S3 configuration remains available through Laravel filesystems.
 
 ## 19. Background Jobs
 
@@ -202,8 +202,10 @@ Changing the Exam/Class synchronization rule, the attempt-question snapshot mode
 |---|---|
 | Class lifecycle status | `classes.status` (`ClassStatus`) |
 | Exam Schedule status | `exam_schedules.status` (`ExamScheduleStatus`) — kept in sync with Class status by `ControlOperationalExamAction`, not fully independent |
-| Attempt score/pass | `exam_attempts.score` / `exam_attempts.passed`, computed by `ExamScoringService::calculate()` from `exam_attempt_questions` + live `Question` correctness data at scoring time |
-| Certificate pass/fail gate | `IssueCertificateAction` re-runs `ExamScoringService::calculate()` at issuance time (not just trusting the stored `passed` flag) |
+| Original attempt score/pass | `exam_attempts.score` / `exam_attempts.passed`, computed by `ExamScoringService::calculate()` at submission from `exam_attempt_questions` + live `Question` correctness data |
+| Current Knowledge result | `KnowledgeResultService`, resolving stored original score → per-question controls → additive adjustments → final score override → optional Pass/Fail override |
+| Certificate eligibility | `KnowledgeResultService.certificate_eligible`; `IssueCertificateAction` consumes this canonical result and computes an original score only when none is stored |
+| Practical / Skills Score | `enrollments.skills_score`, independent from Knowledge score, pass/fail, and certificates |
 | Which questions belong to an attempt | `exam_attempt_questions` — a **snapshot** taken at attempt-start time (order + points), independent of later edits to `exam_questions` |
 | Exam/Class identity | `exam_schedules.training_class_id` — set by `ExamClassSynchronizer`, never user-edited |
 
@@ -211,7 +213,7 @@ No duplicated/conflicting sources of truth were found for these concepts. **CONF
 
 ## 24. Known Technical Debt
 
-From README "Not implemented yet": certificate revocation workflow, advanced reporting, domain queue jobs. Also: `class_staff_assignments` table/`ClassStaffAssignment` model/`AssignClassStaffAction` — confirmed 2026-08-23 to be fully unused/unwired (see BUSINESS_RULES.md BR-007a); superseded by `classes.proctor_id`/`instructor_id`. Left in place, not deleted — a candidate for removal in a future cleanup pass.
+Domain queue jobs remain unimplemented. `class_staff_assignments` table/`ClassStaffAssignment` model/`AssignClassStaffAction` are confirmed unused/unwired (see BUSINESS_RULES.md BR-007a), superseded by `classes.proctor_id`/`instructor_id`, and retained only for compatibility.
 
 ## 25. Security Considerations
 
@@ -226,7 +228,7 @@ Documented thoroughly in docs/architecture.md §Security boundaries. Notable add
 ## 27. Needs Business Confirmation
 
 - ~~`class_staff_assignments` / `AssignClassStaffAction` usage~~ — **Resolved 2026-08-23**: confirmed unused/unwired; see BUSINESS_RULES.md BR-007a. The real ownership rule (mandatory one Proctor + one Instructor per Class, access scoped accordingly) is implemented via `classes.proctor_id`/`instructor_id`.
-- **Certificate revocation**: table/enum support it, no workflow implemented — confirm whether this is planned near-term before designing around it.
+- Certificate score snapshots intentionally remain unchanged after Admin Knowledge controls; confirm any future requirement that asks to reissue or replace an already-issued snapshot.
 - Exact use of `ExamGroupAssignment` vs. `ExamSchedule.group_id` — both a Group↔Exam link (`exam_group_assignments`) and a Group column directly on `exam_schedules` exist. Not fully traced whether `exam_group_assignments` is a prerequisite gate for scheduling or an independent record-keeping table. **CONFLICT-shaped risk** — worth resolving before touching Group/Exam assignment logic.
 
 ## 28. Terminology Dictionary
@@ -239,6 +241,8 @@ Documented thoroughly in docs/architecture.md §Security boundaries. Notable add
 | Proctor's ID | `exam_control_credentials.control_id` | Owned only by Proctors; Instructors submit one (belonging to a Proctor) in the `proctor_id` request field without ever owning one themselves (`docs/api.md` `POST /{role}/proctor-id/verify`) |
 | Student Group | `Group` / `student_groups` | — |
 | Question bank | `Question` / `questions` + `QuestionOption` / `question_options` | — |
+| Knowledge Score | `exam_attempts.score` plus canonical controls resolved by `KnowledgeResultService` | Original calculated score is retained; Admin controls are separate history |
+| Practical / Skills Score | `enrollments.skills_score` | Independent assessment; never a Knowledge fallback or certificate gate |
 
 ## 29. Important Files
 
@@ -250,6 +254,8 @@ Documented thoroughly in docs/architecture.md §Security boundaries. Notable add
 | Attempt start | `app/Actions/Exams/StartExamAttemptAction.php` |
 | Attempt submit | `app/Actions/Exams/SubmitExamAttemptAction.php` |
 | Scoring | `app/Services/ExamScoringService.php` |
+| Canonical Knowledge result | `app/Services/KnowledgeResultService.php` |
+| Knowledge controls | `app/Actions/Exams/ManageKnowledgeScoreControlAction.php` |
 | Certificate issuance | `app/Actions/Certificates/IssueCertificateAction.php` |
 | Proctor's ID check | `app/Services/ProctorIdVerifier.php` |
 | Demo data / realistic fixtures | `database/seeders/DemoDataSeeder.php` |

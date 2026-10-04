@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ClassStatus;
 use App\Models\AuditEvent;
 use App\Models\Course;
+use App\Models\ExamAttempt;
 use App\Models\Group;
 use App\Models\Role;
 use App\Models\TrainingClass;
@@ -16,13 +17,11 @@ use Illuminate\Support\Facades\DB;
  * Builds the entire Admin Dashboard payload in one pass: a small, fixed
  * number of indexed aggregate queries (grouped counts, conditional sums,
  * bounded top-N/limit lists) rather than one query per card or hydrating
- * the full Class/Enrollment/Attempt graph into PHP. Every pass/fail or
- * score decision routes through EffectiveScoreService::resolve() - this
- * class never re-derives "did the trainee pass" itself.
+ * the full Class/Enrollment/Attempt graph into PHP.
  */
 class AdminDashboardService
 {
-    public function __construct(private readonly EffectiveScoreService $effectiveScore) {}
+    public function __construct(private readonly KnowledgeResultService $knowledgeResults) {}
 
     /** @return array<string, mixed> */
     public function build(): array
@@ -39,7 +38,7 @@ class AdminDashboardService
             'class_status' => $classStatus,
             'enrollment' => $enrollment,
             'exam_performance' => $exam['performance'],
-            'skills_overrides' => $exam['overrides'],
+            'skills_assessments' => $exam['skills'],
             'certificates' => $certificates,
             'staff' => $staff,
             'users' => $this->usersOverview(),
@@ -239,14 +238,7 @@ class AdminDashboardService
         ];
     }
 
-    /**
-     * Fetches only the scalar columns needed to run every scored attempt
-     * through EffectiveScoreService::resolve() - no relations, no full
-     * Class/Enrollment models. The row count here is bounded by "attempts
-     * that have been scored", not by every Class/Enrollment in the system.
-     *
-     * @return array<string, mixed>
-     */
+    /** @return array<string, mixed> */
     private function examPerformance(): array
     {
         $statusCounts = DB::table('exam_attempts')
@@ -254,56 +246,20 @@ class AdminDashboardService
             ->groupBy('status')
             ->pluck('aggregate', 'status');
 
-        $scoredAttempts = DB::table('exam_attempts')
-            ->join('exam_schedules', 'exam_schedules.id', '=', 'exam_attempts.exam_schedule_id')
-            ->join('exams', 'exams.id', '=', 'exam_attempts.exam_id')
-            ->whereNotNull('exam_attempts.score')
-            ->select([
-                'exam_attempts.student_user_id',
-                'exam_attempts.score',
-                'exam_attempts.passed as raw_passed',
-                'exam_schedules.training_class_id',
-                'exams.passing_score',
-            ])
+        $scoredAttempts = ExamAttempt::query()
+            ->whereNotNull('score')
+            ->with(['exam', 'attemptQuestions.question.options', 'scoreControls.createdBy.profile', 'scoreControls.revertedBy.profile', 'scoreControls.attemptQuestion.question'])
             ->get();
+        $canonicalResults = $this->knowledgeResults->resolveMany($scoredAttempts);
 
         $skillsScores = DB::table('enrollments')
             ->whereNotNull('skills_score')
-            ->select(['class_id', 'student_user_id', 'skills_score'])
-            ->get()
-            ->keyBy(fn ($row) => $row->class_id.':'.$row->student_user_id);
+            ->selectRaw('COUNT(*) as recorded, AVG(skills_score) as average, MIN(skills_score) as lowest, MAX(skills_score) as highest')
+            ->first();
 
-        $passed = 0;
-        $failed = 0;
-        $scoreSum = 0.0;
-        $scoreCount = 0;
-        $overrideFailToPass = 0;
-        $overridePassToFail = 0;
-        $overrideNoChange = 0;
-
-        foreach ($scoredAttempts as $row) {
-            $key = $row->training_class_id.':'.$row->student_user_id;
-            $skillsScore = isset($skillsScores[$key]) ? (int) $skillsScores[$key]->skills_score : null;
-            $effective = $this->effectiveScore->resolve((float) $row->score, $skillsScore, (int) $row->passing_score);
-
-            $effective['passed'] ? $passed++ : $failed++;
-            $scoreSum += $effective['score'];
-            $scoreCount++;
-
-            if ($skillsScore !== null) {
-                $rawPassed = (bool) $row->raw_passed;
-                if (! $rawPassed && $effective['passed']) {
-                    $overrideFailToPass++;
-                } elseif ($rawPassed && ! $effective['passed']) {
-                    $overridePassToFail++;
-                } else {
-                    $overrideNoChange++;
-                }
-            }
-        }
-
-        $scoredTotal = $passed + $failed;
-        $activeOverrides = $skillsScores->count();
+        $passed = $canonicalResults->where('final_passed', true)->count();
+        $failed = $canonicalResults->where('final_passed', false)->count();
+        $scoredTotal = $scoredAttempts->count();
 
         return [
             'performance' => [
@@ -314,14 +270,13 @@ class AdminDashboardService
                 'failed' => $failed,
                 'scored_total' => $scoredTotal,
                 'pass_rate' => $scoredTotal > 0 ? round($passed / $scoredTotal * 100, 1) : null,
-                'average_effective_score' => $scoreCount > 0 ? round($scoreSum / $scoreCount, 1) : null,
+                'average_knowledge_score' => $scoredTotal > 0 ? round((float) $canonicalResults->avg('final_knowledge_score'), 1) : null,
             ],
-            'overrides' => [
-                'active' => $activeOverrides,
-                'fail_to_pass' => $overrideFailToPass,
-                'pass_to_fail' => $overridePassToFail,
-                'no_change' => $overrideNoChange,
-                'not_yet_scored' => max(0, $activeOverrides - $overrideFailToPass - $overridePassToFail - $overrideNoChange),
+            'skills' => [
+                'recorded' => (int) ($skillsScores->recorded ?? 0),
+                'average' => $skillsScores?->average !== null ? round((float) $skillsScores->average, 1) : null,
+                'lowest' => $skillsScores?->lowest !== null ? (int) $skillsScores->lowest : null,
+                'highest' => $skillsScores?->highest !== null ? (int) $skillsScores->highest : null,
             ],
         ];
     }
@@ -508,7 +463,10 @@ class AdminDashboardService
             'class.cancelled' => 'Class cancelled',
             'enrollment.created' => 'Student enrolled',
             'enrollment.withdrawn' => 'Student withdrawn',
-            'enrollment.skills_score_updated' => 'Skills Score updated',
+            'enrollment.skills_score_updated' => 'Practical / Skills Score updated',
+            'exam_attempt.knowledge_control_added' => 'Knowledge score control added',
+            'exam_attempt.knowledge_control_reverted' => 'Knowledge score control reverted',
+            'exam_attempt.knowledge_controls_restored' => 'Calculated Knowledge result restored',
             'certificate.issued' => 'Certificate issued',
             'certificate.revoked' => 'Certificate revoked',
             'exam_attempt.released' => 'Exam attempt released',
@@ -551,7 +509,7 @@ class AdminDashboardService
             [
                 'label' => 'Pass Rate',
                 'value' => $examPerformance['pass_rate'] !== null ? number_format($examPerformance['pass_rate'], 1).'%' : '—',
-                'caption' => 'Based on effective score ('.$examPerformance['scored_total'].' scored)',
+                'caption' => 'Based on Knowledge score ('.$examPerformance['scored_total'].' scored)',
             ],
             [
                 'label' => 'Certificates',

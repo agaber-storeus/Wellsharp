@@ -131,7 +131,30 @@ Admin Class data. Query parameters: `search`, `status`, `course_id`, `provider_i
 
 Certificate table data. Query parameters: `search`, `status`, `sort`, `direction`, and `page`. Allowed sort values are `certificate_number`, `student_name`, `subject_name`, `class_number`, `provider_name`, `score`, `issued_at`, and `status`.
 
-## Admin JSON actions
+## Admin actions
+
+### Provider location autosave
+
+```text
+PUT /admin/providers/location-drafts/{draftToken}
+PUT /admin/providers/{provider}/locations/autosave
+```
+
+Both routes are Admin-only and accept the complete location-card state used by the Alpine picker, including each stable client key, address, coordinates, and active/remove state. Create uses a UUID draft token owned by the current session and stores the draft in that session; it does not create a Provider or location rows. Final Provider creation validates and consumes the matching draft in the same transaction. Edit validates Provider ownership and synchronizes real `training_provider_locations`; persisted removals are deactivations so historical Schedule/Class references remain valid. Responses return the synchronized location payload and per-card keys used to prevent duplicate rows during rapid autosaves.
+
+### Admin Certificate Knowledge controls
+
+```text
+POST  /admin/certificates/{certificate}/knowledge-controls
+PATCH /admin/certificates/{certificate}/knowledge-controls/{control}/revert
+POST  /admin/certificates/{certificate}/knowledge-controls/restore
+POST  /admin/certificates/{certificate}/issue
+POST  /admin/certificates/{certificate}/revoke
+```
+
+These session-authenticated Admin routes redirect back to the Certificate details page. Adding a control requires `type`, a reason (3-2000 characters), and the matching value: `question_points` uses `numeric_value` plus an owned `exam_attempt_question_id`; `score_adjustment` uses a non-zero value from -100 to 100; `final_score` uses 0-100; `pass_fail` uses `boolean_value`. Per-question points cannot exceed that attempt question's possible points. Only one active per-question control per question, final-score control, or pass/fail control is allowed; additive score adjustments may coexist.
+
+Revert and restore require a reason and retain history through revert metadata. Issue is idempotent and succeeds only when the canonical Knowledge result is certificate-eligible. Revoke requires a reason and records an audit event. Score controls never silently update or revoke an existing certificate snapshot.
 
 ### Course reference configuration
 
@@ -336,4 +359,6 @@ Adding a Student to an existing Group (including through Student create/edit) im
 - Manual-selection Exams keep a persisted, shared question bank; random-selection Exams keep none and draw `question_count` active Subject questions per student at attempt start (forcing static order), fixed for that attempt once created.
 - Students must confirm contact information and complete the survey before starting.
 - Only the Proctor role owns a Proctor's ID; a Proctor controls a Class directly, an Instructor must supply an active Proctor's ID belonging to someone else.
-- Passing submitted attempts are scored and receive four certificate documents; failed attempts do not receive certificates.
+- Submitted attempts retain their original calculated Knowledge score. `KnowledgeResultService` applies active Admin controls centrally (question points, additive adjustments, final score, then optional Pass/Fail) for every current result/eligibility consumer.
+- Practical / Skills Score is independent and never changes Knowledge pass/fail or certificate eligibility.
+- Canonically eligible attempts may receive four certificate documents. Admin controls never mutate an issued certificate snapshot; later issuance and revocation are explicit lifecycle actions.

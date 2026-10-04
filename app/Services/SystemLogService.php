@@ -102,7 +102,10 @@ class SystemLogService
         'group.student_added' => ['category' => 'groups', 'label' => 'Student added to group'],
         'group.student_removed' => ['category' => 'groups', 'label' => 'Student removed from group'],
         'exam_attempt.released' => ['category' => 'assessments', 'label' => 'Exam attempt released'],
-        'enrollment.skills_score_updated' => ['category' => 'scores', 'label' => 'Skills Score updated'],
+        'enrollment.skills_score_updated' => ['category' => 'scores', 'label' => 'Practical / Skills Score updated'],
+        'exam_attempt.knowledge_control_added' => ['category' => 'scores', 'label' => 'Knowledge score control added', 'severity' => 'warning'],
+        'exam_attempt.knowledge_control_reverted' => ['category' => 'scores', 'label' => 'Knowledge score control reverted'],
+        'exam_attempt.knowledge_controls_restored' => ['category' => 'scores', 'label' => 'Calculated Knowledge result restored'],
         'certificate.issued' => ['category' => 'certificates', 'label' => 'Certificate issued'],
         'certificate.revoked' => ['category' => 'certificates', 'label' => 'Certificate revoked', 'severity' => 'warning'],
     ];

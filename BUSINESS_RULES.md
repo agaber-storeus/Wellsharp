@@ -96,13 +96,12 @@ Source: `ExamScoringService::calculate()`.
 **BR-026** — Correctness rules per question type: MCQ — selected option's `public_id` matches an option flagged `is_correct`; True/False — lowercased answer string equals `"true"`/`"false"` matching `correct_answer_boolean`; Input (free text) — `Question::normalizeText(answer) === Question::normalizeText(correct_answer_text)` (a normalized/case-insensitive compare).
 Source: `ExamScoringService::isCorrect()`.
 
-**BR-027** — Scoring is **re-computed, not just read**, at both submission time and certificate-issuance time (issuance re-runs `ExamScoringService::calculate()` rather than trusting the stored `passed` column) — so any Question/answer-key edit between submit and issuance changes the outcome.
-Source: `SubmitExamAttemptAction`, `IssueCertificateAction::execute()`.
-Confidence: CONFIRMED behavior; flag as a **risk** if a future request assumes score is immutable post-submission — it currently is not, until a certificate is actually issued.
+**BR-027** — Submission computes and stores the original Knowledge score in `exam_attempts.score`. All later result consumers use `KnowledgeResultService`, which starts from that stored score and applies active Admin controls in the precedence documented by BR-037. Certificate issuance only calculates the original score when it is still null; it does not overwrite an existing original score.
+Source: `SubmitExamAttemptAction`, `KnowledgeResultService`, `IssueCertificateAction::execute()`.
 
 ## Certificates
 
-**BR-028** — A certificate is only ever created for a `submitted` attempt whose **effective score** (BR-035) is `>=` the exam's passing score when re-evaluated at issuance time; failing/unsubmitted attempts never produce one.
+**BR-028** — A certificate is only created for a `submitted` attempt whose canonical Knowledge result is eligible. By default this means the final Knowledge score meets the Exam passing score; an active Pass/Fail override has highest priority. Failing/unsubmitted attempts never produce one. Practical / Skills Score has no effect on eligibility.
 Source: `IssueCertificateAction::execute()`.
 
 **BR-029** — Certificate issuance is idempotent per attempt: `exam_attempt_id` is unique on `certificates`; a second issuance attempt for the same attempt returns the existing certificate (and ensures its four documents exist) rather than duplicating.
@@ -117,24 +116,30 @@ Source: `certificates` migration columns, `IssueCertificateAction::execute()`.
 **BR-032** — Certificate expiration is `issued_at + exams.certificate_validity_years` (nullable, per-Exam; falls back to the project's original 2-year default when an Exam has none configured). Expiration is computed once, at issuance, and snapshotted onto the certificate like the rest of BR-031 — changing an Exam's `certificate_validity_years` afterward never alters certificates already issued under the old value.
 Source: `IssueCertificateAction::execute()`/`expirationDate()` (`$issuedAt->copy()->addYears($validityYears ?? 2)`), `exams.certificate_validity_years` (migration `2026_08_23_000001`).
 
-**BR-033** — Certificate revocation (`CertificateStatus::Revoked`, `revoked_at`, `revocation_reason` columns) has no implementing workflow — schema-ready, feature-absent. Treat any "revoke a certificate" request as new feature work.
-Source: absence of any Action/controller writing `CertificateStatus::Revoked`; confirmed against README "Not implemented yet" list.
+**BR-033** — An Admin can explicitly revoke an issued certificate from its details page. Revocation requires a reason, sets `status = revoked`, records `revoked_at` and `revocation_reason`, and writes a `certificate.revoked` audit event. Knowledge score changes never revoke a certificate automatically.
+Source: `CertificateController::revoke()`, `ReasonRequest`.
 
 **BR-034** — Certificate viewing: Admin can view all; Student can view only their own; active Proctor/Instructor can view certificates within their operational scope.
 Source: `docs/architecture.md` §Security boundaries.
 
-**BR-035** — `enrollments.skills_score` is a **manual override of the trainee's final/effective percentage**, not a second/parallel score. `effective_score = skills_score ?? knowledge_exam_score`; `passed = effective_score >= exam.passing_score`. It overrides in both directions — it can turn a failing Knowledge Exam into a pass, or a passing one into a fail. `null` means "no override, use the Knowledge Exam result"; it is a distinct, legal value from `0` (a real override). The raw Knowledge Exam result (`exam_attempts.score`/`passed`) is never modified by an override.
-Source: `App\Services\EffectiveScoreService::resolve()`, the single canonical implementation of this formula.
+**BR-035** — `enrollments.skills_score` is the trainee's independent Practical / Skills assessment score. It is stored and displayed separately and has no effect on `exam_attempts.score`, pass/fail, certificate eligibility, issuance, visibility, or status. `null` means no practical score has been recorded and remains distinct from `0`.
+Source: `App\Actions\Classes\UpdateEnrollmentSkillsScoreAction`, `OperationalClassMapPointBuilder`.
 
-**BR-036** — Setting or clearing a Skills Score reconciles certificate eligibility through the real `IssueCertificateAction` (never an ad-hoc write): `App\Actions\Classes\UpdateEnrollmentSkillsScoreAction` re-runs it against the enrollment's latest attempt after every change. An override that newly clears the passing threshold issues a certificate that didn't exist before. An override that drops a trainee below the threshold does **not** retract or modify an already-issued certificate — certificates are immutable snapshots once issued (BR-031) and this domain has no implemented revocation workflow (BR-033), so an already-issued certificate is left exactly as it was; only *future* eligibility decisions (e.g. a later re-issuance attempt) see the trainee as failing.
-Source: `App\Actions\Classes\UpdateEnrollmentSkillsScoreAction`, `IssueCertificateAction::execute()`.
+**BR-036** — Setting or clearing a Practical / Skills Score updates only `enrollments.skills_score` and its audit history. It does not trigger Knowledge score recalculation or certificate reconciliation.
+Source: `App\Actions\Classes\UpdateEnrollmentSkillsScoreAction`.
+
+**BR-037** — The current Knowledge result is resolved centrally in this order: original calculated score, per-question awarded-point overrides, additive score adjustments, final score override, then optional Pass/Fail override. Controls are immutable history rows and are reverted through metadata rather than deleted. The original `exam_attempts.score`, student answers, and question-bank answer keys are never changed by an Admin control.
+Source: `KnowledgeResultService`, `ManageKnowledgeScoreControlAction`, `exam_attempt_score_controls` migration.
+
+**BR-038** — Knowledge score controls never silently mutate an existing certificate snapshot. A newly eligible attempt requires explicit issuance; a now-failing issued certificate remains issued until an Admin explicitly revokes it with a reason.
+Source: `IssueCertificateAction`, Admin Certificate score-control and revoke actions.
 
 ## Question Bank
 
-**BR-035** — Question correct-answer fields are excluded from the model's default JSON serialization and are only read server-side during scoring — never sent to the student's browser.
+**BR-039** — Question correct-answer fields are excluded from the model's default JSON serialization and are only read server-side during scoring or the Admin-only Certificate Exam Review — never sent to the student's browser.
 Source: `docs/architecture.md` §Security boundaries (Question model hidden attributes).
 
-**BR-036** — Excel question-bank import requires the PHP `ext-zip` extension; CSV import is offered as a fallback when that extension is unavailable.
+**BR-040** — Excel question-bank import requires the PHP `ext-zip` extension; CSV import is offered as a fallback when that extension is unavailable.
 Source: README §Installation.
 
 ## State Machines
@@ -166,7 +171,7 @@ ExamAttempt (ExamAttemptStatus):
                            in_progress → expired      (BR-018, BR-023)
 
 Certificate (CertificateStatus):
-                           issued → revoked   [NOT IMPLEMENTED — BR-033]
+                           issued → revoked   (explicit Admin action, BR-033)
 
 Group / GroupMembership / ExamGroupAssignment:
                            active ⇄ archived (Group)
@@ -175,38 +180,38 @@ Group / GroupMembership / ExamGroupAssignment:
 
 ## Recoverable Password Management
 
-**BR-037** — Every account's login password is stored hashed (`users.password`, `hashed` cast) and verified via `Hash::check()` at login. This remains the authentication credential.
+**BR-041** — Every account's login password is stored hashed (`users.password`, `hashed` cast) and verified via `Hash::check()` at login. This remains the authentication credential.
 Source: `app/Models/User.php` casts, `app/Actions/Auth/AuthenticateUserAction.php`.
 
-**BR-038** — Additionally, account creation and password-update workflows keep a separately **encrypted** (not hashed — reversible) copy of the plaintext password in `users.password_ciphertext` (`Crypt::encryptString()`, decryptable with the current or configured previous app keys). This applies to Admin, Proctor, Instructor, and Student accounts. The nullable column is not backfilled by this branch, so legacy or nonstandard records may have no recoverable copy and return `404` until a new password is set.
+**BR-042** — Additionally, account creation and password-update workflows keep a separately **encrypted** (not hashed — reversible) copy of the plaintext password in `users.password_ciphertext` (`Crypt::encryptString()`, decryptable with the current or configured previous app keys). This applies to Admin, Proctor, Instructor, and Student accounts. The nullable column is not backfilled by this branch, so legacy or nonstandard records may have no recoverable copy and return `404` until a new password is set.
 Source: `User::setPasswordAndCiphertext()`, called from `CreateUserAction`, `UpdateUserAction`, `DemoDataSeeder::user()`.
 **Why this exists**: Users cannot self-reset passwords, and Admins must be able to recover credentials for account management; operational staff also need to hand Students working credentials at check-in. A plain-text `password` column was explicitly rejected. The encrypted-copy approach keeps the authentication path hash-only while allowing policy-controlled recovery on demand.
 
-**BR-039** — An Admin may reveal any account's password. An **active** Proctor/Instructor may reveal a password only when the target account currently has the Student role; operational staff cannot reveal staff-account passwords.
+**BR-043** — An Admin may reveal any account's password. An **active** Proctor/Instructor may reveal a password only when the target account currently has the Student role; operational staff cannot reveal staff-account passwords.
 Source: `app/Policies/UserPolicy::viewPassword()`.
 
-**BR-040** — Revealing a password is a live decrypt-and-return action (`POST .../reveal-password`, JSON `{password}`), not a value ever embedded in a page's HTML/JSON by default — the Admin user-show page, user table JSON, and the Proctor/Instructor class-roster modal all carry a reveal *URL*, never the password itself, until the staff member explicitly clicks "Reveal"/"Reveal password".
+**BR-044** — Revealing a password is a live decrypt-and-return action (`POST .../reveal-password`, JSON `{password}`), not a value ever embedded in a page's HTML/JSON by default — the Admin user-show page, user table JSON, and the Proctor/Instructor class-roster modal all carry a reveal *URL*, never the password itself, until the staff member explicitly clicks "Reveal"/"Reveal password".
 Source: `app/Http/Controllers/Admin/UserController::revealPassword()`, `app/Http/Controllers/Operational/NavigationController::revealStudentPassword()`, `resources/views/admin/users/show.blade.php`, `public/js/proctor-class-modal-laravel.js`.
 
-**BR-041** — Every reveal is written to the audit log with the actor and their role. Student reveals use `student.password_viewed`; Admin reveals of staff accounts use `user.password_viewed`.
-Source: same controller methods as BR-040, via `AuditRecorder`.
+**BR-045** — Every reveal is written to the audit log with the actor and their role. Student reveals use `student.password_viewed`; Admin reveals of staff accounts use `user.password_viewed`.
+Source: same controller methods as BR-044, via `AuditRecorder`.
 
-**BR-042** — Changing any account's password re-encrypts the new value into `password_ciphertext`, so the recoverable copy matches the current login password. Changing roles preserves the existing ciphertext because recoverability applies to every role.
+**BR-046** — Changing any account's password re-encrypts the new value into `password_ciphertext`, so the recoverable copy matches the current login password. Changing roles preserves the existing ciphertext because recoverability applies to every role.
 Source: `UpdateUserAction::execute()`, `ChangeUserRoleAction::execute()`.
 
-**BR-043** — The Class Dashboard may request all enrolled Student passwords in one explicit `POST /{role}/classes/{trainingClass}/student-passwords` call. The policy limits it to the assigned active Proctor/Instructor; the response is `no-store`, contains only Student public IDs and nullable recovered passwords, and writes one roster-level `student_passwords.class_roster_viewed` audit event without password values.
+**BR-047** — The Class Dashboard may request all enrolled Student passwords in one explicit `POST /{role}/classes/{trainingClass}/student-passwords` call. The policy limits it to the assigned active Proctor/Instructor; the response is `no-store`, contains only Student public IDs and nullable recovered passwords, and writes one roster-level `student_passwords.class_roster_viewed` audit event without password values.
 Source: `NavigationController::classStudentPasswords()`, `TrainingClassPolicy::viewStudentPasswords()`, `ClassRosterStudentPasswordsTest`.
 
-**BR-044** — `/iadc_certification` and `/verify/certificates/{certificate_number}` are public, unauthenticated lookup routes. A certificate-number lookup redirects to its verification page; an Instructor WellSharp ID lookup lists that instructor's certificate snapshots. Verification exposes certificate status and selected snapshot fields but not student email or WellSharp ID.
+**BR-048** — `/iadc_certification` and `/verify/certificates/{certificate_number}` are public, unauthenticated lookup routes. A certificate-number lookup redirects to its verification page; an Instructor WellSharp ID lookup lists that instructor's certificate snapshots. Verification exposes certificate status and selected snapshot fields but not student email or WellSharp ID.
 Source: `CertificateLookupController`, `CertificateVerificationController`, public Blade views, and `CertificateManagementTest`.
 
-**BR-045** — Every generated template page clears its sample QR artwork. Completion Card Back PDFs and both pages of the two-page Full Certificate replace it with a generated QR pointing to the public certificate-number verification route. PDF responses use no-cache headers.
+**BR-049** — Every generated template page clears its sample QR artwork. Completion Card Back PDFs and both pages of the two-page Full Certificate replace it with a generated QR pointing to the public certificate-number verification route. PDF responses use no-cache headers.
 Source: `CertificatePdfService`, `CertificateQrCodeService`, `CertificateDocumentController`.
 
-**BR-046** — Adding an active Student to a Group immediately creates or reactivates an Enrollment for every non-completed/non-cancelled Class already linked to that Group's Exam Schedules, so operational rosters update without re-saving the schedule. This synchronization only adds/reactivates; removing Group membership does not withdraw an existing Enrollment.
+**BR-050** — Adding an active Student to a Group immediately creates or reactivates an Enrollment for every non-completed/non-cancelled Class already linked to that Group's Exam Schedules, so operational rosters update without re-saving the schedule. This synchronization only adds/reactivates; removing Group membership does not withdraw an existing Enrollment.
 Source: `AddStudentsToGroupAction`, `SyncStudentGroupsAction`, `SyncGroupEnrollmentsAction::executeForGroup()`, `ClassDashboardRosterTest`.
 
-**BR-047** — Imported question markup is preserved in `questions.question_text`, but user-facing question lists, Exam screens, and scoring/report breakdowns use `display_question_text`, which decodes entities, strips HTML tags/non-breaking spaces, and collapses whitespace.
+**BR-051** — Imported question markup is preserved in `questions.question_text`, but user-facing question lists, Exam screens, and scoring/report breakdowns use `display_question_text`, which decodes entities, strips HTML tags/non-breaking spaces, and collapses whitespace.
 Source: `Question::getDisplayQuestionTextAttribute()`, `QuestionController`, `ExamScoringService`, Student Exam view.
 
 ## Needs Business Confirmation

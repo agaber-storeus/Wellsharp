@@ -42,10 +42,12 @@ flowchart TD
     L --> M[SubmitExamAttemptAction]
     M -- "expired at submit time" --> N[status=expired, reject]
     M -- ok --> O[status=submitted, ExamScoringService.calculate]
-    O --> P{score >= passing_score?}
+    O --> P{Canonical Knowledge result eligible?<br/>KnowledgeResultService}
     P -- no --> Q[No certificate]
-    P -- yes --> R[IssueCertificateAction: create certificate + 4 documents]
+    P -- yes --> R[IssueCertificateAction: create certificate snapshot + 4 documents]
 ```
+
+The original calculated Knowledge score remains in `exam_attempts.score`. Admin controls are resolved centrally in this order: per-question points, additive score adjustments, final score override, then optional Pass/Fail override. `skills_score` is an independent Practical / Skills Score and never participates. Result changes do not silently mutate or revoke an issued certificate; issuance and revocation remain explicit Admin actions.
 
 ## 3. Class start / end — manual (Proctor/Instructor) and automatic (scheduler)
 

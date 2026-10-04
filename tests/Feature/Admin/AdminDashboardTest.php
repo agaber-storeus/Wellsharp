@@ -34,7 +34,7 @@ class AdminDashboardTest extends TestCase
             ->assertSee('Admin dashboard')
             ->assertSee('Class lifecycle')
             ->assertSee('Exam performance')
-            ->assertSee('Skills Score overrides')
+            ->assertSee('Practical / Skills Scores')
             ->assertSee('Certificates')
             ->assertSee('Attention required')
             ->assertSee('Recent activity');
@@ -67,7 +67,7 @@ class AdminDashboardTest extends TestCase
 
         $this->assertSame(0, $data['class_status']['total']);
         $this->assertNull($data['exam_performance']['pass_rate']);
-        $this->assertNull($data['exam_performance']['average_effective_score']);
+        $this->assertNull($data['exam_performance']['average_knowledge_score']);
         $this->assertSame([], $data['attention']);
         $this->assertSame([], $data['recent_activity']);
     }
@@ -125,12 +125,7 @@ class AdminDashboardTest extends TestCase
         $this->assertSame(1, $data['enrollment']['by_status']['withdrawn']);
     }
 
-    /**
-     * The scenario from the spec: pass/fail must use the effective score
-     * (Skills Score override when set, otherwise raw Knowledge score), not
-     * the raw Knowledge Exam result alone.
-     */
-    public function test_pass_fail_and_pass_rate_use_the_effective_score(): void
+    public function test_pass_fail_uses_knowledge_score_and_reports_skills_independently(): void
     {
         $this->seedRoles();
         $course = Course::factory()->create();
@@ -138,17 +133,17 @@ class AdminDashboardTest extends TestCase
         $class = TrainingClass::factory()->create(['course_id' => $course->id]);
         $schedule = ExamSchedule::factory()->create(['exam_id' => $exam->id, 'training_class_id' => $class->id]);
 
-        // Student A: Knowledge 90, no Skills Score -> effective 90 -> pass.
+        // Student A: Knowledge 90, no Practical / Skills Score -> pass.
         $studentA = User::factory()->student()->create();
         Enrollment::factory()->create(['class_id' => $class->id, 'student_user_id' => $studentA->id]);
         ExamAttempt::factory()->submitted(true, 90)->create(['exam_id' => $exam->id, 'exam_schedule_id' => $schedule->id, 'student_user_id' => $studentA->id]);
 
-        // Student B: Knowledge 30 (raw fail), Skills Score 75 -> effective 75 -> pass.
+        // Student B: Knowledge 30 fails even with a Practical / Skills Score of 75.
         $studentB = User::factory()->student()->create();
         Enrollment::factory()->create(['class_id' => $class->id, 'student_user_id' => $studentB->id, 'skills_score' => 75]);
         ExamAttempt::factory()->submitted(false, 30)->create(['exam_id' => $exam->id, 'exam_schedule_id' => $schedule->id, 'student_user_id' => $studentB->id]);
 
-        // Student C: Knowledge 90 (raw pass), Skills Score 50 -> effective 50 -> fail.
+        // Student C: Knowledge 90 passes even with a Practical / Skills Score of 50.
         $studentC = User::factory()->student()->create();
         Enrollment::factory()->create(['class_id' => $class->id, 'student_user_id' => $studentC->id, 'skills_score' => 50]);
         ExamAttempt::factory()->submitted(true, 90)->create(['exam_id' => $exam->id, 'exam_schedule_id' => $schedule->id, 'student_user_id' => $studentC->id]);
@@ -158,11 +153,12 @@ class AdminDashboardTest extends TestCase
         $this->assertSame(2, $data['exam_performance']['passed']);
         $this->assertSame(1, $data['exam_performance']['failed']);
         $this->assertEqualsWithDelta(66.7, $data['exam_performance']['pass_rate'], 0.1);
+        $this->assertSame(70.0, $data['exam_performance']['average_knowledge_score']);
 
-        $this->assertSame(2, $data['skills_overrides']['active']);
-        $this->assertSame(1, $data['skills_overrides']['fail_to_pass']);
-        $this->assertSame(1, $data['skills_overrides']['pass_to_fail']);
-        $this->assertSame(0, $data['skills_overrides']['no_change']);
+        $this->assertSame(2, $data['skills_assessments']['recorded']);
+        $this->assertSame(62.5, $data['skills_assessments']['average']);
+        $this->assertSame(50, $data['skills_assessments']['lowest']);
+        $this->assertSame(75, $data['skills_assessments']['highest']);
     }
 
     public function test_certificate_issued_and_revoked_counts_are_correct(): void

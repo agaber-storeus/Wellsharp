@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 
 class OperationalReportingService
 {
-    public function __construct(private readonly EffectiveScoreService $effectiveScore) {}
+    public function __construct(private readonly KnowledgeResultService $knowledgeResults) {}
 
     /** @return Collection<int, TrainingClass> */
     public function accessibleClasses(User $user): Collection
@@ -22,7 +22,6 @@ class OperationalReportingService
                 'course.level',
                 'proctor.profile',
                 'instructor.profile',
-                'enrollments',
                 'examSchedules.exam.subject',
                 'examSchedules.attempts.student.profile',
                 'examSchedules.attempts.exam.subject',
@@ -42,30 +41,26 @@ class OperationalReportingService
      */
     public function allAttempts(Collection $classes): Collection
     {
-        return $classes
+        $attempts = $classes
             ->flatMap(function (TrainingClass $trainingClass): Collection {
                 return $trainingClass->examSchedules->flatMap(function ($schedule) use ($trainingClass): Collection {
                     return $schedule->attempts->map(function (ExamAttempt $attempt) use ($schedule, $trainingClass): ExamAttempt {
                         $attempt->setRelation('schedule', $schedule)->setRelation('trainingClass', $trainingClass);
-
-                        // Decorate with the effective (Skills Score-aware) result so every
-                        // consumer of this collection (analytics rows, CSV export) reports
-                        // "did this trainee pass" consistently with certificate eligibility,
-                        // instead of each one re-deriving it from the raw attempt separately.
-                        $skillsScore = $trainingClass->enrollments->firstWhere('student_user_id', $attempt->student_user_id)?->skills_score;
-                        $passingScore = (int) ($attempt->exam?->passing_score ?? 0);
-                        $effective = $attempt->score !== null
-                            ? $this->effectiveScore->resolve((float) $attempt->score, $skillsScore, $passingScore)
-                            : null;
-                        $attempt->setAttribute('effective_score', $effective['score'] ?? null);
-                        $attempt->setAttribute('effective_passed', $effective['passed'] ?? null);
-                        $attempt->setAttribute('effective_overridden', $effective['overridden'] ?? false);
 
                         return $attempt;
                     });
                 });
             })
             ->values();
+
+        $results = $this->knowledgeResults->resolveMany($attempts);
+        $attempts->each(function (ExamAttempt $attempt) use ($results): void {
+            $result = $results->get($attempt->id);
+            $attempt->setAttribute('canonical_knowledge_score', $result['final_knowledge_score'] ?? null);
+            $attempt->setAttribute('canonical_knowledge_passed', $result['final_passed'] ?? null);
+        });
+
+        return $attempts;
     }
 
     /**
@@ -192,14 +187,14 @@ class OperationalReportingService
             'name' => $name,
             'subject' => $subject,
             'trainees' => $examAttempts->pluck('student_user_id')->unique()->count(),
-            'passed' => $examAttempts->where('effective_passed', true)->count(),
-            'failed' => $examAttempts->where('effective_passed', false)->count(),
-            'rate' => $this->rate($examAttempts->where('effective_passed', true)->count(), $examAttempts->whereIn('effective_passed', [true, false])->count()),
+            'passed' => $examAttempts->where('canonical_knowledge_passed', true)->count(),
+            'failed' => $examAttempts->where('canonical_knowledge_passed', false)->count(),
+            'rate' => $this->rate($examAttempts->where('canonical_knowledge_passed', true)->count(), $examAttempts->whereIn('canonical_knowledge_passed', [true, false])->count()),
             'average' => $this->average($examAttempts),
             'retaking' => $retakes->pluck('student_user_id')->unique()->count(),
-            'retake_passed' => $retakes->where('effective_passed', true)->count(),
-            'retake_failed' => $retakes->where('effective_passed', false)->count(),
-            'retake_rate' => $this->rate($retakes->where('effective_passed', true)->count(), $retakes->whereIn('effective_passed', [true, false])->count()),
+            'retake_passed' => $retakes->where('canonical_knowledge_passed', true)->count(),
+            'retake_failed' => $retakes->where('canonical_knowledge_passed', false)->count(),
+            'retake_rate' => $this->rate($retakes->where('canonical_knowledge_passed', true)->count(), $retakes->whereIn('canonical_knowledge_passed', [true, false])->count()),
             'retake_average' => $this->average($retakes),
             'attempts' => $examAttempts->sortBy([['attempt_number', 'asc'], ['submitted_at', 'desc']])->values(),
             'initial_attempts' => $firstAttempts->count(),
@@ -208,7 +203,7 @@ class OperationalReportingService
 
     private function average(Collection $attempts): string
     {
-        $scores = $attempts->pluck('effective_score')->filter(fn ($score): bool => $score !== null);
+        $scores = $attempts->pluck('canonical_knowledge_score')->filter(fn ($score): bool => $score !== null);
 
         return $scores->isEmpty() ? '0%' : number_format((float) $scores->avg(), 2).'%';
     }

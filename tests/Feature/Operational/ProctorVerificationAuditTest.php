@@ -61,8 +61,53 @@ class ProctorVerificationAuditTest extends TestCase
         $this->assertDatabaseHas('audit_events', ['action' => 'class.manual_start', 'subject_id' => (string) $class->id]);
 
         $verification = AuditEvent::where('action', 'class.proctor_verification.succeeded')->firstOrFail();
+        $this->assertTrue($verification->after_state['proctor_id_activity']);
+        $this->assertSame($proctor->examControlCredential->control_id, $verification->after_state['entered_proctor_id']);
+        $this->assertSame('success', $verification->after_state['verification_status']);
+        $this->assertSame('pending', $verification->after_state['control_status']);
         $this->assertSame('start', $verification->after_state['operation']);
         $this->assertSame($proctor->id, $verification->after_state['verified_proctor_user_id']);
+
+        $start = AuditEvent::where('action', 'class.manual_start')->firstOrFail();
+        $this->assertTrue($start->after_state['proctor_id_activity']);
+        $this->assertSame('success', $start->after_state['control_status']);
+    }
+
+    public function test_standalone_valid_verify_is_audited(): void
+    {
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+        $this->actingAsInstructor($instructor);
+
+        $this->postJson(route('instructor.proctor-id.verify'), [
+            'proctor_id' => $proctor->examControlCredential->control_id,
+        ])->assertOk();
+
+        $event = AuditEvent::where('action', 'class.proctor_verification.succeeded')->firstOrFail();
+        $this->assertNull($event->subject_id);
+        $this->assertTrue($event->after_state['proctor_id_activity']);
+        $this->assertSame('standalone_verify', $event->after_state['operation']);
+        $this->assertSame($proctor->examControlCredential->control_id, $event->after_state['entered_proctor_id']);
+        $this->assertSame($proctor->id, $event->after_state['verified_proctor_user_id']);
+        $this->assertSame($proctor->display_name, $event->after_state['verified_proctor_display_name']);
+        $this->assertSame('not_applicable', $event->after_state['control_status']);
+    }
+
+    public function test_standalone_invalid_verify_is_audited(): void
+    {
+        $instructor = User::factory()->instructor()->create();
+        $this->actingAsInstructor($instructor);
+
+        $this->postJson(route('instructor.proctor-id.verify'), [
+            'proctor_id' => 'PR-NOTREAL',
+        ])->assertStatus(422);
+
+        $event = AuditEvent::where('action', 'class.proctor_verification.failed')->firstOrFail();
+        $this->assertNull($event->subject_id);
+        $this->assertTrue($event->after_state['proctor_id_activity']);
+        $this->assertSame('standalone_verify', $event->after_state['operation']);
+        $this->assertSame('PR-NOTREAL', $event->after_state['entered_proctor_id']);
+        $this->assertSame('user_not_found', $event->after_state['failure_reason']);
     }
 
     public function test_correct_proctor_id_records_succeeded_verification_and_ends_the_class(): void
@@ -99,6 +144,8 @@ class ProctorVerificationAuditTest extends TestCase
             ->assertJsonValidationErrors('proctor_id');
 
         $event = AuditEvent::where('action', 'class.proctor_verification.failed')->firstOrFail();
+        $this->assertTrue($event->after_state['proctor_id_activity']);
+        $this->assertSame('PR-DOESNOTEXIST', $event->after_state['entered_proctor_id']);
         $this->assertSame('user_not_found', $event->after_state['failure_reason']);
         $this->assertSame('verification', $event->after_state['failure_stage']);
         $this->assertSame('start', $event->after_state['operation']);
@@ -216,6 +263,11 @@ class ProctorVerificationAuditTest extends TestCase
         $this->assertDatabaseHas('classes', ['id' => $class->id, 'status' => ClassStatus::Active->value]);
 
         $failure = AuditEvent::where('action', 'class.control_attempt.failed')->firstOrFail();
+        $this->assertTrue($failure->after_state['proctor_id_activity']);
+        $this->assertSame($proctor->examControlCredential->control_id, $failure->after_state['entered_proctor_id']);
+        $this->assertSame('success', $failure->after_state['verification_status']);
+        $this->assertSame('failed', $failure->after_state['control_status']);
+        $this->assertSame('class_already_active', $failure->after_state['control_failure_reason']);
         $this->assertSame('start', $failure->after_state['operation']);
         $this->assertSame('class_state', $failure->after_state['failure_stage']);
         $this->assertSame('class_already_active', $failure->after_state['failure_reason']);
@@ -315,7 +367,7 @@ class ProctorVerificationAuditTest extends TestCase
         $this->assertDatabaseMissing('audit_events', ['action' => 'class.manual_start']);
     }
 
-    public function test_raw_proctor_identifier_is_never_stored_in_any_audit_state(): void
+    public function test_entered_proctor_identifier_is_retained_only_in_proctor_id_activity_metadata(): void
     {
         $proctor = User::factory()->proctor()->create();
         $instructor = User::factory()->instructor()->create();
@@ -328,6 +380,11 @@ class ProctorVerificationAuditTest extends TestCase
 
         foreach (AuditEvent::all() as $event) {
             $payload = json_encode([$event->before_state, $event->after_state, $event->reason]);
+            if (($event->after_state['proctor_id_activity'] ?? false) === true) {
+                $this->assertArrayHasKey('entered_proctor_id', $event->after_state);
+                continue;
+            }
+
             $this->assertStringNotContainsString($controlId, (string) $payload);
             $this->assertStringNotContainsString('WRONG-'.$controlId, (string) $payload);
         }
@@ -403,6 +460,8 @@ class ProctorVerificationAuditTest extends TestCase
         $this->assertDatabaseMissing('audit_events', ['action' => 'class.proctor_verification.succeeded']);
         $this->assertDatabaseMissing('audit_events', ['action' => 'class.proctor_verification.failed']);
         $this->assertDatabaseHas('audit_events', ['action' => 'class.manual_start']);
+        $startState = AuditEvent::where('action', 'class.manual_start')->firstOrFail()->after_state;
+        $this->assertFalse((bool) ($startState['proctor_id_activity'] ?? false));
     }
 
     public function test_proctor_self_service_class_state_rejection_is_still_audited(): void

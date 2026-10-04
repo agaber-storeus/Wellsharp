@@ -203,6 +203,80 @@ class SystemLogsTest extends TestCase
         $this->assertSame("The entered Proctor's ID does not match any credential", $row['reason']);
     }
 
+    public function test_proctor_id_activity_filter_and_search_cover_all_related_events(): void
+    {
+        $class = TrainingClass::factory()->create(['class_number' => 'PID-AUDIT-001']);
+        foreach ([
+            'class.proctor_verification.succeeded',
+            'class.proctor_verification.failed',
+            'class.control_attempt.failed',
+            'class.manual_start',
+            'class.manual_end',
+        ] as $action) {
+            AuditEvent::factory()->create([
+                'action' => $action,
+                'subject_type' => TrainingClass::class,
+                'subject_id' => (string) $class->id,
+                'after_state' => [
+                    'proctor_id_activity' => true,
+                    'entered_proctor_id' => 'PR-TRACE-123',
+                    'operation' => str_contains($action, 'end') ? 'end' : 'start',
+                    'verification_status' => str_contains($action, 'failed') ? 'failed' : 'success',
+                    'control_status' => $action === 'class.control_attempt.failed' ? 'failed' : 'success',
+                    'class_number' => $class->class_number,
+                ],
+            ]);
+        }
+        AuditEvent::factory()->create([
+            'action' => 'class.manual_start',
+            'subject_type' => TrainingClass::class,
+            'subject_id' => (string) $class->id,
+            'after_state' => ['operation' => 'start'],
+        ]);
+        AuditEvent::factory()->create(['action' => 'course.created']);
+
+        $filtered = $this->getJson(route('admin.system-logs.data', ['category' => 'proctor_id_activity']))->assertOk();
+        $this->assertCount(5, $filtered->json('data'));
+
+        $byPhrase = $this->getJson(route('admin.system-logs.data', ['search' => 'proctor id']))->assertOk();
+        $this->assertCount(5, $byPhrase->json('data'));
+
+        $byManualStart = $this->getJson(route('admin.system-logs.data', ['search' => 'manual start']))->assertOk();
+        $labels = collect($byManualStart->json('data'))->pluck('label');
+        $this->assertTrue($labels->contains('Class started manually'));
+
+        $byEnteredId = $this->getJson(route('admin.system-logs.data', ['search' => 'PR-TRACE-123']))->assertOk();
+        $this->assertCount(5, $byEnteredId->json('data'));
+    }
+
+    public function test_proctor_id_activity_rows_include_friendly_context(): void
+    {
+        $proctor = User::factory()->proctor()->create();
+        AuditEvent::factory()->create([
+            'action' => 'class.control_attempt.failed',
+            'after_state' => [
+                'proctor_id_activity' => true,
+                'entered_proctor_id' => 'PR-CONTROL-FAIL',
+                'operation' => 'start',
+                'verification_status' => 'success',
+                'control_status' => 'failed',
+                'failure_reason' => 'class_already_active',
+                'verified_proctor_user_id' => $proctor->id,
+                'verified_proctor_wellsharp_id' => $proctor->wellsharp_id,
+                'verified_proctor_display_name' => $proctor->display_name,
+                'class_number' => 'PID-CONTROL-FAIL',
+            ],
+        ]);
+
+        $response = $this->getJson(route('admin.system-logs.data'))->assertOk();
+        $row = collect($response->json('data'))->firstWhere('label', 'Class control attempt failed');
+
+        $this->assertSame('Verified / Control Failed', $row['status_label']);
+        $this->assertSame('PR-CONTROL-FAIL', $row['proctor_activity']['entered_proctor_id']);
+        $this->assertSame($proctor->display_name, $row['proctor_activity']['verified_proctor_display_name']);
+        $this->assertSame('class_already_active', $row['proctor_activity']['failure_reason']);
+    }
+
     public function test_detail_view_shows_a_friendly_verification_card_for_a_failed_attempt(): void
     {
         $event = AuditEvent::factory()->create([
@@ -234,6 +308,31 @@ class SystemLogsTest extends TestCase
         $response->assertSee('Succeeded');
         $response->assertSee($proctor->display_name);
         $response->assertSee($proctor->wellsharp_id);
+    }
+
+    public function test_detail_view_shows_dedicated_proctor_id_activity_section(): void
+    {
+        $event = AuditEvent::factory()->create([
+            'action' => 'class.proctor_verification.succeeded',
+            'after_state' => [
+                'proctor_id_activity' => true,
+                'entered_proctor_id' => 'PR-DETAIL-123',
+                'operation' => 'standalone_verify',
+                'verification_status' => 'success',
+                'control_status' => 'not_applicable',
+                'verified_proctor_display_name' => 'Pat Proctor',
+                'verified_proctor_user_id' => 123,
+                'verified_proctor_wellsharp_id' => 'WS-PROCTOR',
+            ],
+        ]);
+
+        $this->get(route('admin.system-logs.show', ['audit', $event->public_id]))
+            ->assertOk()
+            ->assertSee('Proctor ID Activity')
+            ->assertSee('PR-DETAIL-123')
+            ->assertSee('Standalone Verify')
+            ->assertSee('Pat Proctor')
+            ->assertSee('WS-PROCTOR');
     }
 
     public function test_control_attempt_failed_shows_a_friendly_card_with_failure_stage_and_reason(): void

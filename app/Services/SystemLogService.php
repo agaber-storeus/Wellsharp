@@ -29,6 +29,7 @@ class SystemLogService
 
     private const CATEGORIES = [
         'authentication' => 'Authentication',
+        'proctor_id_activity' => 'Proctor ID Activity',
         'security' => 'Security',
         'users' => 'Users',
         'courses' => 'Courses',
@@ -241,6 +242,7 @@ class SystemLogService
                 'audit_events.subject_type',
                 'audit_events.subject_id',
                 'audit_events.reason',
+                'audit_events.after_state',
                 'audit_events.correlation_id',
                 'audit_events.ip_address',
                 'audit_events.user_agent',
@@ -265,6 +267,7 @@ class SystemLogService
                 DB::raw('NULL as subject_type'),
                 DB::raw('NULL as subject_id'),
                 DB::raw('NULL as reason'),
+                DB::raw('NULL as after_state'),
                 'login_events.correlation_id',
                 'login_events.ip_address',
                 'login_events.user_agent',
@@ -300,10 +303,14 @@ class SystemLogService
             if ($source === 'login') {
                 $query->when($filters['category'] !== 'authentication', fn (Builder $query): Builder => $query->whereRaw('1 = 0'));
             } else {
-                $actions = collect(self::ACTIONS)
-                    ->filter(fn (array $definition): bool => $definition['category'] === $filters['category'])
-                    ->keys();
-                $query->whereIn('audit_events.action', $actions->all());
+                if ($filters['category'] === 'proctor_id_activity') {
+                    $query->where('audit_events.after_state', 'like', '%"proctor_id_activity"%');
+                } else {
+                    $actions = collect(self::ACTIONS)
+                        ->filter(fn (array $definition): bool => $definition['category'] === $filters['category'])
+                        ->keys();
+                    $query->whereIn('audit_events.action', $actions->all());
+                }
             }
         }
 
@@ -346,18 +353,31 @@ class SystemLogService
 
         $search = trim((string) ($filters['search'] ?? ''));
         if ($search !== '') {
+            $normalizedSearch = str($search)->lower()->replace([' ', '-'], '_')->toString();
+            $labelActions = collect(self::ACTIONS)
+                ->filter(fn (array $definition, string $action): bool => str_contains(strtolower($definition['label']), strtolower($search))
+                    || str_contains(strtolower(str_replace(['.', '_'], ' ', $action)), strtolower($search))
+                    || str_contains(str_replace(['.', '_'], '_', $action), $normalizedSearch))
+                ->keys();
             $actorIds = User::query()
                 ->where('wellsharp_id', 'like', '%'.$search.'%')
                 ->orWhereHas('profile', fn (Builder $profile): Builder => $profile->where('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%'))
                 ->pluck('users.id');
 
-            $query->where(function (Builder $query) use ($search, $actorIds, $source): void {
+            $query->where(function (Builder $query) use ($search, $normalizedSearch, $labelActions, $actorIds, $source): void {
                 $like = '%'.$search.'%';
                 if ($source === 'audit') {
                     $query->where('audit_events.action', 'like', $like)
                         ->orWhere('audit_events.reason', 'like', $like)
                         ->orWhere('audit_events.correlation_id', 'like', $like)
-                        ->orWhere('audit_events.subject_id', 'like', $like);
+                        ->orWhere('audit_events.subject_id', 'like', $like)
+                        ->orWhere('audit_events.after_state', 'like', $like);
+                    if (in_array($normalizedSearch, ['proctor', 'proctor_id', 'proctors_id'], true)) {
+                        $query->orWhere('audit_events.after_state', 'like', '%"proctor_id_activity"%');
+                    }
+                    if ($labelActions->isNotEmpty()) {
+                        $query->orWhereIn('audit_events.action', $labelActions->all());
+                    }
                     if ($actorIds->isNotEmpty()) {
                         $query->orWhereIn('audit_events.actor_user_id', $actorIds->all());
                     }
@@ -397,6 +417,8 @@ class SystemLogService
     {
         $action = $row->source === 'login' ? 'login.'.(string) $row->raw_action : (string) $row->raw_action;
         $definition = $this->definition($action);
+        $afterState = $this->decodeState($row->after_state ?? null);
+        $proctorActivity = $this->proctorIdActivity($action, $afterState);
 
         return [
             'id' => $row->source.':'.$row->public_id,
@@ -410,9 +432,11 @@ class SystemLogService
             'actor_role' => $actor?->currentRole?->name,
             'subject' => $this->subjectReference($row->subject_type, $row->subject_id, $row->source),
             'result' => $definition['result'],
+            'status_label' => $this->statusLabel($definition['result'], $proctorActivity),
             'severity' => $definition['severity'] ?? ($definition['result'] === 'failed' ? 'warning' : 'info'),
             'description' => $definition['label'],
             'reason' => $row->reason,
+            'proctor_activity' => $proctorActivity,
             'correlation_id' => $row->correlation_id,
             'occurred_at' => Carbon::parse($row->occurred_at),
             'detail_url' => route('admin.system-logs.show', [$row->source, $row->public_id]),
@@ -430,6 +454,7 @@ class SystemLogService
             'subject_type' => $event->subject_type,
             'subject_id' => $event->subject_id,
             'reason' => $event->reason,
+            'after_state' => $event->after_state,
             'correlation_id' => $event->correlation_id,
             'occurred_at' => $event->occurred_at,
         ], $event->actor);
@@ -454,6 +479,7 @@ class SystemLogService
             'subject_type' => null,
             'subject_id' => null,
             'reason' => null,
+            'after_state' => null,
             'correlation_id' => $event->correlation_id,
             'occurred_at' => $event->occurred_at,
         ], $event->user) + [
@@ -497,6 +523,68 @@ class SystemLogService
             'label' => str($action)->replace(['.', '_'], ' ')->headline()->toString(),
             'result' => 'success',
         ];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function decodeState(mixed $state): ?array
+    {
+        if (is_array($state)) {
+            return $state;
+        }
+
+        if (! is_string($state) || $state === '') {
+            return null;
+        }
+
+        $decoded = json_decode($state, true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function proctorIdActivity(string $action, ?array $afterState): ?array
+    {
+        if (! $afterState || ($afterState['proctor_id_activity'] ?? false) !== true) {
+            return null;
+        }
+
+        $controlStatus = $afterState['control_status'] ?? null;
+        $verificationStatus = $afterState['verification_status'] ?? null;
+        $status = match (true) {
+            $verificationStatus === 'success' && $controlStatus === 'failed' => 'verified_control_failed',
+            $verificationStatus === 'success' => 'success',
+            default => 'failed',
+        };
+
+        return [
+            'status' => $status,
+            'status_label' => match ($status) {
+                'verified_control_failed' => 'Verified / Control Failed',
+                'success' => 'Success',
+                default => 'Failed',
+            },
+            'operation' => $afterState['operation'] ?? null,
+            'entered_proctor_id' => $afterState['entered_proctor_id'] ?? null,
+            'verified_proctor_user_id' => $afterState['verified_proctor_user_id'] ?? null,
+            'verified_proctor_wellsharp_id' => $afterState['verified_proctor_wellsharp_id'] ?? null,
+            'verified_proctor_display_name' => $afterState['verified_proctor_display_name'] ?? null,
+            'failure_stage' => $afterState['failure_stage'] ?? ($afterState['control_failure_stage'] ?? null),
+            'failure_reason' => $afterState['failure_reason'] ?? ($afterState['control_failure_reason'] ?? null),
+            'control_status' => $controlStatus,
+            'class_id' => $afterState['class_id'] ?? null,
+            'class_public_id' => $afterState['class_public_id'] ?? null,
+            'class_number' => $afterState['class_number'] ?? null,
+        ];
+    }
+
+    /** @param array<string, mixed>|null $proctorActivity */
+    private function statusLabel(string $result, ?array $proctorActivity): string
+    {
+        if ($proctorActivity) {
+            return (string) $proctorActivity['status_label'];
+        }
+
+        return ucfirst($result);
     }
 
     /** @return array{category: string, label: string, result: string, severity: string} */

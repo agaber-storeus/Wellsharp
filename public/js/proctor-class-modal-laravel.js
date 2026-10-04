@@ -81,7 +81,7 @@
     };
   };
 
-  // Applies a Practical / Skills Score save response onto a roster row. Shared by
+  // Applies a Skills Score save response onto a roster row. Shared by
   // saveScore() (the Alpine component's own, ephemeral row copy) and the
   // classModalData cache sync below, so both always receive identical
   // fields.
@@ -128,11 +128,11 @@
         }).then(function (result) {
           if (!result.ok) {
             var errors = result.data.errors || {};
-            row.error = errors.skills_score ? errors.skills_score[0] : (result.data.message || "The Practical / Skills Score could not be saved.");
+            row.error = errors.skills_score ? errors.skills_score[0] : (result.data.message || "The Skills Score could not be saved.");
             return;
           }
 
-          // Apply the saved independent Practical / Skills Score and the
+          // Apply the saved independent Skills Score and the
           // unchanged Knowledge/certificate row state without a page reload.
           applyScoreRowResult(row, result.data);
           row.editing = false;
@@ -155,7 +155,7 @@
             }
           }
         }).catch(function () {
-          row.error = "The Practical / Skills Score could not be saved. Try again.";
+          row.error = "The Skills Score could not be saved. Try again.";
         }).finally(function () {
           row.saving = false;
         });
@@ -217,10 +217,11 @@
   function classScoresMarkup(rows) {
     return `
       <div x-data="classScoresTable(${attrJson(rows)})">
-        <table class="scores-table class-scores-table">
+        <div class="scores-table-frame">
+          <table class="scores-table class-scores-table">
           <thead><tr>
             <th>Name</th>
-            <th>Practical / Skills Score</th>
+            <th>Skills Score</th>
             <th>Knowledge Exam</th>
             <th>Certificate</th>
           </tr></thead>
@@ -237,7 +238,7 @@
                   </template>
                   <template x-if="row.editing">
                     <span class="score-edit-cell">
-                      <input class="score-input" type="number" min="0" max="100" x-model="row.draft" aria-label="Practical / Skills Score">
+                      <input class="score-input" type="number" min="0" max="100" x-model="row.draft" aria-label="Skills Score">
                       <a href="#" class="save-score" x-on:click.prevent="saveScore(row)">&#128190;</a>
                     </span>
                   </template>
@@ -246,7 +247,7 @@
                   <template x-if="row.state === 'notstarted'"><span>Not Started</span></template>
                   <template x-if="row.state === 'noshow'"><span>No Show</span></template>
                   <template x-if="row.state !== 'notstarted' && row.state !== 'noshow'">
-                    <span>
+                    <span class="knowledge-actions">
                       <a class="score-btn" href="#" x-show="row.reportUrl" x-on:click.prevent="openScoreReport(row)">Score Report</a>
                       <span x-show="!row.reportUrl">Score Report</span>
                       <span class="release-btn is-released" x-show="row.releasedAt">Released</span>
@@ -264,7 +265,8 @@
             </template>
             <tr x-show="!rows.length"><td colspan="4" class="scores-empty-cell">No trainees are enrolled in this Class.</td></tr>
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
     `;
   }
@@ -670,7 +672,7 @@
     var isCodes = type === "codes";
     var title = isCodes ? "Class Roster &amp; Trainee Codes" : "Class Results Report";
     var subtitle = isCodes ? "Enrollment and WellSharp identification details" : "Assessment outcomes and certificate status";
-    var headers = isCodes ? ["Name", "Username", "Company"] : ["Name", "Practical / Skills Score", "Knowledge Exam", "Certificate"];
+    var headers = isCodes ? ["Name", "Username", "Company"] : ["Name", "Skills Score", "Knowledge Exam", "Certificate"];
     var generatedAt = new Date().toLocaleString();
     var tableClass = isCodes ? "codes-print-table" : "results-print-table";
     var documentMarkup = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + title.replace(/&amp;/g, "&") + '</title><style>' +
@@ -708,7 +710,7 @@
 
     return modalShell("scores", [
       classScoresMarkup(config.scoreRows || []),
-      '<button class="print-btn" type="button" data-print-modal data-print-type="results">Export Class Results</button>'
+      '<button class="print-btn export-results-btn export-results" type="button" data-print-modal data-print-type="results">Export Class Results</button>'
     ].join(""), "dash-content scores-mode");
   }
 

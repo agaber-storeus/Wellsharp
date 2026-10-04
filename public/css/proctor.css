@@ -2713,14 +2713,12 @@ body {
 }
 
 .codes-table,
-.scores-table,
 .emergency-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.shared-class-modal .codes-table,
-.shared-class-modal .scores-table {
+.shared-class-modal .codes-table {
   overflow: hidden;
   border: 1px solid #aaa;
   border-radius: 8px;
@@ -2728,8 +2726,7 @@ body {
   border-spacing: 0;
 }
 
-.codes-table th,
-.scores-table th {
+.codes-table th {
   padding: 7px;
   border-right: 1px solid #777;
   border-radius: 8px 8px 0 0;
@@ -2738,8 +2735,7 @@ body {
   font-size: 16px;
 }
 
-.codes-table td,
-.scores-table td {
+.codes-table td {
   padding: 6px 8px;
   border: 1px solid #aaa;
   background: #e8e8e8;
@@ -2747,8 +2743,7 @@ body {
   font-weight: 700;
 }
 
-.codes-table td:not(:first-child),
-.scores-table td:not(:first-child) {
+.codes-table td:not(:first-child) {
   text-align: center;
   font-weight: 400;
 }
@@ -2855,17 +2850,6 @@ body {
   }
 }
 
-.scores-mode .dash-content {
-  display: block;
-  width: 680px;
-  margin: 18px auto 0;
-  padding: 0;
-}
-
-.scores-table td {
-  height: 31px;
-}
-
 .shared-class-modal {
   width: 900px;
   min-height: 0;
@@ -2933,8 +2917,7 @@ body {
   white-space: nowrap;
 }
 
-.shared-class-modal .codes-table th,
-.shared-class-modal .scores-table th {
+.shared-class-modal .codes-table th {
   padding: 5px 7px;
   border-radius: 0;
   font-size: 14px;
@@ -2956,16 +2939,7 @@ body {
   line-height: 1.16;
 }
 
-/* Keep Scores & Reports table styling unchanged. */
-.shared-class-modal .scores-table td {
-  padding: 4px 8px;
-  border-width: 0 1px 1px 0;
-  font-size: 10px;
-  line-height: 1.16;
-}
-
-.shared-class-modal .codes-table td:first-child,
-.shared-class-modal .scores-table td:first-child {
+.shared-class-modal .codes-table td:first-child {
   font-size: 10.5px;
   font-weight: 700;
 }
@@ -2979,74 +2953,13 @@ body {
   background: #e6e6e6;
 }
 
-/* Scores table keeps its previous striping. */
-.shared-class-modal .scores-table tbody tr:nth-child(odd) td {
-  background: #f7f7f7;
-}
-
-.shared-class-modal .scores-table tbody tr:nth-child(even) td {
-  background: #e6e6e6;
-}
-
-.shared-class-modal .codes-table tbody tr:last-child td,
-.shared-class-modal .scores-table tbody tr:last-child td {
+.shared-class-modal .codes-table tbody tr:last-child td {
   border-bottom: 0;
 }
 
 .shared-class-modal .codes-table th:last-child,
-.shared-class-modal .codes-table td:last-child,
-.shared-class-modal .scores-table th:last-child,
-.shared-class-modal .scores-table td:last-child {
+.shared-class-modal .codes-table td:last-child {
   border-right: 0;
-}
-
-.shared-class-modal .scores-mode {
-  display: block;
-  width: 680px;
-  margin: 22px auto 0;
-  padding: 0;
-}
-
-.shared-class-modal .active-scores-mode {
-  width: 560px;
-  margin-top: 20px;
-}
-
-.active-class-scores {
-  table-layout: fixed;
-}
-
-.active-class-scores th,
-.active-class-scores td {
-  white-space: nowrap;
-}
-
-.active-class-scores th:nth-child(1),
-.active-class-scores td:nth-child(1) {
-  width: 230px;
-}
-
-.active-class-scores th:nth-child(2),
-.active-class-scores td:nth-child(2) {
-  width: 100px;
-}
-
-.active-class-scores th:nth-child(3),
-.active-class-scores td:nth-child(3) {
-  width: 130px;
-}
-
-.active-class-scores th:nth-child(4),
-.active-class-scores td:nth-child(4) {
-  width: 96px;
-}
-
-.active-class-scores th {
-  height: 27px;
-}
-
-.active-class-scores td {
-  height: 31px;
 }
 
 .score-input {
@@ -3080,19 +2993,6 @@ body {
 .scores-empty-cell {
   height: 31px;
   background: #fff;
-}
-
-.class-scores-table .score-btn,
-.class-scores-table .release-btn {
-  min-width: 72px;
-  padding: 2px 7px;
-  font-size: 10px;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.class-scores-table .certificate-download {
-  min-width: 86px;
 }
 
 .edit-score {
@@ -3130,6 +3030,214 @@ body {
   width: 3px;
   height: 3px;
   background: #2c7ad6;
+}
+
+/* Class Dashboard Scores & Reports table - final visual rules. */
+.shared-class-modal .scores-mode {
+  display: block !important;
+  width: min(680px, 100%) !important;
+  margin: 22px auto 0 !important;
+  padding: 0 !important;
+  overflow-x: visible;
+}
+
+.shared-class-modal .scores-table-frame {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #aaa;
+  border-radius: 12px;
+  background: #fff;
+  flex: 0 0 auto;
+  align-self: auto;
+  grid-column: auto;
+}
+
+.shared-class-modal .class-scores-table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+  border: 0 !important;
+  outline: 0 !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.shared-class-modal .class-scores-table thead,
+.shared-class-modal .class-scores-table tbody,
+.shared-class-modal .class-scores-table tr,
+.shared-class-modal .class-scores-table th,
+.shared-class-modal .class-scores-table td {
+  border: 0 !important;
+  border-width: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+.shared-class-modal .class-scores-table thead,
+.shared-class-modal .class-scores-table thead tr,
+.shared-class-modal .class-scores-table th {
+  background: #555 !important;
+}
+
+.shared-class-modal .class-scores-table th {
+  height: 26px;
+  padding: 5px 7px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.shared-class-modal .class-scores-table th:nth-child(1),
+.shared-class-modal .class-scores-table td:nth-child(1) {
+  width: 30%;
+  text-align: left;
+}
+
+.shared-class-modal .class-scores-table th:nth-child(2),
+.shared-class-modal .class-scores-table td:nth-child(2) {
+  width: 22%;
+}
+
+.shared-class-modal .class-scores-table th:nth-child(3),
+.shared-class-modal .class-scores-table td:nth-child(3) {
+  width: 30%;
+}
+
+.shared-class-modal .class-scores-table th:nth-child(4),
+.shared-class-modal .class-scores-table td:nth-child(4) {
+  width: 18%;
+}
+
+.shared-class-modal .class-scores-table td {
+  height: 30px;
+  padding: 4px 7px;
+  background: transparent !important;
+  color: #111;
+  font-size: 10.5px;
+  line-height: 1.12;
+  text-align: center;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.shared-class-modal .class-scores-table td:first-child {
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.shared-class-modal .class-scores-table tbody tr {
+  background: #fff;
+}
+
+.shared-class-modal .class-scores-table tbody tr:nth-of-type(even) {
+  background: #e6e6e6;
+}
+
+.shared-class-modal .class-scores-table tbody td {
+  background: transparent !important;
+}
+
+.shared-class-modal .class-scores-table .score-edit-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.shared-class-modal .class-scores-table .score-input {
+  width: 46px;
+  height: 20px;
+  padding: 1px 4px;
+  font-size: 10px;
+  text-align: center;
+}
+
+.shared-class-modal .class-scores-table .edit-score-icon {
+  width: 12px;
+  height: 12px;
+  margin-left: 0;
+}
+
+.shared-class-modal .class-scores-table .knowledge-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.shared-class-modal .class-scores-table .score-btn,
+.shared-class-modal .class-scores-table .release-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  min-height: 19px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.shared-class-modal .class-scores-table .score-btn {
+  background: #1876c9;
+  color: #fff;
+}
+
+.shared-class-modal .class-scores-table .release-btn {
+  background: #0b9a1a;
+  color: #fff;
+}
+
+.shared-class-modal .class-scores-table .release-btn.is-released {
+  background: #6d7f70;
+}
+
+.shared-class-modal .class-scores-table .certificate-download {
+  min-width: 72px;
+}
+
+.shared-class-modal .scores-mode + .print-btn {
+  margin-top: 10px;
+}
+
+.export-results-btn,
+.shared-class-modal .export-results {
+  display: block;
+  width: max-content;
+  height: auto;
+  min-height: 0;
+  margin: 8px auto 0;
+  align-self: auto;
+  flex: 0 0 auto;
+  grid-column: auto;
+}
+
+@media (max-width: 760px) {
+  .shared-class-modal .scores-mode {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: auto;
+  }
+
+  .shared-class-modal .class-scores-table {
+    min-width: 560px;
+  }
+
+  .shared-class-modal .scores-table-frame {
+    min-width: 560px;
+  }
 }
 
 .report-wrapper {

@@ -130,7 +130,7 @@ class OperationalClassMapPointBuilder
      * Builds one Class Dashboard roster row for a single Enrollment - the
      * authoritative shape both buildModalData() (bulk, preloaded attempts and
      * certificates to avoid N+1) and scoreRowForEnrollment() (single
-     * Enrollment, used after a Practical / Skills Score save so the frontend can update
+     * Enrollment, used after a Skills Score save so the frontend can update
      * the row's Certificate cell without a page reload) build from, so the
      * two paths can never drift into different shapes.
      */
@@ -164,7 +164,7 @@ class OperationalClassMapPointBuilder
 
     /**
      * The single-Enrollment counterpart of scoreRow(), used to return the
-     * authoritative roster row state right after a Practical / Skills Score
+     * authoritative roster row state right after a Skills Score
      * save so the frontend can refresh the independent score value.
      */
     public function scoreRowForEnrollment(Enrollment $enrollment): array

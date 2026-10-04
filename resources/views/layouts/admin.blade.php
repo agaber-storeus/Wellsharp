@@ -15,6 +15,7 @@
     @endif
     @vite('resources/js/app.js')
     @if(request()->routeIs('admin.questions.create', 'admin.courses.questions.create', 'admin.courses.questions.edit'))<link rel="stylesheet" href="{{ asset('css/admin-question-wizard.css') }}">@endif
+    @if(request()->routeIs('admin.exams.create', 'admin.exams.edit', 'admin.exams.show', 'admin.courses.exams.create', 'admin.courses.exams.edit', 'admin.courses.exams.show'))<link rel="stylesheet" href="{{ asset('css/admin-exam-questions.css') }}?v={{ filemtime(public_path('css/admin-exam-questions.css')) }}">@endif
     @if(request()->routeIs('admin.providers.create', 'admin.providers.edit', 'admin.providers.show'))<link rel="stylesheet" href="{{ asset('css/provider-location-picker.css') }}">@vite('resources/js/maps.js')@endif
     {{-- Always last: the global design-system layer overrides tokens/typography/badges/etc. declared by every stylesheet above, including the page-specific ones loaded conditionally just above. --}}
     <link rel="stylesheet" href="{{ asset('css/admin-system.css') }}?v={{ filemtime(public_path('css/admin-system.css')) }}">

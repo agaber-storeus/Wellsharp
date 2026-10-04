@@ -8,6 +8,7 @@ use App\Models\ExamSchedule;
 use App\Models\Group;
 use App\Models\GroupMembership;
 use App\Models\Question;
+use App\Models\QuestionOption;
 use App\Models\TrainingProvider;
 use App\Models\User;
 use App\Models\UserProfile;
@@ -314,6 +315,57 @@ class BusinessDomainTest extends TestCase
             'question_ids' => [$first->id, $foreign->id], 'display_orders' => [$first->id => 1, $foreign->id => 2],
         ])->assertSessionHasErrors('question_ids');
         $this->assertDatabaseMissing('exams', ['name' => 'Invalid Exam']);
+    }
+
+    public function test_manual_exam_question_cards_render_answers_selection_and_admin_edit_links(): void
+    {
+        $mcq = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Which barrier is correct?', 'type' => 'mcq', 'difficulty' => 'hard']);
+        QuestionOption::create(['question_id' => $mcq->id, 'option_text' => 'Approved barrier', 'is_correct' => true, 'display_order' => 1]);
+        QuestionOption::create(['question_id' => $mcq->id, 'option_text' => 'Neutral wrong option', 'is_correct' => false, 'display_order' => 2]);
+        $trueFalse = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Pressure is controlled.', 'type' => 'true_false', 'difficulty' => 'medium', 'correct_answer_boolean' => true]);
+        $input = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Enter the expected acronym.', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'BOP']);
+
+        $create = $this->get(route('admin.courses.exams.create', $this->subject))->assertOk();
+        foreach (['Which barrier is correct?', 'Approved barrier', 'Neutral wrong option', 'Pressure is controlled.', 'Enter the expected acronym.', 'BOP'] as $text) {
+            $create->assertSee($text);
+        }
+        $create->assertSee('\\u0022correct\\u0022:true', false)
+            ->assertSee('target="_blank"', false)
+            ->assertSee('edit_url', false)
+            ->assertSee('x-if="selectionMode === \'manual\'"', false);
+
+        $exam = Exam::factory()->create(['course_id' => $this->subject->id, 'question_selection_mode' => 'manual']);
+        $exam->questions()->sync([
+            $mcq->id => ['display_order' => 1],
+            $trueFalse->id => ['display_order' => 2],
+            $input->id => ['display_order' => 3],
+        ]);
+
+        $edit = $this->get(route('admin.courses.exams.edit', [$this->subject, $exam]))->assertOk();
+        $edit->assertSee('Approved barrier')->assertSee('BOP')->assertSee((string) $mcq->id);
+
+        $show = $this->get(route('admin.courses.exams.show', [$this->subject, $exam]))->assertOk();
+        $show->assertSee('Approved barrier')
+            ->assertSee('Neutral wrong option')
+            ->assertSee('True')
+            ->assertSee('False')
+            ->assertSee('Expected answer')
+            ->assertSee('BOP')
+            ->assertSee('Correct')
+            ->assertSee(route('admin.courses.questions.edit', [$this->subject, $mcq]), false);
+    }
+
+    public function test_random_exam_show_does_not_render_manual_question_cards(): void
+    {
+        $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Hidden random-bank answer', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'Secret answer']);
+        $exam = Exam::factory()->create(['course_id' => $this->subject->id, 'question_selection_mode' => 'random', 'question_count' => 1]);
+        $exam->questions()->sync([$question->id => ['display_order' => 1]]);
+
+        $this->get(route('admin.courses.exams.show', [$this->subject, $exam]))
+            ->assertOk()
+            ->assertDontSee('exam-question-grid', false)
+            ->assertDontSee('Hidden random-bank answer')
+            ->assertDontSee('Secret answer');
     }
 
     public function test_exams_display_and_sort_by_created_at_with_newest_first_by_default(): void

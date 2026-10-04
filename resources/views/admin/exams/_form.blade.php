@@ -13,11 +13,21 @@
     $questionBanks = $questionBanks ?? [
         (string) $currentSubject => $questions->map(fn ($question): array => [
             'id' => (string) $question->id,
+            'code' => $question->code,
             'text' => $question->display_question_text,
             'subject' => $question->course?->name,
             'type' => $question->type?->value,
+            'type_label' => $question->type?->label(),
             'difficulty' => $question->difficulty?->value,
+            'difficulty_label' => $question->difficulty?->label(),
             'image_url' => $question->question_image_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($question->question_image_path) : null,
+            'answers' => match ($question->type?->value) {
+                'mcq' => $question->options->map(fn ($option) => ['text' => $option->option_text, 'correct' => $option->is_correct, 'image_url' => $option->image_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($option->image_path) : null])->values()->all(),
+                'true_false' => [['text' => 'True', 'correct' => $question->correct_answer_boolean === true], ['text' => 'False', 'correct' => $question->correct_answer_boolean === false]],
+                'input' => [['text' => $question->correct_answer_text, 'correct' => true, 'image_url' => $question->correct_answer_image_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($question->correct_answer_image_path) : null]],
+                default => [],
+            },
+            'edit_url' => route('admin.courses.questions.edit', [$question->course, $question]),
         ])->values()->all(),
     ];
     $providerLocations = $providers->mapWithKeys(fn ($provider) => [(string) $provider->id => $provider->locations->map(fn ($location) => ['id' => (string) $location->id, 'location' => $location->location])->values()->all()]);
@@ -64,7 +74,8 @@
         </div>
     @endif
 
-    <div class="admin-bento-card admin-bento-card--wide" x-show="selectionMode === 'manual'" x-cloak>
+    <template x-if="selectionMode === 'manual'">
+    <div class="admin-bento-card admin-bento-card--wide">
         <div class="admin-card-head"><span class="admin-card-icon">❓</span><h3>Questions<span class="required-mark" aria-hidden="true">*</span></h3></div>
         <span class="sr-only">Required</span>
         <p class="admin-card-note">Select questions from the chosen Subject, or auto-select a random set below (<span x-text="subjectQuestions().length"></span> active questions available).</p>
@@ -140,20 +151,25 @@
             <input type="hidden" :name="'display_orders[' + questionId + ']'" :value="orders[questionId] || ''" x-bind:disabled="selectionMode === 'random'">
         </template>
 
-        <div class="table-wrap"><table class="table"><thead><tr><th>Select</th><th>Order</th><th>Question</th><th>Subject</th><th>Type</th><th>Difficulty</th></tr></thead><tbody>
+        <div class="exam-question-grid">
             <template x-for="question in filteredQuestions()" :key="question.id">
-                <tr>
-                    <td><input type="checkbox" name="question_ids[]" :value="question.id" x-model="selected" x-bind:disabled="selectionMode === 'random'"></td>
-                    <td><input style="width:80px" type="number" :name="'display_orders[' + question.id + ']'" x-model.number="orders[question.id]" min="1" x-bind:disabled="selectionMode === 'random'"></td>
-                    <td><div class="admin-question-cell"><template x-if="question.image_url"><img class="admin-question-thumb" :src="question.image_url" alt="Question image"></template><div><span x-text="question.text"></span></div></div></td>
-                    <td x-text="question.subject"></td>
-                    <td x-text="question.type === 'mcq' ? 'Multiple choice' : (question.type === 'true_false' ? 'True / False' : 'Text input')"></td>
-                    <td x-text="question.difficulty ? question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1) : ''"></td>
-                </tr>
+                <article class="exam-question-card" x-bind:class="{ 'is-selected': selected.includes(question.id) }">
+                    <div class="exam-question-card-head">
+                        <label class="exam-question-select"><input type="checkbox" name="question_ids[]" :value="question.id" x-model="selected" x-bind:disabled="selectionMode === 'random'"><span x-text="selected.includes(question.id) ? 'Selected' : 'Select question'"></span></label>
+                        <div class="exam-question-badges"><span class="badge" x-text="question.code"></span><span class="badge" x-text="question.type_label"></span><span class="badge" x-bind:class="question.difficulty" x-text="question.difficulty_label"></span></div>
+                    </div>
+                    <div class="exam-question-content"><template x-if="question.image_url"><img class="exam-question-image" :src="question.image_url" alt="Question image"></template><p class="exam-question-text" x-text="question.text"></p></div>
+                    <div class="exam-question-answers" x-bind:aria-label="question.type === 'input' ? 'Expected answer' : 'Answer options'">
+                        <div class="exam-question-answers-label" x-text="question.type === 'input' ? 'Expected answer' : 'Answers'"></div>
+                        <template x-for="(answer, answerIndex) in question.answers" :key="answerIndex"><div class="exam-question-answer" x-bind:class="{ 'is-correct': answer.correct }"><span class="exam-question-answer-marker" x-text="answer.correct ? 'Correct' : String.fromCharCode(65 + answerIndex)"></span><span class="exam-question-answer-text" x-text="answer.text || 'Image answer'"></span><template x-if="answer.image_url"><img class="exam-question-answer-image" :src="answer.image_url" alt="Answer image"></template></div></template>
+                    </div>
+                    <div class="exam-question-card-footer"><label class="exam-question-order">Order <input type="number" :name="'display_orders[' + question.id + ']'" x-model.number="orders[question.id]" min="1" x-bind:disabled="selectionMode === 'random'"></label><a class="btn secondary small" :href="question.edit_url" target="_blank" rel="noopener">Edit Question</a></div>
+                </article>
             </template>
-            <tr x-show="filteredQuestions().length === 0"><td colspan="6" class="muted" x-text="subjectQuestions().length ? 'No questions match the current filters.' : 'Choose a Subject with active questions first.'"></td></tr>
-        </tbody></table></div>
+            <div class="exam-question-empty muted" x-show="filteredQuestions().length === 0" x-text="subjectQuestions().length ? 'No questions match the current filters.' : 'Choose a Subject with active questions first.'"></div>
+        </div>
     </div>
+    </template>
 </div>
 <div class="actions" style="margin-top:20px"><button class="btn">Save exam</button><a class="btn secondary" href="{{ $exam->exists ? route('admin.exams.show', $exam) : route('admin.exams.index') }}">Cancel</a></div>
 

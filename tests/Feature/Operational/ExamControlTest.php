@@ -75,8 +75,8 @@ class ExamControlTest extends TestCase
             'exam_id' => $exam->id,
             'group_id' => $group->id,
             'training_class_id' => $trainingClass->id,
-            'start_date' => now()->addMonth()->toDateString(),
-            'end_date' => now()->addMonth()->addDays(2)->toDateString(),
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addDays(2)->toDateString(),
             'duration_minutes' => 60,
             'status' => ExamScheduleStatus::Scheduled,
         ]);

@@ -61,8 +61,10 @@ class SystemLogController extends Controller
             'actor_role' => $entry['actor_role'],
             'subject' => $entry['subject'],
             'result' => $entry['result'],
+            'status_label' => $entry['status_label'],
             'severity' => $entry['severity'],
             'reason' => $entry['reason'],
+            'proctor_activity' => $entry['proctor_activity'],
             'correlation_id' => $entry['correlation_id'],
             'detail_url' => $entry['detail_url'],
         ];

@@ -20,6 +20,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::get('certificates', [CertificateController::class, 'index'])->name('certificates.index');
     Route::get('certificates/data', [CertificateController::class, 'data'])->name('certificates.data');
     Route::get('certificates/{certificate}', [CertificateController::class, 'show'])->name('certificates.show');
+    Route::post('certificates/{certificate}/knowledge-controls', [CertificateController::class, 'storeKnowledgeControl'])->name('certificates.knowledge-controls.store');
+    Route::patch('certificates/{certificate}/knowledge-controls/{control}/revert', [CertificateController::class, 'revertKnowledgeControl'])->name('certificates.knowledge-controls.revert');
+    Route::post('certificates/{certificate}/knowledge-controls/restore', [CertificateController::class, 'restoreKnowledgeControls'])->name('certificates.knowledge-controls.restore');
+    Route::post('certificates/{certificate}/issue', [CertificateController::class, 'issue'])->name('certificates.issue');
+    Route::post('certificates/{certificate}/revoke', [CertificateController::class, 'revoke'])->name('certificates.revoke');
     Route::get('students', [StudentController::class, 'index'])->name('students.index');
     Route::get('students/data', [StudentController::class, 'data'])->name('students.data');
     Route::get('students/create', [StudentController::class, 'create'])->name('students.create');
@@ -34,6 +39,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'sess
     Route::post('users/{user}/reveal-password', [UserController::class, 'revealPassword'])->name('users.reveal-password');
 
     Route::get('providers/data', [TrainingProviderController::class, 'data'])->name('providers.data');
+    Route::put('providers/location-drafts/{draftToken}', [TrainingProviderController::class, 'autosaveDraftLocations'])->name('providers.location-drafts.update');
+    Route::put('providers/{provider}/locations/autosave', [TrainingProviderController::class, 'autosaveLocations'])->name('providers.locations.autosave');
     Route::resource('providers', TrainingProviderController::class)->except(['destroy']);
     Route::patch('providers/{provider}/archive', [TrainingProviderController::class, 'archive'])->name('providers.archive');
     Route::patch('providers/{provider}/unarchive', [TrainingProviderController::class, 'unarchive'])->name('providers.unarchive');

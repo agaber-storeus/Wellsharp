@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Actions\TrainingProviders\SyncProviderLocationsAction;
 use App\Models\Course;
 use App\Models\CourseLevel;
 use App\Models\Language;
@@ -9,6 +10,8 @@ use App\Models\Stack;
 use App\Models\TrainingProvider;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ProviderAndCourseTest extends TestCase
@@ -34,6 +37,198 @@ class ProviderAndCourseTest extends TestCase
         $this->patch(route('admin.providers.archive', $provider))->assertRedirect();
         $this->assertDatabaseHas('training_providers', ['id' => $provider->id, 'status' => 'archived']);
         $this->assertDatabaseHas('audit_events', ['action' => 'training_provider.archived']);
+    }
+
+    public function test_admin_can_create_provider_with_one_or_many_locations(): void
+    {
+        $this->post(route('admin.providers.store'), [
+            'provider_number' => 'TP-ONE',
+            'name' => 'One Location Provider',
+            'locations' => [['location' => 'Cairo Center']],
+        ])->assertRedirect();
+        $one = TrainingProvider::where('provider_number', 'TP-ONE')->firstOrFail();
+        $this->assertSame(['Cairo Center'], $one->locations()->pluck('location')->all());
+        $this->assertSame('Cairo Center', $one->address);
+
+        $this->post(route('admin.providers.store'), [
+            'provider_number' => 'TP-MULTI',
+            'name' => 'Multi Location Provider',
+            'locations' => [['location' => 'Cairo Center'], ['location' => 'Alexandria Center']],
+        ])->assertRedirect();
+        $multi = TrainingProvider::where('provider_number', 'TP-MULTI')->firstOrFail();
+        $this->assertEqualsCanonicalizing(['Cairo Center', 'Alexandria Center'], $multi->locations()->pluck('location')->all());
+    }
+
+    public function test_admin_can_edit_locations_and_removed_locations_are_deactivated(): void
+    {
+        $provider = TrainingProvider::factory()->create();
+        $first = $provider->locations()->firstOrFail();
+        $second = $provider->locations()->create(['location' => 'Second Center']);
+
+        $this->put(route('admin.providers.update', $provider), [
+            'provider_number' => $provider->provider_number,
+            'name' => $provider->name,
+            'locations' => [
+                ['id' => $first->id, 'location' => 'Updated Primary Center'],
+                ['location' => 'New Third Center'],
+            ],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('training_provider_locations', ['id' => $first->id, 'location' => 'Updated Primary Center', 'is_active' => true]);
+        $this->assertDatabaseHas('training_provider_locations', ['id' => $second->id, 'is_active' => false]);
+        $this->assertDatabaseHas('training_provider_locations', ['training_provider_id' => $provider->id, 'location' => 'New Third Center', 'is_active' => true]);
+    }
+
+    public function test_provider_locations_store_independent_map_coordinates(): void
+    {
+        $provider = TrainingProvider::factory()->create(['provider_number' => 'TP-MULTI-MAP']);
+        app(SyncProviderLocationsAction::class)->execute($provider, [
+            ['location' => 'Cairo Center', 'latitude' => '30.0444000', 'longitude' => '31.2357000'],
+            ['location' => 'Alexandria Center', 'latitude' => '31.2001000', 'longitude' => '29.9187000'],
+        ]);
+
+        $this->assertDatabaseHas('training_provider_locations', ['training_provider_id' => $provider->id, 'location' => 'Cairo Center', 'latitude' => 30.0444, 'longitude' => 31.2357]);
+        $this->assertDatabaseHas('training_provider_locations', ['training_provider_id' => $provider->id, 'location' => 'Alexandria Center', 'latitude' => 31.2001, 'longitude' => 29.9187]);
+    }
+
+    public function test_create_provider_location_draft_persists_and_finalizes_without_duplicates(): void
+    {
+        $this->get(route('admin.providers.create'))->assertOk();
+        $draftToken = session('active_provider_location_draft');
+        $locations = [
+            ['client_key' => 'new-cairo', 'location' => 'Cairo Center', 'latitude' => 30.0444, 'longitude' => 31.2357],
+            ['client_key' => 'new-alex', 'location' => 'Alexandria Center', 'latitude' => 31.2001, 'longitude' => 29.9187],
+            ['client_key' => 'new-giza', 'location' => 'Giza Center', 'latitude' => 30.0131, 'longitude' => 31.2089],
+        ];
+
+        $this->putJson(route('admin.providers.location-drafts.update', $draftToken), ['locations' => $locations])
+            ->assertOk()
+            ->assertJsonCount(3, 'locations');
+
+        $this->get(route('admin.providers.create'))
+            ->assertOk()
+            ->assertSee('Cairo Center')
+            ->assertSee('Alexandria Center')
+            ->assertSee('Giza Center');
+
+        $this->post(route('admin.providers.store'), [
+            'provider_number' => 'TP-DRAFT',
+            'name' => 'Draft Provider',
+            'draft_token' => $draftToken,
+            'locations' => $locations,
+        ])->assertRedirect();
+
+        $provider = TrainingProvider::where('provider_number', 'TP-DRAFT')->firstOrFail();
+        $this->assertSame(3, $provider->locations()->count());
+        $this->assertNull(session('active_provider_location_draft'));
+    }
+
+    public function test_create_provider_autosave_rejects_an_unowned_draft_token(): void
+    {
+        $unownedToken = (string) Str::uuid();
+
+        $this->putJson(route('admin.providers.location-drafts.update', $unownedToken), ['locations' => []])
+            ->assertForbidden();
+
+        $this->post(route('admin.providers.store'), [
+            'provider_number' => 'TP-FORGED-DRAFT',
+            'name' => 'Forged Draft Provider',
+            'draft_token' => $unownedToken,
+        ])->assertForbidden();
+        $this->assertDatabaseMissing('training_providers', ['provider_number' => 'TP-FORGED-DRAFT']);
+    }
+
+    public function test_edit_provider_autosave_updates_locations_and_repeated_saves_do_not_duplicate(): void
+    {
+        $provider = TrainingProvider::factory()->create();
+        $first = $provider->locations()->firstOrFail();
+        $payload = [
+            ['client_key' => 'saved-'.$first->id, 'id' => $first->id, 'location' => 'Updated Center', 'latitude' => 30.0444, 'longitude' => 31.2357],
+            ['client_key' => 'new-branch', 'id' => null, 'location' => 'New Branch', 'latitude' => 31.2001, 'longitude' => 29.9187],
+        ];
+
+        $response = $this->putJson(route('admin.providers.locations.autosave', $provider), ['locations' => $payload])
+            ->assertOk()
+            ->assertJsonCount(2, 'locations');
+        $newId = collect($response->json('locations'))->firstWhere('client_key', 'new-branch')['id'];
+        $payload[1]['id'] = $newId;
+
+        $this->putJson(route('admin.providers.locations.autosave', $provider), ['locations' => $payload])->assertOk();
+
+        $this->assertDatabaseHas('training_provider_locations', ['id' => $first->id, 'location' => 'Updated Center', 'latitude' => 30.0444]);
+        $this->assertSame(1, $provider->locations()->where('location', 'New Branch')->count());
+
+        $this->put(route('admin.providers.update', $provider), [
+            'provider_number' => $provider->provider_number,
+            'name' => $provider->name,
+            'locations' => $payload,
+        ])->assertRedirect();
+        $this->assertSame(2, $provider->locations()->where('is_active', true)->count());
+    }
+
+    public function test_edit_autosave_keeps_a_pinned_new_card_until_its_address_can_be_persisted(): void
+    {
+        $provider = TrainingProvider::factory()->create();
+        $location = $provider->locations()->firstOrFail();
+
+        $this->putJson(route('admin.providers.locations.autosave', $provider), ['locations' => [
+            ['client_key' => 'saved-'.$location->id, 'id' => $location->id, 'location' => $location->location],
+            ['client_key' => 'new-pending', 'id' => null, 'location' => '', 'latitude' => 30.1234, 'longitude' => 31.5678],
+        ]])->assertOk()->assertJsonPath('locations.1.client_key', 'new-pending')->assertJsonPath('locations.1.id', null);
+
+        $this->assertSame(1, $provider->locations()->where('is_active', true)->count());
+        $this->get(route('admin.providers.edit', $provider))
+            ->assertOk()
+            ->assertSee('new-pending')
+            ->assertSee('30.1234');
+    }
+
+    public function test_autosave_rejects_invalid_or_unowned_location_without_changing_saved_data(): void
+    {
+        $provider = TrainingProvider::factory()->create();
+        $location = $provider->locations()->firstOrFail();
+        $otherProvider = TrainingProvider::factory()->create();
+        $otherLocation = $otherProvider->locations()->firstOrFail();
+
+        $this->putJson(route('admin.providers.locations.autosave', $provider), ['locations' => [[
+            'client_key' => 'saved-'.$location->id,
+            'id' => $location->id,
+            'location' => 'Unsaved invalid value',
+            'latitude' => 120,
+            'longitude' => 31.2357,
+        ]]])->assertUnprocessable();
+        $this->assertNotSame('Unsaved invalid value', $location->fresh()->location);
+
+        $this->putJson(route('admin.providers.locations.autosave', $provider), ['locations' => [[
+            'client_key' => 'saved-'.$otherLocation->id,
+            'id' => $otherLocation->id,
+            'location' => 'Ownership violation',
+        ]]])->assertUnprocessable();
+        $this->assertNotSame('Ownership violation', $otherLocation->fresh()->location);
+    }
+
+    public function test_location_migration_backfills_legacy_provider_location(): void
+    {
+        $migration = require database_path('migrations/2026_09_03_000001_add_training_provider_locations.php');
+        $migration->down();
+
+        $providerId = DB::table('training_providers')->insertGetId([
+            'public_id' => (string) Str::ulid(),
+            'provider_number' => 'TP-LEGACY',
+            'name' => 'Legacy Provider',
+            'address' => 'Legacy Location',
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $migration->up();
+
+        $this->assertDatabaseHas('training_provider_locations', [
+            'training_provider_id' => $providerId,
+            'location' => 'Legacy Location',
+            'is_active' => true,
+        ]);
     }
 
     public function test_admin_can_change_provider_status_from_the_provider_details_page(): void
@@ -108,6 +303,22 @@ class ProviderAndCourseTest extends TestCase
             ->assertSee('providerLocationMap')
             ->assertSee('30.0444')
             ->assertSee('31.2357');
+    }
+
+    public function test_provider_details_map_includes_each_mapped_location(): void
+    {
+        $provider = TrainingProvider::factory()->create();
+        $first = $provider->locations()->firstOrFail();
+        $first->update(['location' => 'Cairo Center', 'latitude' => 30.0444, 'longitude' => 31.2357]);
+        $second = $provider->locations()->create(['location' => 'Alexandria Center', 'latitude' => 31.2001, 'longitude' => 29.9187]);
+
+        $this->get(route('admin.providers.show', $provider))
+            ->assertOk()
+            ->assertSee('providerLocationData')
+            ->assertSee('saved-'.$first->id)
+            ->assertSee('saved-'.$second->id)
+            ->assertSee('Cairo Center')
+            ->assertSee('Alexandria Center');
     }
 
     public function test_admin_course_create_form_renders_its_partial(): void

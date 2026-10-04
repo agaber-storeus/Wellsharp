@@ -16,7 +16,7 @@ class TrainingClass extends Model
 
     protected $table = 'classes';
 
-    protected $fillable = ['class_number', 'course_id', 'training_provider_id', 'proctor_id', 'instructor_id', 'status', 'starts_at', 'ends_at', 'actual_started_at', 'actual_ended_at', 'notes'];
+    protected $fillable = ['class_number', 'course_id', 'training_provider_id', 'training_provider_location_id', 'proctor_id', 'instructor_id', 'status', 'starts_at', 'ends_at', 'actual_started_at', 'actual_ended_at', 'notes'];
 
     protected function casts(): array
     {
@@ -31,6 +31,11 @@ class TrainingClass extends Model
     public function provider(): BelongsTo
     {
         return $this->belongsTo(TrainingProvider::class, 'training_provider_id');
+    }
+
+    public function providerLocation(): BelongsTo
+    {
+        return $this->belongsTo(TrainingProviderLocation::class, 'training_provider_location_id');
     }
 
     public function proctor(): BelongsTo

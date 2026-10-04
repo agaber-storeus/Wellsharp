@@ -191,7 +191,7 @@ class ExamController extends Controller
     private function staffOptions(): array
     {
         return [
-            'providers' => TrainingProvider::query()->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get(),
+            'providers' => TrainingProvider::query()->with(['locations' => fn ($query) => $query->where('is_active', true)->orderBy('location')])->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get(),
             'proctors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::PROCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
             'instructors' => User::query()->with('profile')->whereHas('currentRole', fn ($role) => $role->where('key', Role::INSTRUCTOR))->where('status', 'active')->whereNull('archived_at')->orderBy('wellsharp_id')->get(),
         ];
@@ -201,7 +201,7 @@ class ExamController extends Controller
     {
         return Course::query()
             ->where('status', 'active')
-            ->with(['questions' => fn ($query) => $query->where('is_active', true)->orderBy('question_text')])
+            ->with(['questions' => fn ($query) => $query->where('is_active', true)->with('options')->orderBy('question_text')])
             ->orderBy('name')
             ->get();
     }
@@ -211,13 +211,39 @@ class ExamController extends Controller
         return $subjects->mapWithKeys(fn (Course $subject): array => [
             (string) $subject->id => $subject->questions->map(fn ($question): array => [
                 'id' => (string) $question->id,
+                'code' => $question->code,
                 'text' => $question->display_question_text,
                 'subject' => $subject->name,
                 'type' => $question->type?->value,
+                'type_label' => $question->type?->label(),
                 'difficulty' => $question->difficulty?->value,
+                'difficulty_label' => $question->difficulty?->label(),
                 'image_url' => $question->question_image_path ? Storage::disk('public')->url($question->question_image_path) : null,
+                'answers' => $this->questionAnswers($question),
+                'edit_url' => route('admin.courses.questions.edit', [$subject, $question]),
             ])->values()->all(),
         ])->all();
+    }
+
+    private function questionAnswers($question): array
+    {
+        return match ($question->type?->value) {
+            'mcq' => $question->options->map(fn ($option): array => [
+                'text' => $option->option_text,
+                'correct' => $option->is_correct,
+                'image_url' => $option->image_path ? Storage::disk('public')->url($option->image_path) : null,
+            ])->values()->all(),
+            'true_false' => [
+                ['text' => 'True', 'correct' => $question->correct_answer_boolean === true, 'image_url' => null],
+                ['text' => 'False', 'correct' => $question->correct_answer_boolean === false, 'image_url' => null],
+            ],
+            'input' => [[
+                'text' => $question->correct_answer_text,
+                'correct' => true,
+                'image_url' => $question->correct_answer_image_path ? Storage::disk('public')->url($question->correct_answer_image_path) : null,
+            ]],
+            default => [],
+        };
     }
 
     public function update(UpdateExamRequest $request, Course $course, Exam $exam, SaveExamAction $action): RedirectResponse
@@ -306,6 +332,7 @@ class ExamController extends Controller
             'question_order_mode_label' => $exam->question_order_mode->label(),
             'status' => $exam->status->value,
             'status_label' => $exam->status->label(),
+            'created_at' => $exam->created_at?->format('M j, Y H:i'),
             'can_archive' => $exam->status !== ExamStatus::Archived,
             'exam_url' => route('admin.exams.show', $exam),
             'edit_url' => route('admin.exams.edit', $exam),

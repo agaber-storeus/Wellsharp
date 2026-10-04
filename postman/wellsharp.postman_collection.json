@@ -7,7 +7,7 @@
   },
   "variable": [
     { "key": "base_url", "value": "http://localhost" },
-    { "key": "wellsharp_id", "value": "DEMO-ADMIN-001" },
+    { "key": "wellsharp_id", "value": "DEMO-ADMIN-001", "description": "A WellSharp ID or username." },
     { "key": "password", "value": "" },
     { "key": "csrf_token", "value": "" },
     { "key": "role", "value": "proctor" },
@@ -18,6 +18,9 @@
     { "key": "user", "value": "replace-with-user-public-id" },
     { "key": "student", "value": "replace-with-student-public-id" },
     { "key": "certificate", "value": "replace-with-certificate-id" },
+    { "key": "provider", "value": "replace-with-provider-id" },
+    { "key": "provider_draft_token", "value": "replace-with-uuid" },
+    { "key": "knowledge_control", "value": "replace-with-control-id" },
     { "key": "certificate_number", "value": "replace-with-certificate-number" },
     { "key": "instructor_number", "value": "replace-with-instructor-wellsharp-id" },
     { "key": "document", "value": "replace-with-document-id" }
@@ -98,6 +101,80 @@
             "header": [ { "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
             "body": { "mode": "raw", "raw": "{\n  \"order\": [3, 1, 2]\n}" },
             "url": { "raw": "{{base_url}}/admin/subject-configuration/levels/reorder", "host": ["{{base_url}}"], "path": ["admin", "subject-configuration", "levels", "reorder"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin provider locations",
+      "description": "Real autosave for create drafts and existing Provider locations. Create drafts are session-owned and do not create Provider rows.",
+      "item": [
+        {
+          "name": "Autosave create Provider location draft",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"locations\": [\n    {\n      \"client_key\": \"location-demo-1\",\n      \"location\": \"123 Training Road\",\n      \"latitude\": 29.971,\n      \"longitude\": 31.128\n    }\n  ]\n}" },
+            "url": { "raw": "{{base_url}}/admin/providers/location-drafts/{{provider_draft_token}}", "host": ["{{base_url}}"], "path": ["admin", "providers", "location-drafts", "{{provider_draft_token}}"] }
+          }
+        },
+        {
+          "name": "Autosave existing Provider locations",
+          "request": {
+            "method": "PUT",
+            "header": [ { "key": "Accept", "value": "application/json" }, { "key": "Content-Type", "value": "application/json" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"locations\": [\n    {\n      \"client_key\": \"location-demo-1\",\n      \"location\": \"123 Training Road\",\n      \"latitude\": 29.971,\n      \"longitude\": 31.128\n    }\n  ]\n}" },
+            "url": { "raw": "{{base_url}}/admin/providers/{{provider}}/locations/autosave", "host": ["{{base_url}}"], "path": ["admin", "providers", "{{provider}}", "locations", "autosave"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Knowledge score control",
+      "description": "Admin-only, reason-required controls. Original attempt scores and answers remain unchanged; certificate lifecycle actions stay explicit.",
+      "item": [
+        {
+          "name": "Add score adjustment",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "text/html" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "urlencoded", "urlencoded": [ { "key": "type", "value": "score_adjustment", "type": "text" }, { "key": "numeric_value", "value": "5", "type": "text" }, { "key": "reason", "value": "Documented Admin correction", "type": "text" } ] },
+            "url": { "raw": "{{base_url}}/admin/certificates/{{certificate}}/knowledge-controls", "host": ["{{base_url}}"], "path": ["admin", "certificates", "{{certificate}}", "knowledge-controls"] }
+          }
+        },
+        {
+          "name": "Revert Knowledge control",
+          "request": {
+            "method": "PATCH",
+            "header": [ { "key": "Accept", "value": "text/html" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "urlencoded", "urlencoded": [ { "key": "reason", "value": "Correction no longer applies", "type": "text" } ] },
+            "url": { "raw": "{{base_url}}/admin/certificates/{{certificate}}/knowledge-controls/{{knowledge_control}}/revert", "host": ["{{base_url}}"], "path": ["admin", "certificates", "{{certificate}}", "knowledge-controls", "{{knowledge_control}}", "revert"] }
+          }
+        },
+        {
+          "name": "Restore calculated Knowledge result",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "text/html" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "urlencoded", "urlencoded": [ { "key": "reason", "value": "Return to calculated result", "type": "text" } ] },
+            "url": { "raw": "{{base_url}}/admin/certificates/{{certificate}}/knowledge-controls/restore", "host": ["{{base_url}}"], "path": ["admin", "certificates", "{{certificate}}", "knowledge-controls", "restore"] }
+          }
+        },
+        {
+          "name": "Issue eligible certificate",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "text/html" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "url": { "raw": "{{base_url}}/admin/certificates/{{certificate}}/issue", "host": ["{{base_url}}"], "path": ["admin", "certificates", "{{certificate}}", "issue"] }
+          }
+        },
+        {
+          "name": "Revoke certificate",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Accept", "value": "text/html" }, { "key": "X-CSRF-TOKEN", "value": "{{csrf_token}}" } ],
+            "body": { "mode": "urlencoded", "urlencoded": [ { "key": "reason", "value": "Administrative revocation", "type": "text" } ] },
+            "url": { "raw": "{{base_url}}/admin/certificates/{{certificate}}/revoke", "host": ["{{base_url}}"], "path": ["admin", "certificates", "{{certificate}}", "revoke"] }
           }
         }
       ]

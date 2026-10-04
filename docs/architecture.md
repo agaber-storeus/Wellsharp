@@ -59,13 +59,13 @@ Requests in `app/Http/Requests` perform input authorization and validation. Impo
 
 ### Actions
 
-Transactional business workflows live in `app/Actions`, including exam scheduling, student attempt start/submit, exam control, release/scoring, certificate issuance, question import, group membership, user creation, and profile updates.
+Transactional business workflows live in `app/Actions`, including exam scheduling, student attempt start/submit, exam control, release/scoring, Admin Knowledge controls, certificate issuance, provider-location autosave/finalization, question import, group membership, user creation, and profile updates.
 
 ### Services
 
-Services encapsulate cross-model logic such as `StudentExamFlowService`, `ExamScoringService`, `OperationalReportingService`, `QuestionExcelService`, `QuestionImageService`, and `CertificatePdfService`.
+Services encapsulate cross-model logic such as `StudentExamFlowService`, `ExamScoringService`, `KnowledgeResultService`, `OperationalReportingService`, `QuestionExcelService`, `QuestionImageService`, and `CertificatePdfService`. `KnowledgeResultService` is the single canonical result layer used by certificate eligibility, operational reporting, exports, dashboards, JSON responses, and Admin review; consumers do not independently apply override precedence.
 
-Generated account/content identifiers are centralized in dedicated services rather than scattered `Str::random`/`random_int` calls: `UserIdentityGenerator` (WellSharp ID + Username, from first/last name), `TemporaryPasswordGenerator` (secure temp passwords, 5-8 chars, default 8 - a deliberate business rule, not weakened security oversight), `ExamCodeGenerator`, `QuestionCodeGenerator`, and `ProctorIdGenerator` (a role-specific exam-control credential, distinct from the account-level identifiers - see `ProctorIdVerifier` for lookup). All five share a bounded generate-check-retry loop (`App\Services\Generation\GeneratesUniqueCode`) that throws `GenerationRetryExhaustedException` rather than looping forever. WellSharp ID/Username/Password are generated in `CreateUserAction` when the Admin leaves them blank; generated Usernames are 5-8 lowercase Latin letters, including collision suffixes. Exam/Question codes are generated in the owning model's `creating` hook (mirroring `HasPublicUlid`) so every creation path gets one without depending on a Blade form. A Proctor's ID is generated wherever a user becomes eligible for one (`CreateUserAction`, `ChangeUserRoleAction`). Admins may later edit a user's WellSharp ID and a Proctor's control ID; changing the login ID invalidates existing sessions. Exam/Question codes and generated usernames otherwise remain stable. Existing blank identifiers can be filled via `php artisan wellsharp:backfill-identifiers` (idempotent, `--dry-run` supported). `questions.code` is NOT NULL at the database level.
+Generated account/content identifiers are centralized in dedicated services rather than scattered `Str::random`/`random_int` calls: `UserIdentityGenerator` (WellSharp ID + Username, from first/last name), `TemporaryPasswordGenerator` (secure temp passwords, 5-8 chars, default 8 - a deliberate business rule, not weakened security oversight), `ExamCodeGenerator`, `QuestionCodeGenerator`, and `ProctorIdGenerator` (a role-specific exam-control credential, distinct from the account-level identifiers - see `ProctorIdVerifier` for lookup). All five share a bounded generate-check-retry loop (`App\Services\Generation\GeneratesUniqueCode`) that throws `GenerationRetryExhaustedException` rather than looping forever. WellSharp ID/Username/Password are generated in `CreateUserAction` when the Admin leaves them blank; generated Usernames are 5-8 lowercase Latin letters, including collision suffixes. WellSharp IDs and usernames are unique across both login-identifier columns so authentication cannot be ambiguous. Exam/Question codes are generated in the owning model's `creating` hook (mirroring `HasPublicUlid`) so every creation path gets one without depending on a Blade form. A Proctor's ID is generated wherever a user becomes eligible for one (`CreateUserAction`, `ChangeUserRoleAction`). Admins may later edit a user's WellSharp ID, username, and a Proctor's control ID; changing either login identifier invalidates existing sessions. Existing blank identifiers can be filled via `php artisan wellsharp:backfill-identifiers` (idempotent, `--dry-run` supported). `questions.code` is NOT NULL at the database level.
 
 ### Models
 
@@ -77,7 +77,9 @@ An Admin calls the assessment definition an Exam and operational role interfaces
 
 Only the Proctor role owns a **Proctor's ID** (`exam_control_credentials.control_id`), generated automatically when a user's active role is Proctor and revoked the moment they leave that role. Any active Proctor may control an authorized Class directly, with no credential entry. An active Instructor may control an authorized Class by supplying a Proctor's ID belonging to a currently active, eligible Proctor — never their own credential, since Instructors never own one. Manual controls can happen before configured dates and store `actual_started_at` or `actual_ended_at`. `wellsharp:process-exam-schedules` performs schedule-gated automatic transitions every minute, but does not automatically start a Class while any linked Exam Schedule has manual start mode.
 
-Provider ownership is schedule-specific. `exam_schedules.training_provider_id` is copied to the synchronized `classes.training_provider_id`; the synchronizer matches reusable Classes by Subject, provider, and dates. Subjects no longer own a provider, allowing the same Subject to be scheduled through different providers without duplicating the Subject.
+Provider ownership is schedule-specific. A provider owns normalized `training_provider_locations`; `exam_schedules.training_provider_id` and `training_provider_location_id` are copied to the synchronized Class. The synchronizer matches reusable Classes by Subject, provider, provider location, and dates, so simultaneous Classes at different locations remain separate. Legacy provider address/coordinates are retained as a primary-location compatibility snapshot. Subjects no longer own a provider, allowing the same Subject to be scheduled through different providers without duplicating the Subject.
+
+Provider create/edit uses Alpine.js location cards with stable client keys and real autosave. Create drafts are stored in the authenticated session under a UUID token, so no provider or orphan location rows are created before final submission; the final provider transaction consumes the draft. Edit autosave writes owned locations directly, and removals deactivate persisted rows to retain schedule/Class history. Each geocoded location has its own synchronized Leaflet marker. Maps use the centralized OpenFreeMap Liberty vector style through MapLibre's Leaflet integration; no tile API key or external account is required.
 
 ## Assessment flow
 
@@ -93,7 +95,9 @@ Student confirms contact information
     → starts attempt
     → answers autosave per question
     → submits attempt
-    → scoring runs and a passing attempt receives four certificate documents
+    → original Knowledge scoring runs
+    → canonical Knowledge result determines pass/fail and certificate eligibility
+    → an eligible attempt receives four certificate documents
 
 Proctor
     → may start/end the Class directly, no credential entry required
@@ -107,9 +111,13 @@ Proctor/Instructor
 
 Question order is chosen when the attempt is created: `static` preserves the Exam question order; `shuffle` creates and persists a per-student attempt order. An Exam's question selection mode is separate: `manual` exams keep a persisted, shared question bank (`exam_questions`); `random` exams store no question bank and instead draw `question_count` active questions from the Subject at random when each attempt is created, forcing `static` order. Either way, the drawn/ordered set is persisted per attempt in `exam_attempt_questions` and never changes once an attempt exists. Exam duration belongs to the schedule and starts when the student starts an attempt.
 
+`exam_attempts.score` and `exam_attempts.passed` preserve the original calculated Knowledge result. `KnowledgeResultService` resolves the current result in this order: original score, per-question awarded-point controls, additive score adjustments, final score override, then optional Pass/Fail override. Controls require an Admin reason, retain before/after state, and are reverted rather than deleted. `enrollments.skills_score` is an independent Practical / Skills Score and is never part of Knowledge pass/fail or certificate eligibility. Existing certificate score snapshots are not changed by later controls; newly eligible attempts require explicit issuance, while a now-failing issued certificate requires explicit reasoned revocation.
+
+The Admin Certificate details page is the only surface that exposes the full Exam Review and Knowledge Score Control UI. It eager-loads attempt questions and MCQ options, preserves attempt order, and can display student answers, current correct answers, correctness, points, images, and solution text. Question wording and answer keys are live question-bank data, not certificate snapshots.
+
 ## External integrations and asynchronous work
 
-No third-party API integration, webhook, event/listener, domain queue job, Horizon configuration, or notification provider is implemented. QR images are generated locally by `endroid/qr-code`; they do not call an external service. The queue connection defaults to the database, but the current domain actions run synchronously. The scheduler command is registered in `routes/console.php` and must be invoked by Laravel's scheduler in production.
+OpenFreeMap supplies the public vector basemap style used by browser maps; it requires no account or API key. No webhook, domain queue job, Horizon configuration, payment/SMS integration, or notification provider is implemented. QR images are generated locally by `endroid/qr-code`; they do not call an external service. The queue connection defaults to the database, but the current domain actions run synchronously. The scheduler command is registered in `routes/console.php` and must be invoked by Laravel's scheduler in production.
 
 ## Frontend communication
 
@@ -126,7 +134,7 @@ Imported question text may contain Word/HTML markup. Lists, Exam screens, and sc
 - Student attempt routes verify the attempt owner and the attempt's state.
 - Certificate viewing is Admin-wide, Student-owner-only for students, and active operational-role accessible for Proctors/Instructors.
 - Public `/iadc_certification` lookup and `/verify/certificates/{certificate_number}` verification intentionally require no session. They expose certificate snapshot/status data but omit student email and WellSharp ID. Completion Card Back and Full Certificate QR codes point to the verification route, so production `APP_URL` must be the public HTTPS origin.
-- Question correct answers are hidden by the `Question` model's serialization settings and are only used server-side for scoring.
+- Question correct answers are hidden by the `Question` model's serialization settings. They are used server-side for scoring and rendered only in Admin question-management and Admin Certificate Exam Review surfaces, never Student/Proctor/Instructor certificate pages or shared certificate bundles.
 
 ## Relevant source locations
 

@@ -13,13 +13,24 @@
     $questionBanks = $questionBanks ?? [
         (string) $currentSubject => $questions->map(fn ($question): array => [
             'id' => (string) $question->id,
+            'code' => $question->code,
             'text' => $question->display_question_text,
             'subject' => $question->course?->name,
             'type' => $question->type?->value,
+            'type_label' => $question->type?->label(),
             'difficulty' => $question->difficulty?->value,
+            'difficulty_label' => $question->difficulty?->label(),
             'image_url' => $question->question_image_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($question->question_image_path) : null,
+            'answers' => match ($question->type?->value) {
+                'mcq' => $question->options->map(fn ($option) => ['text' => $option->option_text, 'correct' => $option->is_correct, 'image_url' => $option->image_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($option->image_path) : null])->values()->all(),
+                'true_false' => [['text' => 'True', 'correct' => $question->correct_answer_boolean === true], ['text' => 'False', 'correct' => $question->correct_answer_boolean === false]],
+                'input' => [['text' => $question->correct_answer_text, 'correct' => true, 'image_url' => $question->correct_answer_image_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($question->correct_answer_image_path) : null]],
+                default => [],
+            },
+            'edit_url' => route('admin.courses.questions.edit', [$question->course, $question]),
         ])->values()->all(),
     ];
+    $providerLocations = $providers->mapWithKeys(fn ($provider) => [(string) $provider->id => $provider->locations->map(fn ($location) => ['id' => (string) $location->id, 'location' => $location->location])->values()->all()]);
 @endphp
 <div class="admin-bento" x-data="examQuestionPicker(@js($questionBanks), @js((string) $currentSubject), @js(array_map('strval', $selected)), @js($orderDefaults), @js($selectionMode), @js($questionCount))">
     <div class="admin-bento-card admin-bento-card--wide">
@@ -45,15 +56,20 @@
             <p class="admin-card-note">This Exam/Class is already scheduled for {{ $exam->schedules()->count() }} Group{{ $exam->schedules()->count() === 1 ? '' : 's' }}. Manage or add another Group from the <a href="{{ route('admin.exams.show', $exam) }}">exam page</a>.</p>
         </div>
     @else
-        <div class="admin-bento-card admin-bento-card--wide" x-data="{ groupId: @js(old('group_id', '')), startDate: @js(old('start_date', '')), endDate: @js(old('end_date', '')), durationMinutes: @js(old('duration_minutes', '')), proctorId: @js(old('proctor_id', '')), instructorId: @js(old('instructor_id', '')), get scheduleTouched() { return !!(this.groupId || this.startDate || this.endDate || this.durationMinutes || this.proctorId || this.instructorId); } }">
+        <div class="admin-bento-card admin-bento-card--wide" x-data="{ groupId: @js(old('group_id', '')), classId: @js(old('class_id', '')), startDate: @js(old('start_date', '')), startTime: @js(old('start_time', '')), endDate: @js(old('end_date', '')), endTime: @js(old('end_time', '')), durationMinutes: @js(old('duration_minutes', '')), proctorId: @js(old('proctor_id', '')), instructorId: @js(old('instructor_id', '')), providerId: @js((string) old('training_provider_id', '')), locationId: @js((string) old('training_provider_location_id', '')), providerLocations: @js($providerLocations), locations() { return this.providerLocations[this.providerId] || []; }, syncLocation() { const options = this.locations(); this.locationId = options.length === 1 ? options[0].id : ''; }, init() { if (!this.locations().some(location => location.id === this.locationId)) this.syncLocation(); }, get scheduleTouched() { return !!(this.groupId || this.classId || this.startDate || this.startTime || this.endDate || this.endTime || this.durationMinutes || this.proctorId || this.instructorId); } }">
             <div class="admin-card-head"><span class="admin-card-icon cool">🗓️</span><h3>Group scheduling (optional)</h3></div>
             <p class="admin-card-note">Choose a Group, dates, and staff to schedule this Exam's first Class right now &mdash; Proctor, Instructor, and Student interfaces see it immediately, with no separate scheduling step. Leave blank to schedule later, or to offer this Exam to more than one Group, from the exam page.</p>
             <div class="admin-field-grid">
                 <div class="field"><x-admin.label for="group_id" required-if="scheduleTouched">Group</x-admin.label><select id="group_id" name="group_id" x-model="groupId"><option value="">Select a Group</option>@foreach($groups as $group)<option value="{{ $group->id }}" @selected((string) old('group_id') === (string) $group->id)>{{ $group->name }}</option>@endforeach</select></div>
+                <div class="field"><x-admin.label for="class_id">Class ID</x-admin.label><input id="class_id" name="class_id" maxlength="64" x-model="classId"><small class="muted">Must be unique across all Exam Schedules.</small></div>
                 <div class="field"><x-admin.label for="duration_minutes" required-if="scheduleTouched">Duration (minutes)</x-admin.label><input id="duration_minutes" type="number" min="1" name="duration_minutes" x-model="durationMinutes"></div>
-                <div class="field full"><x-admin.label for="training_provider_id">Training provider / location</x-admin.label><select id="training_provider_id" name="training_provider_id"><option value="">Not assigned</option>@foreach($providers as $provider)<option value="{{ $provider->id }}" @selected((string) old('training_provider_id') === (string) $provider->id)>{{ $provider->name }}</option>@endforeach</select></div>
+                <div class="field full"><x-admin.label for="training_provider_id">Training provider</x-admin.label><select id="training_provider_id" name="training_provider_id" x-model="providerId" x-on:change="syncLocation()"><option value="">Not assigned</option>@foreach($providers as $provider)<option value="{{ $provider->id }}">{{ $provider->name }}</option>@endforeach</select></div>
+                <div class="field full" x-show="providerId && locations().length > 1" x-cloak><x-admin.label for="training_provider_location_id" required>Location</x-admin.label><select id="training_provider_location_id" name="training_provider_location_id" x-model="locationId" x-bind:required="providerId && locations().length > 1"><option value="">Select a location</option><template x-for="location in locations()" :key="location.id"><option x-bind:value="location.id" x-text="location.location"></option></template></select></div>
+                <input x-show="providerId && locations().length === 1" type="hidden" name="training_provider_location_id" x-bind:value="locationId">
                 <div class="field"><x-admin.label for="start_date" required-if="scheduleTouched">Start date</x-admin.label><input id="start_date" type="date" name="start_date" x-model="startDate"></div>
+                <div class="field"><x-admin.label for="start_time">Start time</x-admin.label><input id="start_time" type="time" name="start_time" x-model="startTime"><small class="muted">Blank starts at 12:00 AM.</small></div>
                 <div class="field"><x-admin.label for="end_date" required-if="scheduleTouched">End date</x-admin.label><input id="end_date" type="date" name="end_date" x-model="endDate"></div>
+                <div class="field"><x-admin.label for="end_time">End time</x-admin.label><input id="end_time" type="time" name="end_time" x-model="endTime"><small class="muted">Blank ends at 11:59 PM.</small></div>
                 <div class="field full"><x-admin.label for="start_mode" required>Exam start mechanism</x-admin.label><select id="start_mode" name="start_mode"><option value="automatic" @selected(old('start_mode', 'automatic') === 'automatic')>Automatic — follow start/end dates</option><option value="manual" @selected(old('start_mode', 'automatic') === 'manual')>Manual — Proctor or Proctor ID</option></select><small class="muted">This setting applies to this Group. Manual schedules do not start when the start date arrives.</small></div>
                 <div class="field"><x-admin.label for="proctor_id" required-if="scheduleTouched">Proctor</x-admin.label><select id="proctor_id" name="proctor_id" x-model="proctorId"><option value="">Select Proctor</option>@foreach($proctors as $proctor)<option value="{{ $proctor->id }}" @selected((string) old('proctor_id') === (string) $proctor->id)>{{ $proctor->wellsharp_id }} - {{ $proctor->display_name }}</option>@endforeach</select></div>
                 <div class="field"><x-admin.label for="instructor_id" required-if="scheduleTouched">Instructor</x-admin.label><select id="instructor_id" name="instructor_id" x-model="instructorId"><option value="">Select Instructor</option>@foreach($instructors as $instructor)<option value="{{ $instructor->id }}" @selected((string) old('instructor_id') === (string) $instructor->id)>{{ $instructor->wellsharp_id }} - {{ $instructor->display_name }}</option>@endforeach</select></div>
@@ -61,7 +77,8 @@
         </div>
     @endif
 
-    <div class="admin-bento-card admin-bento-card--wide" x-show="selectionMode === 'manual'" x-cloak>
+    <template x-if="selectionMode === 'manual'">
+    <div class="admin-bento-card admin-bento-card--wide">
         <div class="admin-card-head"><span class="admin-card-icon">❓</span><h3>Questions<span class="required-mark" aria-hidden="true">*</span></h3></div>
         <span class="sr-only">Required</span>
         <p class="admin-card-note">Select questions from the chosen Subject, or auto-select a random set below (<span x-text="subjectQuestions().length"></span> active questions available).</p>
@@ -137,20 +154,25 @@
             <input type="hidden" :name="'display_orders[' + questionId + ']'" :value="orders[questionId] || ''" x-bind:disabled="selectionMode === 'random'">
         </template>
 
-        <div class="table-wrap"><table class="table"><thead><tr><th>Select</th><th>Order</th><th>Question</th><th>Subject</th><th>Type</th><th>Difficulty</th></tr></thead><tbody>
+        <div class="exam-question-grid">
             <template x-for="question in filteredQuestions()" :key="question.id">
-                <tr>
-                    <td><input type="checkbox" name="question_ids[]" :value="question.id" x-model="selected" x-bind:disabled="selectionMode === 'random'"></td>
-                    <td><input style="width:80px" type="number" :name="'display_orders[' + question.id + ']'" x-model.number="orders[question.id]" min="1" x-bind:disabled="selectionMode === 'random'"></td>
-                    <td><div class="admin-question-cell"><template x-if="question.image_url"><img class="admin-question-thumb" :src="question.image_url" alt="Question image"></template><div><span x-text="question.text"></span></div></div></td>
-                    <td x-text="question.subject"></td>
-                    <td x-text="question.type === 'mcq' ? 'Multiple choice' : (question.type === 'true_false' ? 'True / False' : 'Text input')"></td>
-                    <td x-text="question.difficulty ? question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1) : ''"></td>
-                </tr>
+                <article class="exam-question-card" x-bind:class="{ 'is-selected': selected.includes(question.id) }">
+                    <div class="exam-question-card-head">
+                        <label class="exam-question-select"><input type="checkbox" name="question_ids[]" :value="question.id" x-model="selected" x-bind:disabled="selectionMode === 'random'"><span x-text="selected.includes(question.id) ? 'Selected' : 'Select question'"></span></label>
+                        <div class="exam-question-badges"><span class="badge" x-text="question.code"></span><span class="badge" x-text="question.type_label"></span><span class="badge" x-bind:class="question.difficulty" x-text="question.difficulty_label"></span></div>
+                    </div>
+                    <div class="exam-question-content"><template x-if="question.image_url"><img class="exam-question-image" :src="question.image_url" alt="Question image"></template><p class="exam-question-text" x-text="question.text"></p></div>
+                    <div class="exam-question-answers" x-bind:aria-label="question.type === 'input' ? 'Expected answer' : 'Answer options'">
+                        <div class="exam-question-answers-label" x-text="question.type === 'input' ? 'Expected answer' : 'Answers'"></div>
+                        <template x-for="(answer, answerIndex) in question.answers" :key="answerIndex"><div class="exam-question-answer" x-bind:class="{ 'is-correct': answer.correct }"><span class="exam-question-answer-marker" x-text="answer.correct ? 'Correct' : String.fromCharCode(65 + answerIndex)"></span><span class="exam-question-answer-text" x-text="answer.text || 'Image answer'"></span><template x-if="answer.image_url"><img class="exam-question-answer-image" :src="answer.image_url" alt="Answer image"></template></div></template>
+                    </div>
+                    <div class="exam-question-card-footer"><label class="exam-question-order">Order <input type="number" :name="'display_orders[' + question.id + ']'" x-model.number="orders[question.id]" min="1" x-bind:disabled="selectionMode === 'random'"></label><a class="btn secondary small" :href="question.edit_url" target="_blank" rel="noopener">Edit Question</a></div>
+                </article>
             </template>
-            <tr x-show="filteredQuestions().length === 0"><td colspan="6" class="muted" x-text="subjectQuestions().length ? 'No questions match the current filters.' : 'Choose a Subject with active questions first.'"></td></tr>
-        </tbody></table></div>
+            <div class="exam-question-empty muted" x-show="filteredQuestions().length === 0" x-text="subjectQuestions().length ? 'No questions match the current filters.' : 'Choose a Subject with active questions first.'"></div>
+        </div>
     </div>
+    </template>
 </div>
 <div class="actions" style="margin-top:20px"><button class="btn">Save exam</button><a class="btn secondary" href="{{ $exam->exists ? route('admin.exams.show', $exam) : route('admin.exams.index') }}">Cancel</a></div>
 

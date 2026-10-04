@@ -7,6 +7,7 @@ use App\Enums\ExamQuestionSelectionMode;
 use App\Models\Course;
 use App\Models\Group;
 use App\Models\Role;
+use App\Models\TrainingProviderLocation;
 use App\Rules\ActiveStaffWithRole;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,6 +26,15 @@ class StoreExamRequest extends FormRequest
                 : ($this->input('question_order_mode') ?: ExamQuestionOrderMode::Static->value),
             'start_mode' => $this->input('start_mode') ?: 'automatic',
         ]);
+        if ($this->has('class_id')) {
+            $this->merge(['class_id' => trim((string) $this->input('class_id'))]);
+        }
+        if ($this->filled('training_provider_id') && ! $this->filled('training_provider_location_id')) {
+            $locations = TrainingProviderLocation::query()->where('training_provider_id', $this->input('training_provider_id'))->where('is_active', true)->pluck('id');
+            if ($locations->count() === 1) {
+                $this->merge(['training_provider_location_id' => $locations->first()]);
+            }
+        }
     }
 
     public function authorize(): bool
@@ -55,12 +65,23 @@ class StoreExamRequest extends FormRequest
             // request when it doesn't have a schedule yet, so Admin never has to
             // visit a separate "Create Exam Schedule" screen for the first Class.
             'group_id' => ['nullable', 'integer', Rule::exists('student_groups', 'id')],
+            'class_id' => ['nullable', 'string', 'max:64', Rule::unique('exam_schedules', 'class_id')],
             'training_provider_id' => ['nullable', 'integer', Rule::exists('training_providers', 'id')],
+            'training_provider_location_id' => ['nullable', 'integer', Rule::exists('training_provider_locations', 'id')],
             'start_date' => ['nullable', 'date_format:Y-m-d'],
+            'start_time' => ['nullable', 'date_format:H:i'],
             'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'end_time' => ['nullable', 'date_format:H:i'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
             'proctor_id' => ['nullable', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::PROCTOR, 'Proctor')],
             'instructor_id' => ['nullable', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::INSTRUCTOR, 'Instructor')],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'class_id.unique' => 'Class ID has already been used. Please enter a unique Class ID.',
         ];
     }
 
@@ -99,7 +120,7 @@ class StoreExamRequest extends FormRequest
             // Group/date fields are an optional inline bundle: fill them in to schedule
             // this Exam's first Class in the same save, or leave them blank and schedule
             // later (or schedule additional Groups) from the Exam Schedules screen.
-            $touchedSchedule = collect(['group_id', 'start_date', 'end_date', 'duration_minutes', 'proctor_id', 'instructor_id'])->contains(fn (string $field): bool => $this->filled($field));
+            $touchedSchedule = collect(['group_id', 'class_id', 'start_date', 'start_time', 'end_date', 'end_time', 'duration_minutes', 'proctor_id', 'instructor_id'])->contains(fn (string $field): bool => $this->filled($field));
             if (! $touchedSchedule) {
                 return;
             }
@@ -120,11 +141,25 @@ class StoreExamRequest extends FormRequest
             if (! $this->filled('duration_minutes')) {
                 $validator->errors()->add('duration_minutes', 'Provide the time allowed for each student.');
             }
+            if ($this->filled('start_date') && $this->filled('end_date')) {
+                $start = $this->input('start_date').' '.($this->input('start_time') ?: '00:00');
+                $end = $this->input('end_date').' '.($this->input('end_time') ?: '23:59');
+                if ($end < $start) {
+                    $validator->errors()->add('end_time', 'The exam end date and time must be after the start date and time.');
+                }
+            }
             if (! $this->filled('proctor_id')) {
                 $validator->errors()->add('proctor_id', 'Select a Proctor to schedule this Exam\'s first Class.');
             }
             if (! $this->filled('instructor_id')) {
                 $validator->errors()->add('instructor_id', 'Select an Instructor to schedule this Exam\'s first Class.');
+            }
+            $providerId = $this->integer('training_provider_id');
+            $locationId = $this->integer('training_provider_location_id');
+            if ($providerId && ! $locationId) {
+                $validator->errors()->add('training_provider_location_id', 'Select a location for this training provider.');
+            } elseif ($providerId && ! TrainingProviderLocation::query()->whereKey($locationId)->where('training_provider_id', $providerId)->where('is_active', true)->exists()) {
+                $validator->errors()->add('training_provider_location_id', 'Select an active location belonging to the selected training provider.');
             }
         });
     }

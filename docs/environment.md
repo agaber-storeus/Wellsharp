@@ -2,6 +2,8 @@
 
 The application reads configuration through Laravel's `.env` file. `.env.example` is the source of the development defaults. Do not commit `.env` or any production secret.
 
+Provider and operational maps use the public OpenFreeMap Liberty style configured centrally in `resources/js/maps.js`. The current map integration requires no API key or map-specific environment variable.
+
 ## Application
 
 | Variable | Required | Default | Description |

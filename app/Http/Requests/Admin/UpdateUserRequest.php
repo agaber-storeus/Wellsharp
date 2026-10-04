@@ -4,6 +4,8 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\Gender;
 use App\Models\Role;
+use App\Rules\UniqueUserLoginIdentifier;
+use App\Services\UserIdentityGenerator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -12,6 +14,18 @@ class UpdateUserRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user()?->isAdmin() === true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $identity = app(UserIdentityGenerator::class);
+
+        if ($this->has('wellsharp_id')) {
+            $this->merge(['wellsharp_id' => $identity->normalizeWellsharpId((string) $this->wellsharp_id)]);
+        }
+        if ($this->has('username')) {
+            $this->merge(['username' => $identity->normalizeUsername((string) $this->username)]);
+        }
     }
 
     public function rules(): array
@@ -24,7 +38,8 @@ class UpdateUserRequest extends FormRequest
         $passwordRules = Role::passwordLengthRules($user?->currentRole?->key);
 
         return [
-            'wellsharp_id' => ['sometimes', 'required', 'string', 'max:64', 'alpha_dash', Rule::unique('users', 'wellsharp_id')->ignore($user)],
+            'wellsharp_id' => ['sometimes', 'required', 'string', 'max:64', 'alpha_dash', new UniqueUserLoginIdentifier($user)],
+            'username' => ['sometimes', 'required', 'string', 'max:8', 'alpha_dash:ascii', new UniqueUserLoginIdentifier($user)],
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],

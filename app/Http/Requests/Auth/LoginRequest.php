@@ -13,7 +13,7 @@ class LoginRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge(['wellsharp_id' => strtoupper(trim((string) $this->wellsharp_id))]);
+        $this->merge(['wellsharp_id' => trim((string) $this->wellsharp_id)]);
     }
 
     public function rules(): array

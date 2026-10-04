@@ -10,7 +10,7 @@
           'title' => $instructor,
           'classTitle' => $trainingClass->displayTitle(),
           'courseId' => (string) $trainingClass->course_id,
-          'location' => $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Location not assigned',
+          'location' => $trainingClass->providerLocation?->location ?: $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Location not assigned',
           'start' => $trainingClass->starts_at?->toDateString(),
           'end' => ($trainingClass->ends_at ?: $trainingClass->starts_at)?->toDateString(),
           'status' => $trainingClass->status->value,
@@ -43,7 +43,7 @@
           'state' => $modalState,
           'title' => $trainingClass->displayTitle(),
           'dateLabel' => $classDateLabel($trainingClass),
-          'location' => $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Not assigned',
+          'location' => $trainingClass->providerLocation?->location ?: $trainingClass->provider?->address ?: $trainingClass->provider?->name ?: 'Not assigned',
       ];
   })->values();
 @endphp

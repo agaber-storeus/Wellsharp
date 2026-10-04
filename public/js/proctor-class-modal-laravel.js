@@ -87,12 +87,9 @@
   // fields.
   function applyScoreRowResult(row, data) {
     row.skillsScore = data.skills_score;
-    row.effectiveScore = data.effective_score;
+    row.score = data.knowledge_score;
     row.passed = data.passed;
-    row.overridden = data.overridden;
     row.certificateDownloadUrl = data.certificate_download_url;
-    row.certificateFrontUrl = data.certificate_front_url;
-    row.certificateBackUrl = data.certificate_back_url;
     row.certificateNumber = data.certificate_number;
   }
 
@@ -135,11 +132,8 @@
             return;
           }
 
-          // The backend is the sole authority on pass/fail and certificate
-          // state (see EffectiveScoreService / UpdateEnrollmentSkillsScoreAction) -
-          // apply its full response onto the row so the Certificate cell,
-          // which is already Alpine-bound to these same row.* properties,
-          // updates reactively without any markup change or page reload.
+          // Apply the saved independent Skills Score and the
+          // unchanged Knowledge/certificate row state without a page reload.
           applyScoreRowResult(row, result.data);
           row.editing = false;
 
@@ -223,7 +217,8 @@
   function classScoresMarkup(rows) {
     return `
       <div x-data="classScoresTable(${attrJson(rows)})">
-        <table class="scores-table class-scores-table">
+        <div class="scores-table-frame">
+          <table class="scores-table class-scores-table">
           <thead><tr>
             <th>Name</th>
             <th>Skills Score</th>
@@ -252,7 +247,7 @@
                   <template x-if="row.state === 'notstarted'"><span>Not Started</span></template>
                   <template x-if="row.state === 'noshow'"><span>No Show</span></template>
                   <template x-if="row.state !== 'notstarted' && row.state !== 'noshow'">
-                    <span>
+                    <span class="knowledge-actions">
                       <a class="score-btn" href="#" x-show="row.reportUrl" x-on:click.prevent="openScoreReport(row)">Score Report</a>
                       <span x-show="!row.reportUrl">Score Report</span>
                       <span class="release-btn is-released" x-show="row.releasedAt">Released</span>
@@ -262,13 +257,7 @@
                 </td>
                 <td>
                   <template x-if="row.state !== 'notstarted' && row.state !== 'noshow' && row.certificateDownloadUrl">
-                    <span>
-                      <a class="release-btn certificate-download" x-bind:href="row.certificateDownloadUrl">Full Certificate</a>
-                      <div class="certificate-actions">
-                        <a class="mini-cert-btn" x-show="row.certificateFrontUrl" x-bind:href="row.certificateFrontUrl" target="_blank" rel="noopener">Front</a>
-                        <a class="mini-cert-btn" x-show="row.certificateBackUrl" x-bind:href="row.certificateBackUrl" target="_blank" rel="noopener">Back</a>
-                      </div>
-                    </span>
+                    <a class="release-btn certificate-download" x-bind:href="row.certificateDownloadUrl">DOWNLOAD</a>
                   </template>
                   <template x-if="!(row.state !== 'notstarted' && row.state !== 'noshow' && row.certificateDownloadUrl)">-</template>
                 </td>
@@ -276,7 +265,8 @@
             </template>
             <tr x-show="!rows.length"><td colspan="4" class="scores-empty-cell">No trainees are enrolled in this Class.</td></tr>
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
     `;
   }
@@ -720,7 +710,7 @@
 
     return modalShell("scores", [
       classScoresMarkup(config.scoreRows || []),
-      '<button class="print-btn" type="button" data-print-modal data-print-type="results">Export Class Results</button>'
+      '<button class="print-btn export-results-btn export-results" type="button" data-print-modal data-print-type="results">Export Class Results</button>'
     ].join(""), "dash-content scores-mode");
   }
 

@@ -4,6 +4,8 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\Gender;
 use App\Models\Role;
+use App\Rules\UniqueUserLoginIdentifier;
+use App\Services\UserIdentityGenerator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,7 +19,10 @@ class StoreUserRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         if (filled($this->wellsharp_id)) {
-            $this->merge(['wellsharp_id' => strtoupper(trim((string) $this->wellsharp_id))]);
+            $this->merge(['wellsharp_id' => app(UserIdentityGenerator::class)->normalizeWellsharpId((string) $this->wellsharp_id)]);
+        }
+        if (filled($this->username)) {
+            $this->merge(['username' => app(UserIdentityGenerator::class)->normalizeUsername((string) $this->username)]);
         }
     }
 
@@ -29,7 +34,8 @@ class StoreUserRequest extends FormRequest
             // password, WellSharp's security policy below). Admin may still
             // supply either explicitly, so uniqueness/strength are still
             // validated when present.
-            'wellsharp_id' => ['nullable', 'string', 'max:64', 'alpha_dash', 'unique:users,wellsharp_id'],
+            'wellsharp_id' => ['nullable', 'string', 'max:64', 'alpha_dash', new UniqueUserLoginIdentifier],
+            'username' => ['nullable', 'string', 'max:8', 'alpha_dash:ascii', new UniqueUserLoginIdentifier],
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],

@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Services\CertificateQrCodeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class CertificateManagementTest extends TestCase
@@ -232,6 +233,100 @@ class CertificateManagementTest extends TestCase
             ->assertSee('Completion Card - Front')
             ->assertSee('Completion Card - Back')
             ->assertSee($data['student']->display_name);
+    }
+
+    public function test_admin_certificate_details_show_complete_exam_review_in_attempt_order(): void
+    {
+        $data = $this->makeAttempt('submitted', true);
+        $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+        $course = $data['course'];
+
+        $input = Question::factory()->input('Approved mud weight')->create([
+            'course_id' => $course->id,
+            'question_text' => 'Enter the approved mud weight.',
+            'difficulty' => 'medium',
+            'solution_text' => 'Use the approved drilling program value.',
+        ]);
+        ExamAttemptQuestion::create([
+            'exam_attempt_id' => $data['attempt']->id,
+            'question_id' => $input->id,
+            'display_order' => 2,
+            'points' => 2,
+            'answer' => null,
+        ]);
+
+        $trueFalse = Question::factory()->trueFalse(true)->create([
+            'course_id' => $course->id,
+            'question_text' => 'The barrier must be verified before operations.',
+            'difficulty' => 'hard',
+        ]);
+        ExamAttemptQuestion::create([
+            'exam_attempt_id' => $data['attempt']->id,
+            'question_id' => $trueFalse->id,
+            'display_order' => 3,
+            'points' => 3,
+            'answer' => 'false',
+            'answered_at' => now(),
+        ]);
+
+        $admin = User::factory()->admin()->create();
+        $response = $this->actingAs($admin)->withSession(['auth.session_version' => $admin->session_version])
+            ->get(route('admin.certificates.show', $certificate));
+
+        $response->assertOk()
+            ->assertSee('Exam Review')
+            ->assertSeeInOrder([
+                'Which control must be verified before drilling operations?',
+                'Enter the approved mud weight.',
+                'The barrier must be verified before operations.',
+            ])
+            ->assertSee('Multiple choice')
+            ->assertSee('Text input')
+            ->assertSee('True / False')
+            ->assertSee('The approved barrier controls')
+            ->assertSee('Approved mud weight')
+            ->assertSee('Correct')
+            ->assertSee('Incorrect')
+            ->assertSee('Unanswered')
+            ->assertSee('1.00 / 1.00')
+            ->assertSee('0.00 / 2.00')
+            ->assertSee('0.00 / 3.00')
+            ->assertSee('Use the approved drilling program value.')
+            ->assertSee('reflect the current question bank');
+    }
+
+    public function test_exam_review_is_admin_only_and_not_rendered_in_shared_certificate_pages(): void
+    {
+        $data = $this->makeAttempt('submitted', true);
+        $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+        $proctor = User::factory()->proctor()->create();
+
+        $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version])
+            ->get(route('admin.certificates.show', $certificate))
+            ->assertForbidden();
+
+        $this->get(route('certificates.show', $certificate))
+            ->assertOk()
+            ->assertDontSee('Exam Review')
+            ->assertDontSee('Correct answer');
+    }
+
+    public function test_admin_certificate_review_eager_loads_mcq_options_in_one_query(): void
+    {
+        $data = $this->makeAttempt('submitted', true);
+        $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+        $admin = User::factory()->admin()->create();
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = strtolower($query->sql);
+        });
+
+        $this->actingAs($admin)->withSession(['auth.session_version' => $admin->session_version])
+            ->get(route('admin.certificates.show', $certificate))
+            ->assertOk();
+
+        $optionQueries = collect($queries)->filter(fn (string $sql): bool => str_contains($sql, 'question_options'));
+        $this->assertCount(1, $optionQueries);
     }
 
     public function test_certificate_expiration_uses_the_exam_certificate_validity_years(): void

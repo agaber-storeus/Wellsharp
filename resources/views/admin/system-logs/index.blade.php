@@ -10,9 +10,20 @@
 .system-log-search input[type=text],.system-log-search input:not([type]){width:220px}
 .system-log-search .search-actions{display:flex;gap:9px;margin-left:auto}
 .system-log-event small,.system-log-actor small{display:block;color:var(--admin-muted);margin-top:2px}
+.system-log-proctor-context{display:grid;gap:3px;margin-top:7px;color:var(--admin-muted);font-size:12px;line-height:1.35}
 .system-log-mono{font-family:'JetBrains Mono',monospace;font-size:12px}
 .badge.info{background:var(--admin-accent-cool-soft);color:var(--admin-accent-cool)}
 .badge.warning{background:var(--admin-warning-soft);color:var(--admin-warning)}
+.badge.verified_control_failed{background:var(--admin-danger-soft);color:var(--admin-danger)}
+.proctor-activity-badge{position:relative;display:inline-flex;align-items:center;gap:6px;width:max-content;max-width:100%;padding:5px 9px;border:1px solid rgba(31,131,185,.35);border-radius:999px;background:linear-gradient(115deg,rgba(236,248,255,.95),rgba(255,248,239,.95),rgba(232,247,238,.95));background-size:220% 220%;color:#123e61;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 0 0 1px rgba(255,255,255,.7) inset,0 6px 18px rgba(23,109,159,.12);overflow:hidden}
+.proctor-activity-badge::before{content:"";position:absolute;inset:-60%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.58),transparent);transform:translateX(-35%) rotate(12deg);animation:proctorBadgeShine 5.5s ease-in-out infinite}
+.proctor-activity-badge svg{position:relative;width:13px;height:13px;flex:0 0 auto}
+.proctor-activity-badge span{position:relative}
+.proctor-status{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.proctor-status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--admin-success);box-shadow:0 0 0 3px var(--admin-success-soft)}
+.proctor-status.failed::before,.proctor-status.verified_control_failed::before{background:var(--admin-danger);box-shadow:0 0 0 3px var(--admin-danger-soft)}
+@keyframes proctorBadgeShine{0%,65%,100%{transform:translateX(-55%) rotate(12deg)}82%{transform:translateX(55%) rotate(12deg)}}
+@media(prefers-reduced-motion:reduce){.proctor-activity-badge::before{animation:none}}
 @media(max-width:600px){.system-log-search input[type=date],.system-log-search input[type=text],.system-log-search input:not([type]){width:100%;min-width:0}}
 </style>
 <div class="admin-page-head"><div><h1>System Logs</h1><p>Search, filter, and review business, operational, and authentication activity across WellSharp.</p></div></div>
@@ -60,10 +71,24 @@
                     <tr>
                         <td x-text="entry.occurred_at"></td>
                         <td x-text="entry.category_label"></td>
-                        <td class="system-log-event"><span x-text="entry.label"></span><small x-show="entry.reason" x-text="entry.reason"></small><small x-show="entry.correlation_id" class="system-log-mono" x-text="'Correlation: ' + entry.correlation_id"></small></td>
+                        <td class="system-log-event">
+                            <template x-if="entry.proctor_activity">
+                                <span class="proctor-activity-badge"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.8 16 5v4.6c0 3.7-2.4 6.4-6 7.6-3.6-1.2-6-3.9-6-7.6V5l6-2.2Z"/><path d="M8.4 10.4 10 12l3-3"/></svg><span>Proctor ID Activity</span></span>
+                            </template>
+                            <span x-text="entry.label"></span>
+                            <small x-show="entry.reason" x-text="entry.reason"></small>
+                            <div class="system-log-proctor-context" x-show="entry.proctor_activity">
+                                <span><strong>Entered ID:</strong> <span class="system-log-mono" x-text="entry.proctor_activity?.entered_proctor_id || '—'"></span></span>
+                                <span><strong>Operation:</strong> <span x-text="formatOperation(entry.proctor_activity?.operation)"></span> <span class="proctor-status" x-bind:class="entry.proctor_activity?.status" x-text="entry.proctor_activity?.status_label"></span></span>
+                                <span x-show="entry.proctor_activity?.class_number"><strong>Class:</strong> <span x-text="entry.proctor_activity?.class_number"></span></span>
+                                <span x-show="entry.proctor_activity?.verified_proctor_display_name"><strong>Verified Proctor:</strong> <span x-text="entry.proctor_activity?.verified_proctor_display_name + ' (' + entry.proctor_activity?.verified_proctor_wellsharp_id + ')'"></span></span>
+                                <span x-show="entry.proctor_activity?.failure_reason"><strong>Failure:</strong> <span x-text="formatReason(entry.proctor_activity?.failure_reason)"></span></span>
+                            </div>
+                            <small x-show="entry.correlation_id" class="system-log-mono" x-text="'Correlation: ' + entry.correlation_id"></small>
+                        </td>
                         <td class="system-log-actor"><span x-text="entry.actor"></span><small x-show="entry.actor_role" x-text="entry.actor_role"></small></td>
                         <td x-text="entry.subject || '—'"></td>
-                        <td><span class="badge" x-bind:class="entry.severity" x-text="entry.result ? (entry.result.charAt(0).toUpperCase() + entry.result.slice(1)) : '—'"></span></td>
+                        <td><span class="badge" x-bind:class="entry.proctor_activity ? entry.proctor_activity.status : entry.severity" x-text="entry.status_label || (entry.result ? (entry.result.charAt(0).toUpperCase() + entry.result.slice(1)) : '—')"></span></td>
                         <td><a x-bind:href="entry.detail_url">View</a></td>
                     </tr>
                 </template>
@@ -83,6 +108,8 @@
             search: @js($filters['search'] ?? ''), loading: false, error: '', request: null,
             hasFilters() { return this.dateFrom || this.dateTo || this.category || this.action || this.actorId || this.actorRole || this.subjectType || this.result || this.correlationId || this.search; },
             clearFilters() { this.dateFrom = ''; this.dateTo = ''; this.category = ''; this.action = ''; this.actorId = ''; this.actorRole = ''; this.subjectType = ''; this.result = ''; this.correlationId = ''; this.search = ''; this.load(1); },
+            formatOperation(value) { return value ? value.replaceAll('_', ' ').replace(/\b\w/g, char => char.toUpperCase()) : '—'; },
+            formatReason(value) { return value ? value.replaceAll('_', ' ').replace(/\b\w/g, char => char.toUpperCase()) : '—'; },
             async load(page) {
                 page = Math.max(1, page || 1);
                 if (this.request) this.request.abort();

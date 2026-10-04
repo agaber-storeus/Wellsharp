@@ -4,6 +4,7 @@ namespace Tests\Feature\Operational;
 
 use App\Actions\Certificates\IssueCertificateAction;
 use App\Models\Course;
+use App\Models\Enrollment;
 use App\Models\Exam;
 use App\Models\ExamAttempt;
 use App\Models\ExamAttemptQuestion;
@@ -27,6 +28,11 @@ class ReportingTest extends TestCase
         $fixture = $this->fixture();
         app(IssueCertificateAction::class)->execute($fixture['failedAttempt']);
         app(IssueCertificateAction::class)->execute($fixture['passedAttempt']);
+
+        $reports = app(\App\Services\OperationalReportingService::class);
+        $rows = $reports->assessmentRows($reports->allAttempts($reports->accessibleClasses($fixture['proctor'])));
+        $this->assertSame(1, $rows->first()['passed']);
+        $this->assertSame(1, $rows->first()['failed']);
 
         $this->actingAs($fixture['proctor'])->withSession(['auth.session_version' => $fixture['proctor']->session_version])
             ->get(route('proctor.analytics.results', ['date_range' => 'All Time']))
@@ -77,6 +83,7 @@ class ReportingTest extends TestCase
         $provider = TrainingProvider::factory()->create(['name' => 'Reporting Provider']);
         $course = Course::factory()->create(['name' => 'Reporting Subject']);
         $class = TrainingClass::factory()->create(['course_id' => $course->id, 'training_provider_id' => $provider->id, 'proctor_id' => $proctor->id, 'class_number' => 'REPORT-001']);
+        Enrollment::factory()->create(['class_id' => $class->id, 'student_user_id' => $student->id, 'skills_score' => 100]);
         $group = Group::create(['name' => 'Reporting Group', 'status' => 'active']);
         $exam = Exam::create(['course_id' => $course->id, 'name' => 'Drilling Assessment', 'passing_score' => 50, 'retake_score' => 40, 'question_order_mode' => 'static', 'status' => 'published']);
         $question = Question::create(['course_id' => $course->id, 'question_text' => 'Which barrier is approved?', 'type' => 'mcq', 'difficulty' => 'easy', 'default_marks' => 1, 'is_active' => true]);

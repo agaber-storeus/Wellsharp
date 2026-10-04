@@ -6,7 +6,6 @@ use App\Enums\ExamAttemptStatus;
 use App\Enums\ExamQuestionOrderMode;
 use App\Enums\ExamQuestionSelectionMode;
 use App\Enums\ExamScheduleStatus;
-use App\Enums\ExamStartMode;
 use App\Enums\GroupMembershipStatus;
 use App\Enums\QuestionType;
 use App\Models\Exam;
@@ -16,6 +15,7 @@ use App\Models\ExamQuestion;
 use App\Models\ExamSchedule;
 use App\Models\Question;
 use App\Models\User;
+use App\Services\ExamScheduleAvailabilityService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +23,8 @@ use Illuminate\Validation\ValidationException;
 
 class StartExamAttemptAction
 {
+    public function __construct(private readonly ExamScheduleAvailabilityService $availability) {}
+
     public function execute(ExamSchedule $schedule, User $student): ExamAttempt
     {
         return DB::transaction(function () use ($schedule, $student): ExamAttempt {
@@ -105,18 +107,8 @@ class StartExamAttemptAction
             abort(403, 'You are not assigned to this exam group.');
         }
 
-        if ($schedule->start_mode === ExamStartMode::Manual && ! $schedule->override_started_at) {
-            throw ValidationException::withMessages(['exam' => 'A Proctor must start this exam before it can be opened.']);
-        }
-
-        if (! $schedule->override_started_at && $schedule->start_date?->isFuture()) {
-            throw ValidationException::withMessages([
-                'exam' => 'This exam is available starting '.$schedule->start_date->format('F j, Y').'.',
-            ]);
-        }
-
-        if (! $schedule->override_started_at && $schedule->end_date?->endOfDay()->isPast()) {
-            throw ValidationException::withMessages(['exam' => 'This exam schedule has ended.']);
+        if ($message = $this->availability->studentStartBlockReason($schedule)) {
+            throw ValidationException::withMessages(['exam' => $message]);
         }
     }
 

@@ -8,9 +8,11 @@ use App\Models\ExamSchedule;
 use App\Models\Group;
 use App\Models\GroupMembership;
 use App\Models\Question;
+use App\Models\QuestionOption;
 use App\Models\TrainingProvider;
 use App\Models\User;
 use App\Models\UserProfile;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -316,6 +318,141 @@ class BusinessDomainTest extends TestCase
         $this->assertDatabaseMissing('exams', ['name' => 'Invalid Exam']);
     }
 
+    public function test_manual_exam_question_cards_render_answers_selection_and_admin_edit_links(): void
+    {
+        $mcq = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Which barrier is correct?', 'type' => 'mcq', 'difficulty' => 'hard']);
+        QuestionOption::create(['question_id' => $mcq->id, 'option_text' => 'Approved barrier', 'is_correct' => true, 'display_order' => 1]);
+        QuestionOption::create(['question_id' => $mcq->id, 'option_text' => 'Neutral wrong option', 'is_correct' => false, 'display_order' => 2]);
+        $trueFalse = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Pressure is controlled.', 'type' => 'true_false', 'difficulty' => 'medium', 'correct_answer_boolean' => true]);
+        $input = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Enter the expected acronym.', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'BOP']);
+
+        $create = $this->get(route('admin.courses.exams.create', $this->subject))->assertOk();
+        foreach (['Which barrier is correct?', 'Approved barrier', 'Neutral wrong option', 'Pressure is controlled.', 'Enter the expected acronym.', 'BOP'] as $text) {
+            $create->assertSee($text);
+        }
+        $create->assertSee('\\u0022correct\\u0022:true', false)
+            ->assertSee('target="_blank"', false)
+            ->assertSee('edit_url', false)
+            ->assertSee('x-if="selectionMode === \'manual\'"', false);
+
+        $exam = Exam::factory()->create(['course_id' => $this->subject->id, 'question_selection_mode' => 'manual']);
+        $exam->questions()->sync([
+            $mcq->id => ['display_order' => 1],
+            $trueFalse->id => ['display_order' => 2],
+            $input->id => ['display_order' => 3],
+        ]);
+
+        $edit = $this->get(route('admin.courses.exams.edit', [$this->subject, $exam]))->assertOk();
+        $edit->assertSee('Approved barrier')->assertSee('BOP')->assertSee((string) $mcq->id);
+
+        $show = $this->get(route('admin.courses.exams.show', [$this->subject, $exam]))->assertOk();
+        $show->assertSee('Approved barrier')
+            ->assertSee('Neutral wrong option')
+            ->assertSee('True')
+            ->assertSee('False')
+            ->assertSee('Expected answer')
+            ->assertSee('BOP')
+            ->assertSee('Correct')
+            ->assertSee(route('admin.courses.questions.edit', [$this->subject, $mcq]), false);
+    }
+
+    public function test_random_exam_show_does_not_render_manual_question_cards(): void
+    {
+        $question = Question::create(['course_id' => $this->subject->id, 'question_text' => 'Hidden random-bank answer', 'type' => 'input', 'difficulty' => 'easy', 'correct_answer_text' => 'Secret answer']);
+        $exam = Exam::factory()->create(['course_id' => $this->subject->id, 'question_selection_mode' => 'random', 'question_count' => 1]);
+        $exam->questions()->sync([$question->id => ['display_order' => 1]]);
+
+        $this->get(route('admin.courses.exams.show', [$this->subject, $exam]))
+            ->assertOk()
+            ->assertDontSee('exam-question-grid', false)
+            ->assertDontSee('Hidden random-bank answer')
+            ->assertDontSee('Secret answer');
+    }
+
+    public function test_exams_display_and_sort_by_created_at_with_newest_first_by_default(): void
+    {
+        $oldest = Exam::factory()->create(['course_id' => $this->subject->id, 'name' => 'Oldest Exam', 'created_at' => now()->subDays(3)]);
+        $newest = Exam::factory()->create(['course_id' => $this->subject->id, 'name' => 'Newest Exam', 'created_at' => now()->subDay()]);
+
+        $this->get(route('admin.exams.index'))
+            ->assertOk()
+            ->assertSee("sortBy('created_at')", false)
+            ->assertSee('Created At');
+
+        $this->getJson(route('admin.exams.data'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $oldest->id)
+            ->assertJsonPath('data.0.created_at', $newest->created_at->format('M j, Y H:i'));
+
+        $this->getJson(route('admin.exams.data', ['sort' => 'created_at', 'direction' => 'asc']))
+            ->assertJsonPath('data.0.id', $oldest->id)
+            ->assertJsonPath('data.1.id', $newest->id);
+
+        $this->getJson(route('admin.exams.data', ['sort' => 'created_at', 'direction' => 'desc']))
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $oldest->id);
+    }
+
+    public function test_exam_schedules_display_and_sort_by_created_at_with_newest_first_by_default(): void
+    {
+        $oldest = ExamSchedule::factory()->create(['created_at' => now()->subDays(3)]);
+        $newest = ExamSchedule::factory()->create(['created_at' => now()->subDay()]);
+
+        $this->get(route('admin.exam-schedules.index'))
+            ->assertOk()
+            ->assertSee("sortBy('created_at')", false)
+            ->assertSee('Created At');
+
+        $this->getJson(route('admin.exam-schedules.data'))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $oldest->id)
+            ->assertJsonPath('data.0.created_at', $newest->created_at->format('M j, Y H:i'));
+
+        $this->getJson(route('admin.exam-schedules.data', ['sort' => 'created_at', 'direction' => 'asc']))
+            ->assertJsonPath('data.0.id', $oldest->id)
+            ->assertJsonPath('data.1.id', $newest->id);
+
+        $this->getJson(route('admin.exam-schedules.data', ['sort' => 'created_at', 'direction' => 'desc']))
+            ->assertJsonPath('data.0.id', $newest->id)
+            ->assertJsonPath('data.1.id', $oldest->id);
+    }
+
+    public function test_created_at_sort_preserves_exam_and_schedule_filtering_and_pagination(): void
+    {
+        Exam::factory()->count(26)->create(['course_id' => $this->subject->id, 'status' => 'draft']);
+        Exam::factory()->create(['course_id' => $this->otherSubject->id, 'status' => 'published']);
+
+        $this->getJson(route('admin.exams.data', [
+            'course_id' => $this->subject->id,
+            'status' => 'draft',
+            'sort' => 'created_at',
+            'direction' => 'desc',
+            'page' => 2,
+        ]))->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 26)
+            ->assertJsonPath('meta.current_page', 2);
+
+        $exam = Exam::factory()->create(['course_id' => $this->subject->id]);
+        $group = Group::factory()->create();
+        ExamSchedule::factory()->count(26)->create(['exam_id' => $exam->id, 'group_id' => $group->id, 'status' => 'scheduled']);
+        ExamSchedule::factory()->cancelled()->create();
+
+        $this->getJson(route('admin.exam-schedules.data', [
+            'exam_id' => $exam->id,
+            'group_id' => $group->id,
+            'status' => 'scheduled',
+            'sort' => 'created_at',
+            'direction' => 'desc',
+            'page' => 2,
+        ]))->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 26)
+            ->assertJsonPath('meta.current_page', 2);
+    }
+
     public function test_global_exam_create_loads_selected_subject_questions_and_saves_status(): void
     {
         $subjectQuestion = Question::create([
@@ -521,6 +658,176 @@ class BusinessDomainTest extends TestCase
         $this->assertDatabaseCount('classes', 1);
     }
 
+    public function test_exam_schedule_create_rejects_duplicate_class_id(): void
+    {
+        $exam = Exam::create(['course_id' => $this->subject->id, 'name' => 'Class ID Duplicate Exam', 'question_order_mode' => 'static', 'status' => 'published']);
+        $groups = Group::factory()->count(2)->create(['status' => 'active']);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+        $payload = [
+            'exam_id' => $exam->id,
+            'class_id' => 'CLASS-UNIQUE-001',
+            'start_date' => now()->addDays(5)->format('Y-m-d'),
+            'end_date' => now()->addDays(6)->format('Y-m-d'),
+            'duration_minutes' => 60,
+            'proctor_id' => $proctor->id,
+            'instructor_id' => $instructor->id,
+        ];
+
+        $this->post(route('admin.exam-schedules.store'), $payload + ['group_id' => $groups[0]->id])->assertRedirect();
+        $this->post(route('admin.exam-schedules.store'), $payload + ['group_id' => $groups[1]->id])
+            ->assertSessionHasErrors(['class_id' => 'Class ID has already been used. Please enter a unique Class ID.']);
+
+        $this->assertDatabaseCount('exam_schedules', 1);
+        $this->assertDatabaseHas('exam_schedules', ['class_id' => 'CLASS-UNIQUE-001']);
+    }
+
+    public function test_exam_schedule_edit_allows_own_class_id_but_rejects_another_schedule_class_id(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $groups = Group::factory()->count(2)->create(['status' => 'active']);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+
+        $first = ExamSchedule::factory()->create(['exam_id' => $exam->id, 'group_id' => $groups[0]->id, 'class_id' => 'CLASS-EDIT-001', 'start_date' => now()->addDays(5), 'end_date' => now()->addDays(6)]);
+        $second = ExamSchedule::factory()->create(['exam_id' => $exam->id, 'group_id' => $groups[1]->id, 'class_id' => 'CLASS-EDIT-002', 'start_date' => now()->addDays(7), 'end_date' => now()->addDays(8)]);
+
+        $payload = [
+            'exam_id' => $exam->id,
+            'group_id' => $groups[0]->id,
+            'class_id' => 'CLASS-EDIT-001',
+            'start_date' => now()->addDays(9)->format('Y-m-d'),
+            'end_date' => now()->addDays(10)->format('Y-m-d'),
+            'duration_minutes' => 75,
+            'proctor_id' => $proctor->id,
+            'instructor_id' => $instructor->id,
+        ];
+
+        $this->put(route('admin.exam-schedules.update', $first), $payload)->assertRedirect();
+        $this->assertSame('CLASS-EDIT-001', $first->fresh()->class_id);
+
+        $this->put(route('admin.exam-schedules.update', $first), [...$payload, 'class_id' => $second->class_id])
+            ->assertSessionHasErrors(['class_id' => 'Class ID has already been used. Please enter a unique Class ID.']);
+    }
+
+    public function test_exam_schedule_class_id_unique_index_is_enforced(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $groups = Group::factory()->count(2)->create(['status' => 'active']);
+
+        ExamSchedule::factory()->create(['exam_id' => $exam->id, 'group_id' => $groups[0]->id, 'class_id' => 'CLASS-DB-001']);
+
+        $this->expectException(QueryException::class);
+        ExamSchedule::factory()->create(['exam_id' => $exam->id, 'group_id' => $groups[1]->id, 'class_id' => 'CLASS-DB-001']);
+    }
+
+    public function test_exam_schedule_accepts_each_allowed_stack_and_blank_stack(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+        $stacks = [null, 'Surface', 'Subsea', 'Combined Surface and Subsea'];
+
+        foreach ($stacks as $index => $stack) {
+            $group = Group::factory()->create(['status' => 'active']);
+            $this->post(route('admin.exam-schedules.store'), [
+                'exam_id' => $exam->id,
+                'group_id' => $group->id,
+                'stack_offered' => $stack,
+                'supplement_offered' => 'No Supplement Offered',
+                'start_date' => now()->addDays(5 + $index)->format('Y-m-d'),
+                'end_date' => now()->addDays(6 + $index)->format('Y-m-d'),
+                'duration_minutes' => 60,
+                'proctor_id' => $proctor->id,
+                'instructor_id' => $instructor->id,
+            ])->assertRedirect();
+        }
+
+        foreach ($stacks as $stack) {
+            $this->assertDatabaseHas('exam_schedules', ['stack_offered' => $stack]);
+        }
+    }
+
+    public function test_exam_schedule_rejects_invalid_stack(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+
+        $this->post(route('admin.exam-schedules.store'), [
+            'exam_id' => $exam->id,
+            'group_id' => Group::factory()->create(['status' => 'active'])->id,
+            'stack_offered' => 'Invalid Stack',
+            'supplement_offered' => 'No Supplement Offered',
+            'start_date' => now()->addDays(5)->format('Y-m-d'),
+            'end_date' => now()->addDays(6)->format('Y-m-d'),
+            'duration_minutes' => 60,
+            'proctor_id' => User::factory()->proctor()->create()->id,
+            'instructor_id' => User::factory()->instructor()->create()->id,
+        ])->assertSessionHasErrors('stack_offered');
+    }
+
+    public function test_exam_schedule_accepts_allowed_supplements_and_rejects_invalid_supplement(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+
+        foreach (['No Supplement Offered', 'Workover'] as $index => $supplement) {
+            $this->post(route('admin.exam-schedules.store'), [
+                'exam_id' => $exam->id,
+                'group_id' => Group::factory()->create(['status' => 'active'])->id,
+                'supplement_offered' => $supplement,
+                'start_date' => now()->addDays(5 + $index)->format('Y-m-d'),
+                'end_date' => now()->addDays(6 + $index)->format('Y-m-d'),
+                'duration_minutes' => 60,
+                'proctor_id' => $proctor->id,
+                'instructor_id' => $instructor->id,
+            ])->assertRedirect();
+
+            $this->assertDatabaseHas('exam_schedules', ['supplement_offered' => $supplement]);
+        }
+
+        $this->post(route('admin.exam-schedules.store'), [
+            'exam_id' => $exam->id,
+            'group_id' => Group::factory()->create(['status' => 'active'])->id,
+            'supplement_offered' => 'Invalid Supplement',
+            'start_date' => now()->addDays(9)->format('Y-m-d'),
+            'end_date' => now()->addDays(10)->format('Y-m-d'),
+            'duration_minutes' => 60,
+            'proctor_id' => $proctor->id,
+            'instructor_id' => $instructor->id,
+        ])->assertSessionHasErrors('supplement_offered');
+    }
+
+    public function test_exam_schedule_edit_persists_offered_values(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $group = Group::factory()->create(['status' => 'active']);
+        $schedule = ExamSchedule::factory()->create([
+            'exam_id' => $exam->id,
+            'group_id' => $group->id,
+            'start_date' => now()->addDays(5),
+            'end_date' => now()->addDays(6),
+        ]);
+
+        $this->put(route('admin.exam-schedules.update', $schedule), [
+            'exam_id' => $exam->id,
+            'group_id' => $group->id,
+            'stack_offered' => 'Combined Surface and Subsea',
+            'supplement_offered' => 'Workover',
+            'start_date' => now()->addDays(7)->format('Y-m-d'),
+            'end_date' => now()->addDays(8)->format('Y-m-d'),
+            'duration_minutes' => 75,
+            'proctor_id' => User::factory()->proctor()->create()->id,
+            'instructor_id' => User::factory()->instructor()->create()->id,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('exam_schedules', [
+            'id' => $schedule->id,
+            'stack_offered' => 'Combined Surface and Subsea',
+            'supplement_offered' => 'Workover',
+        ]);
+    }
+
     public function test_same_subject_and_dates_at_different_providers_create_separate_classes(): void
     {
         $exam = Exam::create(['course_id' => $this->subject->id, 'name' => 'Provider Isolation Exam', 'question_order_mode' => 'static', 'status' => 'published']);
@@ -549,6 +856,125 @@ class BusinessDomainTest extends TestCase
         foreach ($providers as $provider) {
             $this->assertDatabaseHas('classes', ['course_id' => $this->subject->id, 'training_provider_id' => $provider->id]);
         }
+    }
+
+    public function test_schedule_auto_resolves_one_location_and_rejects_invalid_multi_provider_locations(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $groups = Group::factory()->count(3)->create(['status' => 'active']);
+        $single = TrainingProvider::factory()->create();
+        $multi = TrainingProvider::factory()->create();
+        $multiSecond = $multi->locations()->create(['location' => 'Second Site']);
+        $other = TrainingProvider::factory()->create();
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+        $base = [
+            'exam_id' => $exam->id,
+            'start_date' => now()->addDays(8)->toDateString(),
+            'end_date' => now()->addDays(9)->toDateString(),
+            'duration_minutes' => 60,
+            'proctor_id' => $proctor->id,
+            'instructor_id' => $instructor->id,
+        ];
+
+        $this->post(route('admin.exam-schedules.store'), $base + [
+            'group_id' => $groups[0]->id,
+            'training_provider_id' => $single->id,
+        ])->assertRedirect();
+        $singleSchedule = ExamSchedule::where('group_id', $groups[0]->id)->firstOrFail();
+        $this->assertSame($single->locations()->firstOrFail()->id, $singleSchedule->training_provider_location_id);
+        $this->assertSame($singleSchedule->training_provider_location_id, $singleSchedule->trainingClass->training_provider_location_id);
+
+        $this->post(route('admin.exam-schedules.store'), $base + [
+            'group_id' => $groups[1]->id,
+            'training_provider_id' => $multi->id,
+        ])->assertSessionHasErrors('training_provider_location_id');
+
+        $this->post(route('admin.exam-schedules.store'), $base + [
+            'group_id' => $groups[1]->id,
+            'training_provider_id' => $multi->id,
+            'training_provider_location_id' => $other->locations()->firstOrFail()->id,
+        ])->assertSessionHasErrors('training_provider_location_id');
+
+        $this->post(route('admin.exam-schedules.store'), $base + [
+            'group_id' => $groups[1]->id,
+            'training_provider_id' => $multi->id,
+            'training_provider_location_id' => $multiSecond->id,
+        ])->assertRedirect();
+    }
+
+    public function test_same_provider_and_dates_at_different_locations_create_separate_classes(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $provider = TrainingProvider::factory()->create();
+        $locations = collect([$provider->locations()->firstOrFail(), $provider->locations()->create(['location' => 'Remote Site'])]);
+        $groups = Group::factory()->count(2)->create(['status' => 'active']);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+
+        foreach ($locations as $index => $location) {
+            $this->post(route('admin.exam-schedules.store'), [
+                'exam_id' => $exam->id,
+                'group_id' => $groups[$index]->id,
+                'training_provider_id' => $provider->id,
+                'training_provider_location_id' => $location->id,
+                'start_date' => now()->addDays(10)->toDateString(),
+                'end_date' => now()->addDays(11)->toDateString(),
+                'duration_minutes' => 60,
+                'proctor_id' => $proctor->id,
+                'instructor_id' => $instructor->id,
+            ])->assertRedirect();
+        }
+
+        $this->assertDatabaseCount('classes', 2);
+        foreach ($locations as $location) {
+            $this->assertDatabaseHas('classes', ['training_provider_id' => $provider->id, 'training_provider_location_id' => $location->id]);
+        }
+    }
+
+    public function test_schedule_edit_preserves_location_and_in_use_location_deactivation_preserves_history(): void
+    {
+        $exam = Exam::factory()->published()->create(['course_id' => $this->subject->id]);
+        $provider = TrainingProvider::factory()->create();
+        $location = $provider->locations()->firstOrFail();
+        $group = Group::factory()->create(['status' => 'active']);
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+        $payload = [
+            'exam_id' => $exam->id,
+            'group_id' => $group->id,
+            'training_provider_id' => $provider->id,
+            'training_provider_location_id' => $location->id,
+            'start_date' => now()->addDays(12)->toDateString(),
+            'end_date' => now()->addDays(13)->toDateString(),
+            'duration_minutes' => 60,
+            'proctor_id' => $proctor->id,
+            'instructor_id' => $instructor->id,
+        ];
+        $this->post(route('admin.exam-schedules.store'), $payload)->assertRedirect();
+        $schedule = ExamSchedule::firstOrFail();
+
+        $this->get(route('admin.exam-schedules.edit', $schedule))
+            ->assertOk()
+            ->assertSee((string) $location->id);
+        $this->put(route('admin.exam-schedules.update', $schedule), [...$payload, 'duration_minutes' => 75])->assertRedirect();
+        $this->assertSame($location->id, $schedule->fresh()->training_provider_location_id);
+
+        $otherProvider = TrainingProvider::factory()->create();
+        $this->put(route('admin.exam-schedules.update', $schedule), [
+            ...$payload,
+            'training_provider_id' => $otherProvider->id,
+        ])->assertSessionHasErrors('training_provider_location_id');
+
+        $this->put(route('admin.providers.update', $provider), [
+            'provider_number' => $provider->provider_number,
+            'name' => $provider->name,
+            'locations' => [],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('training_provider_locations', ['id' => $location->id, 'is_active' => false]);
+        $this->assertSame($location->id, $schedule->fresh()->training_provider_location_id);
+        $this->assertSame($location->id, $schedule->trainingClass->fresh()->training_provider_location_id);
     }
 
     public function test_updating_a_schedule_provider_keeps_its_linked_class_in_sync(): void

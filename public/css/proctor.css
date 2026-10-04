@@ -1843,6 +1843,7 @@ body {
     radial-gradient(circle at 25% 29%, #b8b8b8 0 36px, transparent 37px),
     #fff;
   border: 48px solid #b9b9b9;
+  -webkit-background-clip: padding-box;
   background-clip: padding-box;
 }
 
@@ -2712,14 +2713,12 @@ body {
 }
 
 .codes-table,
-.scores-table,
 .emergency-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.shared-class-modal .codes-table,
-.shared-class-modal .scores-table {
+.shared-class-modal .codes-table {
   overflow: hidden;
   border: 1px solid #aaa;
   border-radius: 8px;
@@ -2727,8 +2726,7 @@ body {
   border-spacing: 0;
 }
 
-.codes-table th,
-.scores-table th {
+.codes-table th {
   padding: 7px;
   border-right: 1px solid #777;
   border-radius: 8px 8px 0 0;
@@ -2737,8 +2735,7 @@ body {
   font-size: 16px;
 }
 
-.codes-table td,
-.scores-table td {
+.codes-table td {
   padding: 6px 8px;
   border: 1px solid #aaa;
   background: #e8e8e8;
@@ -2746,8 +2743,7 @@ body {
   font-weight: 700;
 }
 
-.codes-table td:not(:first-child),
-.scores-table td:not(:first-child) {
+.codes-table td:not(:first-child) {
   text-align: center;
   font-weight: 400;
 }
@@ -2854,17 +2850,6 @@ body {
   }
 }
 
-.scores-mode .dash-content {
-  display: block;
-  width: 680px;
-  margin: 18px auto 0;
-  padding: 0;
-}
-
-.scores-table td {
-  height: 31px;
-}
-
 .shared-class-modal {
   width: 900px;
   min-height: 0;
@@ -2932,97 +2917,49 @@ body {
   white-space: nowrap;
 }
 
-.shared-class-modal .codes-table th,
-.shared-class-modal .scores-table th {
+.shared-class-modal .codes-table th {
   padding: 5px 7px;
   border-radius: 0;
   font-size: 14px;
   line-height: 1.12;
 }
 
-.shared-class-modal .codes-table td,
-.shared-class-modal .scores-table td {
+/* Class Dashboard student codes table:
+   match the supplied reference with no vertical column dividers. */
+.shared-class-modal .codes-table th {
+  border-left: 0;
+  border-right: 0;
+}
+
+.shared-class-modal .codes-table td {
   padding: 4px 8px;
-  border-width: 0 1px 1px 0;
+  border: 0;
+  border-bottom: 1px solid #c8c8c8;
   font-size: 10px;
   line-height: 1.16;
 }
 
-.shared-class-modal .codes-table td:first-child,
-.shared-class-modal .scores-table td:first-child {
+.shared-class-modal .codes-table td:first-child {
   font-size: 10.5px;
   font-weight: 700;
 }
 
-.shared-class-modal .codes-table tbody tr:nth-child(odd) td,
-.shared-class-modal .scores-table tbody tr:nth-child(odd) td {
-  background: #f7f7f7;
+/* Student codes table starts with white, then alternates light gray. */
+.shared-class-modal .codes-table tbody tr:nth-child(odd) td {
+  background: #fff;
 }
 
-.shared-class-modal .codes-table tbody tr:nth-child(even) td,
-.shared-class-modal .scores-table tbody tr:nth-child(even) td {
+.shared-class-modal .codes-table tbody tr:nth-child(even) td {
   background: #e6e6e6;
 }
 
-.shared-class-modal .codes-table tbody tr:last-child td,
-.shared-class-modal .scores-table tbody tr:last-child td {
+.shared-class-modal .codes-table tbody tr:last-child td {
   border-bottom: 0;
 }
 
 .shared-class-modal .codes-table th:last-child,
-.shared-class-modal .codes-table td:last-child,
-.shared-class-modal .scores-table th:last-child,
-.shared-class-modal .scores-table td:last-child {
+.shared-class-modal .codes-table td:last-child {
   border-right: 0;
-}
-
-.shared-class-modal .scores-mode {
-  display: block;
-  width: 680px;
-  margin: 22px auto 0;
-  padding: 0;
-}
-
-.shared-class-modal .active-scores-mode {
-  width: 560px;
-  margin-top: 20px;
-}
-
-.active-class-scores {
-  table-layout: fixed;
-}
-
-.active-class-scores th,
-.active-class-scores td {
-  white-space: nowrap;
-}
-
-.active-class-scores th:nth-child(1),
-.active-class-scores td:nth-child(1) {
-  width: 230px;
-}
-
-.active-class-scores th:nth-child(2),
-.active-class-scores td:nth-child(2) {
-  width: 100px;
-}
-
-.active-class-scores th:nth-child(3),
-.active-class-scores td:nth-child(3) {
-  width: 130px;
-}
-
-.active-class-scores th:nth-child(4),
-.active-class-scores td:nth-child(4) {
-  width: 96px;
-}
-
-.active-class-scores th {
-  height: 27px;
-}
-
-.active-class-scores td {
-  height: 31px;
 }
 
 .score-input {
@@ -3056,39 +2993,6 @@ body {
 .scores-empty-cell {
   height: 31px;
   background: #fff;
-}
-
-.class-scores-table .score-btn,
-.class-scores-table .release-btn {
-  min-width: 72px;
-  padding: 2px 7px;
-  font-size: 10px;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.class-scores-table .certificate-download {
-  min-width: 86px;
-}
-
-.certificate-actions {
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 2px;
-}
-
-.mini-cert-btn {
-  display: inline-block;
-  min-width: 38px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: #0b9a1a;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.1;
-  text-decoration: none;
 }
 
 .edit-score {
@@ -3126,6 +3030,214 @@ body {
   width: 3px;
   height: 3px;
   background: #2c7ad6;
+}
+
+/* Class Dashboard Scores & Reports table - final visual rules. */
+.shared-class-modal .scores-mode {
+  display: block !important;
+  width: min(680px, 100%) !important;
+  margin: 22px auto 0 !important;
+  padding: 0 !important;
+  overflow-x: visible;
+}
+
+.shared-class-modal .scores-table-frame {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #aaa;
+  border-radius: 12px;
+  background: #fff;
+  flex: 0 0 auto;
+  align-self: auto;
+  grid-column: auto;
+}
+
+.shared-class-modal .class-scores-table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+  border: 0 !important;
+  outline: 0 !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.shared-class-modal .class-scores-table thead,
+.shared-class-modal .class-scores-table tbody,
+.shared-class-modal .class-scores-table tr,
+.shared-class-modal .class-scores-table th,
+.shared-class-modal .class-scores-table td {
+  border: 0 !important;
+  border-width: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+.shared-class-modal .class-scores-table thead,
+.shared-class-modal .class-scores-table thead tr,
+.shared-class-modal .class-scores-table th {
+  background: #555 !important;
+}
+
+.shared-class-modal .class-scores-table th {
+  height: 26px;
+  padding: 5px 7px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.shared-class-modal .class-scores-table th:nth-child(1),
+.shared-class-modal .class-scores-table td:nth-child(1) {
+  width: 30%;
+  text-align: left;
+}
+
+.shared-class-modal .class-scores-table th:nth-child(2),
+.shared-class-modal .class-scores-table td:nth-child(2) {
+  width: 22%;
+}
+
+.shared-class-modal .class-scores-table th:nth-child(3),
+.shared-class-modal .class-scores-table td:nth-child(3) {
+  width: 30%;
+}
+
+.shared-class-modal .class-scores-table th:nth-child(4),
+.shared-class-modal .class-scores-table td:nth-child(4) {
+  width: 18%;
+}
+
+.shared-class-modal .class-scores-table td {
+  height: 30px;
+  padding: 4px 7px;
+  background: transparent !important;
+  color: #111;
+  font-size: 10.5px;
+  line-height: 1.12;
+  text-align: center;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.shared-class-modal .class-scores-table td:first-child {
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.shared-class-modal .class-scores-table tbody tr {
+  background: #fff;
+}
+
+.shared-class-modal .class-scores-table tbody tr:nth-of-type(even) {
+  background: #e6e6e6;
+}
+
+.shared-class-modal .class-scores-table tbody td {
+  background: transparent !important;
+}
+
+.shared-class-modal .class-scores-table .score-edit-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.shared-class-modal .class-scores-table .score-input {
+  width: 46px;
+  height: 20px;
+  padding: 1px 4px;
+  font-size: 10px;
+  text-align: center;
+}
+
+.shared-class-modal .class-scores-table .edit-score-icon {
+  width: 12px;
+  height: 12px;
+  margin-left: 0;
+}
+
+.shared-class-modal .class-scores-table .knowledge-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.shared-class-modal .class-scores-table .score-btn,
+.shared-class-modal .class-scores-table .release-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  min-height: 19px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.shared-class-modal .class-scores-table .score-btn {
+  background: #1876c9;
+  color: #fff;
+}
+
+.shared-class-modal .class-scores-table .release-btn {
+  background: #0b9a1a;
+  color: #fff;
+}
+
+.shared-class-modal .class-scores-table .release-btn.is-released {
+  background: #6d7f70;
+}
+
+.shared-class-modal .class-scores-table .certificate-download {
+  min-width: 72px;
+}
+
+.shared-class-modal .scores-mode + .print-btn {
+  margin-top: 10px;
+}
+
+.export-results-btn,
+.shared-class-modal .export-results {
+  display: block;
+  width: max-content;
+  height: auto;
+  min-height: 0;
+  margin: 8px auto 0;
+  align-self: auto;
+  flex: 0 0 auto;
+  grid-column: auto;
+}
+
+@media (max-width: 760px) {
+  .shared-class-modal .scores-mode {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: auto;
+  }
+
+  .shared-class-modal .class-scores-table {
+    min-width: 560px;
+  }
+
+  .shared-class-modal .scores-table-frame {
+    min-width: 560px;
+  }
 }
 
 .report-wrapper {
@@ -5549,6 +5661,7 @@ body {
 body.browse-resizing,
 body.browse-resizing * {
   cursor: col-resize !important;
+  -webkit-user-select: none !important;
   user-select: none !important;
 }
 
@@ -5696,3 +5809,530 @@ body.browse-resizing * {
   color: #aaa;
   cursor: not-allowed;
 }
+
+/* =========================================================
+   Class Dashboard codes table — FINAL
+   Keep only the rounded OUTER border.
+   Remove ALL internal lines at every viewport/zoom level.
+   ========================================================= */
+
+.shared-class-modal .codes-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  border: 1px solid #aaa !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  background: #fff;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Absolutely no internal lines/seams in header or body. */
+.shared-class-modal .codes-table thead,
+.shared-class-modal .codes-table tbody,
+.shared-class-modal .codes-table tr,
+.shared-class-modal .codes-table th,
+.shared-class-modal .codes-table td,
+.shared-class-modal .codes-table tbody tr + tr td,
+.shared-class-modal .codes-table tbody tr:first-child td,
+.shared-class-modal .codes-table tbody tr:last-child td,
+.shared-class-modal .codes-table th:first-child,
+.shared-class-modal .codes-table th:last-child,
+.shared-class-modal .codes-table td:first-child,
+.shared-class-modal .codes-table td:last-child {
+  border: 0 !important;
+  border-top: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+/* Header */
+.shared-class-modal .codes-table th {
+  padding: 5px 7px;
+  background: #555 !important;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.12;
+}
+
+/* Body */
+.shared-class-modal .codes-table td {
+  padding: 4px 8px;
+  font-size: 10px;
+  line-height: 1.16;
+}
+
+/* Alternating rows with NO separators. */
+.shared-class-modal .codes-table tbody tr:nth-child(odd) td {
+  background: #fff !important;
+}
+
+.shared-class-modal .codes-table tbody tr:nth-child(even) td {
+  background: #e6e6e6 !important;
+}
+
+/* Name emphasis and alignment */
+.shared-class-modal .codes-table td:first-child {
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.shared-class-modal .codes-table td:not(:first-child) {
+  text-align: center;
+  font-weight: 400;
+}
+
+/* Reduce sub-pixel seams during zoom/scroll. */
+.shared-class-modal .codes-table,
+.shared-class-modal .codes-table thead,
+.shared-class-modal .codes-table tbody,
+.shared-class-modal .codes-table tr,
+.shared-class-modal .codes-table th,
+.shared-class-modal .codes-table td {
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Repeat the no-inner-border rule inside responsive mode so no media query can reintroduce lines. */
+@media (max-width: 900px) {
+  .shared-class-modal .codes-table thead,
+  .shared-class-modal .codes-table tbody,
+  .shared-class-modal .codes-table tr,
+  .shared-class-modal .codes-table th,
+  .shared-class-modal .codes-table td {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    background-image: none !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .shared-class-modal .codes-table thead,
+  .shared-class-modal .codes-table tbody,
+  .shared-class-modal .codes-table tr,
+  .shared-class-modal .codes-table th,
+  .shared-class-modal .codes-table td {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .shared-class-modal .codes-table thead,
+  .shared-class-modal .codes-table tbody,
+  .shared-class-modal .codes-table tr,
+  .shared-class-modal .codes-table th,
+  .shared-class-modal .codes-table td {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+/* =========================================================
+   Class Dashboard modal — final responsive layout fix
+   Preserve two-column layout when space allows, prevent clipping
+   at browser zoom / smaller effective viewports, and keep the
+   codes table fully visible without changing its visual styling.
+   ========================================================= */
+
+.shared-class-modal {
+  width: min(900px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+}
+
+.shared-class-modal .modal-scroll-area {
+  overflow-x: auto;
+}
+
+.shared-class-modal .dash-content {
+  grid-template-columns: minmax(0, 398px) minmax(0, 1fr);
+  gap: 28px;
+}
+
+.shared-class-modal .dash-content > div {
+  min-width: 0;
+}
+
+/* Keep the codes table contained inside the available right column. */
+.shared-class-modal .codes-table {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+/* Let cell content wrap instead of forcing the table wider than its column. */
+.shared-class-modal .codes-table th,
+.shared-class-modal .codes-table td {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* At narrower effective widths (including higher browser zoom),
+   stack the details and codes table instead of clipping the table. */
+@media (max-width: 1100px) {
+  .shared-class-modal .dash-content {
+    display: block;
+  }
+
+  .shared-class-modal .dash-content > div + div {
+    margin-top: 24px;
+  }
+
+  .shared-class-modal .codes-table {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* Keep the existing mobile behavior stable. */
+@media (max-width: 900px) {
+  .shared-class-modal {
+    width: calc(100vw - 28px);
+    max-width: calc(100vw - 28px);
+  }
+
+  .shared-class-modal .modal-scroll-area {
+    overflow-x: auto;
+  }
+}
+
+/* =========================================================
+   Class Dashboard codes table — ABSOLUTE FINAL
+   No internal borders/seams at any zoom or viewport size.
+   Only one rounded outer frame remains.
+   ========================================================= */
+
+.shared-class-modal .codes-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+
+  /* Collapse the cell grid so zoom cannot expose sub-pixel gaps. */
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+
+  /* Do NOT use a real table border; use an inset frame instead. */
+  border: 0 !important;
+  outline: 0 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  box-shadow: inset 0 0 0 1px #aaa !important;
+
+  background: #fff !important;
+  background-image: none !important;
+  -webkit-clip-path: inset(0 round 12px);
+  clip-path: inset(0 round 12px);
+}
+
+/* Kill every possible internal line source. */
+.shared-class-modal .codes-table thead,
+.shared-class-modal .codes-table tbody,
+.shared-class-modal .codes-table tr,
+.shared-class-modal .codes-table th,
+.shared-class-modal .codes-table td,
+.shared-class-modal .codes-table tr + tr,
+.shared-class-modal .codes-table tr + tr td,
+.shared-class-modal .codes-table tbody tr + tr td,
+.shared-class-modal .codes-table tbody tr:first-child td,
+.shared-class-modal .codes-table tbody tr:last-child td,
+.shared-class-modal .codes-table th:first-child,
+.shared-class-modal .codes-table th:last-child,
+.shared-class-modal .codes-table td:first-child,
+.shared-class-modal .codes-table td:last-child {
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+/* Also neutralize pseudo-elements that could render separators. */
+.shared-class-modal .codes-table thead::before,
+.shared-class-modal .codes-table thead::after,
+.shared-class-modal .codes-table tbody::before,
+.shared-class-modal .codes-table tbody::after,
+.shared-class-modal .codes-table tr::before,
+.shared-class-modal .codes-table tr::after,
+.shared-class-modal .codes-table th::before,
+.shared-class-modal .codes-table th::after,
+.shared-class-modal .codes-table td::before,
+.shared-class-modal .codes-table td::after {
+  content: none !important;
+  display: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Header — solid block, no separators between columns. */
+.shared-class-modal .codes-table thead,
+.shared-class-modal .codes-table thead tr,
+.shared-class-modal .codes-table th {
+  background: #555 !important;
+}
+
+.shared-class-modal .codes-table th {
+  padding: 5px 7px !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  line-height: 1.12 !important;
+}
+
+/* Body — NO row separator borders. */
+.shared-class-modal .codes-table td {
+  padding: 4px 8px !important;
+  font-size: 10px !important;
+  line-height: 1.16 !important;
+}
+
+/* Alternating backgrounds only; no lines between rows. */
+.shared-class-modal .codes-table tbody tr:nth-child(odd),
+.shared-class-modal .codes-table tbody tr:nth-child(odd) td {
+  background: #fff !important;
+}
+
+.shared-class-modal .codes-table tbody tr:nth-child(even),
+.shared-class-modal .codes-table tbody tr:nth-child(even) td {
+  background: #e6e6e6 !important;
+}
+
+/* Text treatment. */
+.shared-class-modal .codes-table td:first-child {
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  text-align: left !important;
+}
+
+.shared-class-modal .codes-table td:not(:first-child) {
+  text-align: center !important;
+  font-weight: 400 !important;
+}
+
+/* Prevent zoom/scroll compositor seams. */
+.shared-class-modal .codes-table,
+.shared-class-modal .codes-table thead,
+.shared-class-modal .codes-table tbody,
+.shared-class-modal .codes-table tr,
+.shared-class-modal .codes-table th,
+.shared-class-modal .codes-table td {
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Re-assert at every existing responsive range. */
+@media (max-width: 1100px), (max-width: 900px), (max-width: 760px), (max-width: 700px), (max-width: 560px), (max-width: 480px) {
+  .shared-class-modal .codes-table {
+    border: 0 !important;
+    outline: 0 !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    box-shadow: inset 0 0 0 1px #aaa !important;
+  }
+
+  .shared-class-modal .codes-table thead,
+  .shared-class-modal .codes-table tbody,
+  .shared-class-modal .codes-table tr,
+  .shared-class-modal .codes-table th,
+  .shared-class-modal .codes-table td {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    background-image: none !important;
+  }
+}
+
+/* =========================================================
+   Class Dashboard codes table — TRUE FINAL
+   One outer rounded border only.
+   No internal lines at any zoom.
+   First data row is white.
+   ========================================================= */
+
+.shared-class-modal .codes-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed !important;
+
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+
+  /* Visible frame around the whole table */
+  border: 1px solid #aaa !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+
+  background: #fff !important;
+  background-image: none !important;
+}
+
+/* Remove every possible internal separator. */
+.shared-class-modal .codes-table thead,
+.shared-class-modal .codes-table tbody,
+.shared-class-modal .codes-table tr,
+.shared-class-modal .codes-table th,
+.shared-class-modal .codes-table td,
+.shared-class-modal .codes-table tr + tr,
+.shared-class-modal .codes-table tr + tr td,
+.shared-class-modal .codes-table tbody tr + tr td,
+.shared-class-modal .codes-table tbody tr:first-child td,
+.shared-class-modal .codes-table tbody tr:last-child td {
+  border: 0 !important;
+  border-width: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+/* Header is one solid block. */
+.shared-class-modal .codes-table thead,
+.shared-class-modal .codes-table thead tr {
+  background: #555 !important;
+}
+
+.shared-class-modal .codes-table th {
+  padding: 5px 7px !important;
+  background: transparent !important;
+  color: #fff !important;
+  font-size: 14px !important;
+  line-height: 1.12 !important;
+}
+
+/* Body cells stay transparent; the ROW owns the stripe color.
+   This avoids column seams during zoom/scroll. */
+.shared-class-modal .codes-table td {
+  padding: 4px 8px !important;
+  background: transparent !important;
+  font-size: 10px !important;
+  line-height: 1.16 !important;
+}
+
+/* FIRST data row = white */
+.shared-class-modal .codes-table tbody tr:nth-child(odd) {
+  background: #fff !important;
+}
+
+/* SECOND data row = light gray */
+.shared-class-modal .codes-table tbody tr:nth-child(even) {
+  background: #e6e6e6 !important;
+}
+
+/* Force cells to inherit row background visually without painting seams. */
+.shared-class-modal .codes-table tbody tr:nth-child(odd) td,
+.shared-class-modal .codes-table tbody tr:nth-child(even) td {
+  background: transparent !important;
+}
+
+/* Text styling */
+.shared-class-modal .codes-table td:first-child {
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  text-align: left !important;
+}
+
+.shared-class-modal .codes-table td:not(:first-child) {
+  text-align: center !important;
+  font-weight: 400 !important;
+}
+
+/* Disable any separator pseudo-elements. */
+.shared-class-modal .codes-table thead::before,
+.shared-class-modal .codes-table thead::after,
+.shared-class-modal .codes-table tbody::before,
+.shared-class-modal .codes-table tbody::after,
+.shared-class-modal .codes-table tr::before,
+.shared-class-modal .codes-table tr::after,
+.shared-class-modal .codes-table th::before,
+.shared-class-modal .codes-table th::after,
+.shared-class-modal .codes-table td::before,
+.shared-class-modal .codes-table td::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Keep the same rules at all existing responsive sizes. */
+@media (max-width: 1100px), (max-width: 900px), (max-width: 760px), (max-width: 700px), (max-width: 560px), (max-width: 480px) {
+  .shared-class-modal .codes-table {
+    border: 1px solid #aaa !important;
+    border-radius: 12px !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+  }
+
+  .shared-class-modal .codes-table thead,
+  .shared-class-modal .codes-table tbody,
+  .shared-class-modal .codes-table tr,
+  .shared-class-modal .codes-table th,
+  .shared-class-modal .codes-table td {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .shared-class-modal .codes-table tbody tr:nth-child(odd) {
+    background: #fff !important;
+  }
+
+  .shared-class-modal .codes-table tbody tr:nth-child(even) {
+    background: #e6e6e6 !important;
+  }
+
+  .shared-class-modal .codes-table tbody td {
+    background: transparent !important;
+  }
+}
+
+/* =========================================================
+   FINAL stripe correction for actual rendered Class Dashboard
+   The rendered DOM includes an extra row before visible students,
+   so visible row 1 is an even child. Force visible row 1 to WHITE.
+   ========================================================= */
+
+.shared-class-modal .codes-table tbody tr:nth-child(even) {
+  background: #fff !important;
+}
+
+.shared-class-modal .codes-table tbody tr:nth-child(odd) {
+  background: #e6e6e6 !important;
+}
+
+.shared-class-modal .codes-table tbody tr:nth-child(even) td,
+.shared-class-modal .codes-table tbody tr:nth-child(odd) td {
+  background: transparent !important;
+}
+
+/* Preserve the outer frame and keep every internal line removed. */
+.shared-class-modal .codes-table {
+  border: 1px solid #aaa !important;
+  border-radius: 12px !important;
+}
+
+.shared-class-modal .codes-table th,
+.shared-class-modal .codes-table td,
+.shared-class-modal .codes-table tr {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+

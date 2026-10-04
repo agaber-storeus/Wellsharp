@@ -145,6 +145,63 @@ class UserManagementTest extends TestCase
         ])->assertSessionHasErrors('wellsharp_id');
     }
 
+    public function test_admin_can_edit_username_and_revoke_existing_sessions(): void
+    {
+        $user = User::factory()->student()->create(['username' => 'oldlogin'])->fresh();
+        $oldVersion = $user->session_version;
+
+        $this->put(route('admin.users.update', $user), [
+            'first_name' => $user->profile->first_name,
+            'last_name' => $user->profile->last_name,
+            'username' => '  NEWLOGIN  ',
+        ])->assertRedirect();
+
+        $user->refresh();
+        $this->assertSame('newlogin', $user->username);
+        $this->assertSame($oldVersion + 1, $user->session_version);
+
+        auth()->logout();
+        $this->actingAs($user)->withSession(['auth.session_version' => $oldVersion])
+            ->get(route('student.dashboard'))
+            ->assertRedirect(route('login'));
+    }
+
+    public function test_duplicate_username_and_cross_identifier_conflicts_are_rejected(): void
+    {
+        $existing = User::factory()->student()->create([
+            'wellsharp_id' => 'LOGIN-ID',
+            'username' => 'loginusr',
+        ]);
+        $target = User::factory()->student()->create();
+
+        $base = [
+            'first_name' => $target->profile->first_name,
+            'last_name' => $target->profile->last_name,
+        ];
+
+        $this->put(route('admin.users.update', $target), $base + ['username' => strtoupper($existing->username)])
+            ->assertSessionHasErrors('username');
+        $this->put(route('admin.users.update', $target), $base + ['username' => strtolower($existing->wellsharp_id)])
+            ->assertSessionHasErrors('username');
+        $this->put(route('admin.users.update', $target), $base + ['wellsharp_id' => strtoupper($existing->username)])
+            ->assertSessionHasErrors('wellsharp_id');
+    }
+
+    public function test_admin_can_supply_a_username_on_creation(): void
+    {
+        $this->post(route('admin.users.store'), [
+            'wellsharp_id' => 'CUSTOM-USER-1',
+            'username' => '  Custom1 ',
+            'first_name' => 'Custom',
+            'last_name' => 'Login',
+            'password' => 'Stu12',
+            'password_confirmation' => 'Stu12',
+            'role_id' => Role::where('key', Role::STUDENT)->value('id'),
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('users', ['wellsharp_id' => 'CUSTOM-USER-1', 'username' => 'custom1']);
+    }
+
     public function test_role_change_writes_history_audit_and_revokes_sessions(): void
     {
         $user = User::factory()->student()->create();

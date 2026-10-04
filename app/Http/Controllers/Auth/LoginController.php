@@ -16,7 +16,7 @@ class LoginController extends Controller
 
     public function store(LoginRequest $request, AuthenticateUserAction $authenticate)
     {
-        $key = 'login:'.strtolower($request->wellsharp_id).'|'.$request->ip();
+        $key = 'login:'.strtolower(trim($request->wellsharp_id)).'|'.$request->ip();
 
         if (RateLimiter::tooManyAttempts($key, 5)) {
             return redirect()->route('login')->withErrors(['wellsharp_id' => 'Too many sign-in attempts. Please try again later.'])->withInput()->setStatusCode(429);
@@ -33,7 +33,7 @@ class LoginController extends Controller
         if (! $user) {
             RateLimiter::hit($key, 60);
 
-            return redirect()->route('login')->withErrors(['wellsharp_id' => 'The WellSharp ID or password is incorrect.'])->withInput();
+            return redirect()->route('login')->withErrors(['wellsharp_id' => 'The WellSharp ID, username, or password is incorrect.'])->withInput();
         }
 
         RateLimiter::clear($key);

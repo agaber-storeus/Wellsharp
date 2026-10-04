@@ -7,11 +7,12 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\UserProfile;
 use App\Services\AuditRecorder;
+use App\Services\UserIdentityGenerator;
 use Illuminate\Support\Facades\DB;
 
 class UpdateUserAction
 {
-    public function __construct(private readonly AuditRecorder $audit, private readonly SyncStudentGroupsAction $syncStudentGroups) {}
+    public function __construct(private readonly AuditRecorder $audit, private readonly SyncStudentGroupsAction $syncStudentGroups, private readonly UserIdentityGenerator $identity) {}
 
     public function execute(User $user, array $data): User
     {
@@ -19,17 +20,20 @@ class UpdateUserAction
             $locked = User::query()->lockForUpdate()->findOrFail($user->getKey());
             $before = $locked->load('profile', 'currentRole')->toArray();
             $passwordChanged = filled($data['password'] ?? null);
-            $wellsharpId = array_key_exists('wellsharp_id', $data) ? strtoupper(trim($data['wellsharp_id'])) : $locked->wellsharp_id;
+            $wellsharpId = array_key_exists('wellsharp_id', $data) ? $this->identity->normalizeWellsharpId($data['wellsharp_id']) : $locked->wellsharp_id;
+            $username = array_key_exists('username', $data) ? $this->identity->normalizeUsername($data['username']) : $locked->username;
             $wellsharpIdChanged = $locked->wellsharp_id !== $wellsharpId;
+            $usernameChanged = $locked->username !== $username;
 
             $locked->fill([
                 'wellsharp_id' => $wellsharpId,
                 'email' => $data['email'] ?? null,
             ]);
+            $locked->forceFill(['username' => $username]);
             if ($passwordChanged) {
                 $locked->setPasswordAndCiphertext($data['password'], $locked->currentRole?->key ?? '');
             }
-            if ($passwordChanged || $wellsharpIdChanged) {
+            if ($passwordChanged || $wellsharpIdChanged || $usernameChanged) {
                 $locked->session_version++;
             }
             $locked->save();

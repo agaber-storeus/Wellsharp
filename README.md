@@ -6,11 +6,11 @@ WellSharp is a Laravel application foundation for managing training and assessme
 
 Implemented:
 
-- WellSharp ID and password authentication
+- WellSharp ID or username and password authentication
 - Password hashing, login throttling, logout, session regeneration, and session revocation
 - Admin, Proctor, Instructor, and Student roles
 - Admin user and role management
-- Training providers and course reference values
+- Training providers with normalized multi-location management, per-location pins, create/edit autosave, and OpenFreeMap maps; course reference values
 - Subjects and Subject relationships (technical model/table name: Course/courses); training-provider ownership is selected per Exam Schedule rather than per Subject
 - Classes, enrollments, and withdrawals
 - Assignment-scoped Proctor and Instructor dashboards; each Class carries one Proctor and one Instructor assignment
@@ -20,13 +20,12 @@ Implemented:
 - One shared Exam/Class lifecycle: Admin labels the record as an Exam; Proctor, Instructor, and Student interfaces label the same operational record as a Class. Saving an Exam schedule creates or synchronizes its operational Class automatically; Admin never selects a separate Class bridge.
 - Student confirmation, survey persistence, exam instructions, and exam attempts; per-schedule automatic/manual start modes; Proctor/Instructor Class start/end controls with Instructor Proctor-ID verification
 - Student exam question rendering, per-question answer autosave, and attempt timers
-- Exam scoring, final student submission, four-document certificate issuance, public certificate/instructor lookup, QR-backed verification, certificate PDF rendering/download, and admin certificate details
+- Knowledge scoring, auditable Admin score controls, final student submission, four-document certificate issuance, explicit certificate revocation, public certificate/instructor lookup, QR-backed verification, certificate PDF rendering/download, and Admin certificate details with Exam Review
 - Audit events, login events, correlation IDs, and sensitive-field redaction
 
 Not implemented yet:
 
-- Certificate revocation workflow
-- Advanced reporting and domain queue jobs
+- Domain queue jobs
 
 ## Requirements
 
@@ -166,7 +165,7 @@ The original static prototype files remain in the repository as reference materi
 - Class lifecycle transitions are centralized in `ControlOperationalExamAction`; a separate state-machine package is not used.
 - Legacy class staff-assignment tables/models remain for migration compatibility but are not used for authorization. Direct `classes.proctor_id` and `classes.instructor_id` fields scope operational visibility and control.
 - First-admin provisioning is available through `wellsharp:create-admin` and should be run from a trusted deployment shell.
-- Exam definitions, Subject question composition, publication validation, Exam scheduling, Student flow, per-question autosave, timers, scoring, final submission, release/finalization, staff reporting, certificate issuance, PDF document rendering/download, admin certificate details, and shared Exam/Class lifecycle controls are implemented.
+- Exam definitions, manual/random Subject question selection, publication validation, Exam scheduling, Student flow, per-question autosave, timers, Knowledge scoring, auditable Admin score controls, final submission, release/finalization, staff reporting and exports, explicit certificate issuance/revocation, PDF document rendering/download, Admin certificate Exam Review, and shared Exam/Class lifecycle controls are implemented.
 
 ## Class/Exam control rules
 

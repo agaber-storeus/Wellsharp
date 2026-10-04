@@ -36,16 +36,17 @@ class ControlOperationalExamAction
     public function executeManual(TrainingClass $trainingClass, string $action, User $actor, ?string $proctorId = null): array
     {
         $verifiedProctor = null;
+        $enteredProctorId = $proctorId ?? '';
 
         if ($actor->currentRole?->key === Role::INSTRUCTOR) {
-            $verifiedProctor = $this->verifyProctorIdForManualControl($trainingClass, $action, $actor, $proctorId ?? '');
+            $verifiedProctor = $this->verifyProctorIdForManualControl($trainingClass, $action, $actor, $enteredProctorId);
         } elseif ($actor->currentRole?->key !== Role::PROCTOR) {
             $this->recordControlAttemptFailed($trainingClass, $action, ClassControlFailureReason::UnsupportedRole, $actor);
 
             throw ValidationException::withMessages(['action' => 'Only an authorized Proctor or Instructor can control a Class.']);
         }
 
-        return $this->execute($trainingClass, $action, 'manual', $actor, null, $verifiedProctor);
+        return $this->execute($trainingClass, $action, 'manual', $actor, null, $verifiedProctor, $enteredProctorId);
     }
 
     /**
@@ -65,7 +66,11 @@ class ControlOperationalExamAction
                 'class.proctor_verification.failed',
                 $trainingClass,
                 null,
-                ['operation' => $action, 'failure_stage' => $result->failureReason->stage(), 'failure_reason' => $result->failureReason->value],
+                $this->proctorIdActivityState($trainingClass, $action, $proctorId, 'failed', [
+                    'failure_stage' => $result->failureReason->stage(),
+                    'failure_reason' => $result->failureReason->value,
+                    'control_status' => 'not_attempted',
+                ]),
                 $result->failureReason->label(),
                 $actor->getKey(),
             );
@@ -77,7 +82,12 @@ class ControlOperationalExamAction
             'class.proctor_verification.succeeded',
             $trainingClass,
             null,
-            ['operation' => $action, 'verified_proctor_user_id' => $result->proctor->getKey(), 'verified_proctor_wellsharp_id' => $result->proctor->wellsharp_id],
+            $this->proctorIdActivityState($trainingClass, $action, $proctorId, 'success', [
+                'control_status' => 'pending',
+                'verified_proctor_user_id' => $result->proctor->getKey(),
+                'verified_proctor_wellsharp_id' => $result->proctor->wellsharp_id,
+                'verified_proctor_display_name' => $result->proctor->display_name,
+            ]),
             'Proctor ID verified for '.$action,
             $actor->getKey(),
         );
@@ -106,14 +116,14 @@ class ControlOperationalExamAction
      *
      * @return array{class: TrainingClass, proctor_name: ?string, schedules_controlled: int, changed: bool}
      */
-    private function execute(TrainingClass $trainingClass, string $action, string $source, ?User $actor, ?Carbon $now = null, ?User $verifiedProctor = null): array
+    private function execute(TrainingClass $trainingClass, string $action, string $source, ?User $actor, ?Carbon $now = null, ?User $verifiedProctor = null, ?string $enteredProctorId = null): array
     {
         if (! in_array($action, ['start', 'end'], true)) {
             throw ValidationException::withMessages(['action' => 'Choose start or end.']);
         }
 
         try {
-            $result = DB::transaction(function () use ($trainingClass, $action, $source, $actor, $now, $verifiedProctor): array {
+            $result = DB::transaction(function () use ($trainingClass, $action, $source, $actor, $now, $verifiedProctor, $enteredProctorId): array {
                 $class = TrainingClass::query()->lockForUpdate()->findOrFail($trainingClass->getKey());
                 $clock = $now ?: now();
 
@@ -136,7 +146,7 @@ class ControlOperationalExamAction
                         }
                         $this->audit->record('exam_schedule.'.$source.'_start', $schedule, null, $schedule->fresh()->toArray(), ucfirst($source).' start', $actor?->getKey());
                     }
-                    $this->audit->record('class.'.$source.'_start', $class, $before, $this->withVerifiedProctor($class->fresh()->toArray(), $verifiedProctor), ucfirst($source).' start', $actor?->getKey());
+                    $this->audit->record('class.'.$source.'_start', $class, $before, $this->withVerifiedProctor($class->fresh()->toArray(), $verifiedProctor, $action, $enteredProctorId, $class), ucfirst($source).' start', $actor?->getKey());
 
                     return $this->result($class, $actor, $schedules->count(), true);
                 }
@@ -167,20 +177,20 @@ class ControlOperationalExamAction
                     }
                     $this->audit->record('exam_schedule.'.$source.'_end', $schedule, null, $schedule->fresh()->toArray(), ucfirst($source).' end', $actor?->getKey());
                 }
-                $this->audit->record('class.'.$source.'_end', $class, $before, $this->withVerifiedProctor($class->fresh()->toArray(), $verifiedProctor), ucfirst($source).' end', $actor?->getKey());
+                $this->audit->record('class.'.$source.'_end', $class, $before, $this->withVerifiedProctor($class->fresh()->toArray(), $verifiedProctor, $action, $enteredProctorId, $class), ucfirst($source).' end', $actor?->getKey());
 
                 return $this->result($class, $actor, $schedules->count(), true);
             });
         } catch (ValidationException $exception) {
             if ($source === 'manual') {
-                $this->recordControlAttemptFailed($trainingClass, $action, $this->classStateFailureReason($trainingClass, $action), $actor);
+                $this->recordControlAttemptFailed($trainingClass, $action, $this->classStateFailureReason($trainingClass, $action), $actor, $verifiedProctor, $enteredProctorId);
             }
 
             throw $exception;
         }
 
         if ($source === 'manual' && ! $result['changed']) {
-            $this->recordControlAttemptFailed($trainingClass, $action, $this->classStateFailureReason($trainingClass, $action), $actor);
+            $this->recordControlAttemptFailed($trainingClass, $action, $this->classStateFailureReason($trainingClass, $action), $actor, $verifiedProctor, $enteredProctorId);
         }
 
         return $result;
@@ -212,28 +222,61 @@ class ControlOperationalExamAction
         };
     }
 
-    private function recordControlAttemptFailed(TrainingClass $trainingClass, string $action, ClassControlFailureReason $reason, ?User $actor): void
+    private function recordControlAttemptFailed(TrainingClass $trainingClass, string $action, ClassControlFailureReason $reason, ?User $actor, ?User $verifiedProctor = null, ?string $enteredProctorId = null): void
     {
+        $state = ['operation' => $action, 'failure_stage' => $reason->stage(), 'failure_reason' => $reason->value];
+        if ($actor?->currentRole?->key === Role::INSTRUCTOR) {
+            $state = $this->proctorIdActivityState($trainingClass, $action, $enteredProctorId ?? '', $verifiedProctor ? 'success' : 'not_run', $state + [
+                'control_status' => 'failed',
+                'control_failure_stage' => $reason->stage(),
+                'control_failure_reason' => $reason->value,
+            ], $verifiedProctor);
+        }
+
         $this->audit->record(
             'class.control_attempt.failed',
             $trainingClass,
             null,
-            ['operation' => $action, 'failure_stage' => $reason->stage(), 'failure_reason' => $reason->value],
+            $state,
             $reason->label(),
             $actor?->getKey(),
         );
     }
 
-    private function withVerifiedProctor(array $state, ?User $verifiedProctor): array
+    private function withVerifiedProctor(array $state, ?User $verifiedProctor, string $operation, ?string $enteredProctorId, ?TrainingClass $trainingClass): array
     {
         if (! $verifiedProctor) {
             return $state;
         }
 
-        return $state + [
+        return $state + $this->proctorIdActivityState($trainingClass, $operation, $enteredProctorId ?? '', 'success', [
+            'control_status' => 'success',
             'verified_proctor_user_id' => $verifiedProctor->getKey(),
             'verified_proctor_wellsharp_id' => $verifiedProctor->wellsharp_id,
-        ];
+            'verified_proctor_display_name' => $verifiedProctor->display_name,
+        ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function proctorIdActivityState(?TrainingClass $trainingClass, string $operation, string $enteredProctorId, string $verificationStatus, array $extra = [], ?User $verifiedProctor = null): array
+    {
+        if ($verifiedProctor) {
+            $extra += [
+                'verified_proctor_user_id' => $verifiedProctor->getKey(),
+                'verified_proctor_wellsharp_id' => $verifiedProctor->wellsharp_id,
+                'verified_proctor_display_name' => $verifiedProctor->display_name,
+            ];
+        }
+
+        return [
+            'proctor_id_activity' => true,
+            'entered_proctor_id' => $enteredProctorId,
+            'operation' => $operation,
+            'verification_status' => $verificationStatus,
+            'class_id' => $trainingClass?->getKey(),
+            'class_public_id' => $trainingClass?->public_id,
+            'class_number' => $trainingClass?->class_number,
+        ] + $extra;
     }
 
     /** @return array{class: TrainingClass, proctor_name: ?string, schedules_controlled: int, changed: bool} */

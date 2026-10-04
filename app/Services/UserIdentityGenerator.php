@@ -28,7 +28,7 @@ class UserIdentityGenerator
 
         return $this->generateUnique(
             fn (): string => $prefix.$this->randomDigits(random_int(self::MIN_LENGTH, self::MAX_LENGTH) - strlen($prefix)),
-            fn (string $candidate): bool => User::query()->where('wellsharp_id', $candidate)->exists(),
+            fn (string $candidate): bool => $this->loginIdentifierExists($candidate),
         );
     }
 
@@ -55,7 +55,27 @@ class UserIdentityGenerator
             $prefix = substr($prefix, 0, max(1, self::MAX_LENGTH - 3));
 
             return Str::lower(substr($prefix.$this->randomLetters(3), 0, self::MAX_LENGTH));
-        }, fn (string $candidate): bool => User::query()->where('username', $candidate)->exists());
+        }, fn (string $candidate): bool => $this->loginIdentifierExists($candidate));
+    }
+
+    public function normalizeWellsharpId(string $value): string
+    {
+        return strtoupper(trim($value));
+    }
+
+    public function normalizeUsername(string $value): string
+    {
+        return Str::lower(trim($value));
+    }
+
+    private function loginIdentifierExists(string $candidate): bool
+    {
+        $normalized = Str::lower($candidate);
+
+        return User::query()
+            ->whereRaw('LOWER(wellsharp_id) = ?', [$normalized])
+            ->orWhereRaw('LOWER(username) = ?', [$normalized])
+            ->exists();
     }
 
     /**

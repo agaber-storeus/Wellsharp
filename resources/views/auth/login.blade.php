@@ -21,7 +21,7 @@
             @if($errors->any())
               <div class="login-error global-alert" role="alert">{{ $errors->first() }}</div>
             @endif
-            <input class="field" type="text" name="wellsharp_id" value="{{ old('wellsharp_id') }}" placeholder="WellSharp® ID" aria-label="WellSharp ID" autocomplete="username" required autofocus />
+            <input class="field" type="text" name="wellsharp_id" value="{{ old('wellsharp_id') }}" placeholder="WellSharp ID or Username" aria-label="WellSharp ID or Username" autocomplete="username" required autofocus />
             <input class="field" type="password" name="password" placeholder="Password" aria-label="Password" autocomplete="current-password" required />
             <button class="login-button" type="submit">Login</button>
             <a class="small-link forgot-link" href="#">Forgot your password?</a>

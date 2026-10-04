@@ -37,6 +37,9 @@ class ClassDashboardRosterTest extends TestCase
         return app(SaveExamScheduleAction::class)->execute(null, [
             'exam_id' => $exam->id,
             'group_id' => $group->id,
+            'class_id' => $overrides['class_id'] ?? null,
+            'stack_offered' => $overrides['stack_offered'] ?? null,
+            'supplement_offered' => $overrides['supplement_offered'] ?? 'No Supplement Offered',
             'start_date' => now()->addDay()->toDateString(),
             'end_date' => now()->addDays(2)->toDateString(),
             'duration_minutes' => 60,
@@ -139,6 +142,77 @@ class ClassDashboardRosterTest extends TestCase
             ->get(route('instructor.classes'))
             ->assertOk()
             ->assertSee('Isaac Trainee');
+    }
+
+    public function test_class_dashboard_displays_schedule_class_id_and_requested_detail_mapping(): void
+    {
+        $proctor = User::factory()->proctor()->create();
+        $instructor = User::factory()->instructor()->create();
+        $course = Course::factory()->create(['name' => 'Dashboard Subject']);
+        $group = Group::create(['name' => 'Dashboard Group', 'status' => 'active']);
+
+        $schedule = $this->scheduleExamForGroup($course, $group, [
+            'class_id' => 'ADMIN-CLASS-777',
+            'stack_offered' => 'Surface',
+            'supplement_offered' => 'Workover',
+            'proctor_id' => $proctor->id,
+            'instructor_id' => $instructor->id,
+        ]);
+
+        $response = $this->actingAs($proctor)
+            ->withSession(['auth.session_version' => $proctor->session_version])
+            ->get(route('proctor.classes'))
+            ->assertOk()
+            ->assertSee('ADMIN-CLASS-777')
+            ->assertSee('Class ID:')
+            ->assertSee('Class Title or ID:')
+            ->assertSee('Course Level:')
+            ->assertSee('Dashboard Subject')
+            ->assertSee('Stacks Offered:')
+            ->assertSee('Surface')
+            ->assertSee('Supplement Offered:')
+            ->assertSee('Workover')
+            ->assertSee('Class Language:')
+            ->assertSee('English')
+            ->assertDontSee('Class Duration:');
+
+        $content = $response->getContent();
+        $this->assertLessThan(strpos($content, 'Class Title or ID:'), strpos($content, 'Class ID:'));
+        $this->assertLessThan(strpos($content, 'Class Status:'), strpos($content, 'Class Title or ID:'));
+        $this->assertLessThan(strpos($content, 'Class Dates:'), strpos($content, 'Class Status:'));
+        $examDateTimePosition = strpos($content, 'Exam Date\\/Time:');
+        $this->assertLessThan($examDateTimePosition, strpos($content, 'Class Dates:'));
+        $this->assertLessThan(strpos($content, 'Started On:'), $examDateTimePosition);
+        $this->assertLessThan(strpos($content, 'Ended On:'), strpos($content, 'Started On:'));
+        $this->assertLessThan(strpos($content, 'Address:'), strpos($content, 'Ended On:'));
+        $this->assertLessThan(strpos($content, 'Course Level:'), strpos($content, 'Address:'));
+        $this->assertLessThan(strpos($content, 'Stacks Offered:'), strpos($content, 'Course Level:'));
+        $this->assertLessThan(strpos($content, 'Supplement Offered:'), strpos($content, 'Stacks Offered:'));
+        $this->assertLessThan(strpos($content, 'Instructor:'), strpos($content, 'Supplement Offered:'));
+        $this->assertLessThan(strpos($content, 'Class Language:'), strpos($content, 'Instructor:'));
+    }
+
+    public function test_class_dashboard_renders_null_stack_as_blank_and_dynamic_supplement(): void
+    {
+        $proctor = User::factory()->proctor()->create();
+        $course = Course::factory()->create(['name' => 'Blank Stack Subject']);
+        $group = Group::create(['name' => 'Blank Stack Group', 'status' => 'active']);
+
+        $this->scheduleExamForGroup($course, $group, [
+            'stack_offered' => null,
+            'supplement_offered' => 'No Supplement Offered',
+            'proctor_id' => $proctor->id,
+        ]);
+
+        $content = $this->actingAs($proctor)
+            ->withSession(['auth.session_version' => $proctor->session_version])
+            ->get(route('proctor.classes'))
+            ->assertOk()
+            ->assertSee('Supplement Offered:')
+            ->assertSee('No Supplement Offered')
+            ->getContent();
+
+        $this->assertStringContainsString('["Stacks Offered:",""]', $content);
     }
 
     public function test_student_from_an_unrelated_group_is_not_shown_on_this_class_dashboard(): void

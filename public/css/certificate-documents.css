@@ -290,6 +290,68 @@
 .certificate-admin-document-row:first-child { border-top: 0; }
 .certificate-admin-document-link { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; color: var(--certificate-ink); text-decoration: none; }
 .certificate-admin-document-link:hover { text-decoration: none; }
+
+/* Admin-only certificate exam review. */
+.knowledge-score-control .admin-card-head { align-items: flex-start; }
+.knowledge-score-control .admin-card-head p { margin: 4px 0 0; color: var(--admin-muted); font-size: 13px; }
+.knowledge-score-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.knowledge-score-summary > div { padding: 12px; border: 1px solid var(--admin-line); border-radius: var(--admin-radius-sm); background: var(--admin-surface-soft); }
+.knowledge-score-summary > div.primary { border-color: #8fb5b1; background: #eef7f5; }
+.knowledge-score-summary span,.knowledge-score-summary strong { display: block; }
+.knowledge-score-summary span { margin-bottom: 5px; color: var(--admin-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.knowledge-score-summary strong { color: var(--admin-ink); font-size: 17px; }
+.knowledge-result.passed { color: #176642; }.knowledge-result.failed { color: var(--admin-danger); }
+.knowledge-active-controls,.knowledge-control-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.knowledge-active-controls span { padding: 5px 9px; border-radius: 999px; background: #fff1dc; color: #87420f; font-size: 11px; font-weight: 700; }
+.knowledge-certificate-warning { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px; border: 1px solid #e6b1b1; border-radius: var(--admin-radius-sm); background: #fff4f4; color: #842929; }
+.knowledge-certificate-warning span { flex: 1; font-size: 13px; }
+.knowledge-history { margin-top: 20px; }.knowledge-history h3 { margin: 0 0 9px; color: var(--admin-ink); font-size: 14px; }
+.knowledge-history-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--admin-line); }
+.knowledge-history-row > div { flex: 1; min-width: 0; }.knowledge-history-row strong,.knowledge-history-row span,.knowledge-history-row small { display: block; overflow-wrap: anywhere; }
+.knowledge-history-row span,.knowledge-history-row small { margin-top: 3px; color: var(--admin-muted); font-size: 12px; }
+.knowledge-dialog { width: min(520px,calc(100% - 28px)); padding: 22px; border: 1px solid var(--admin-line); border-radius: var(--admin-radius-md); color: var(--admin-ink); box-shadow: 0 24px 70px rgba(15,23,42,.25); }
+.knowledge-dialog::backdrop { background: rgba(15,23,42,.48); }.knowledge-dialog h3 { margin: 0 0 16px; }.knowledge-dialog label { display: grid; gap: 6px; margin-top: 12px; font-size: 13px; font-weight: 700; }
+.knowledge-dialog input,.knowledge-dialog select,.knowledge-dialog textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--admin-line); border-radius: var(--admin-radius-sm); font: inherit; }.knowledge-dialog textarea { min-height: 90px; resize: vertical; }.knowledge-dialog .actions { margin-top: 16px; }
+.certificate-exam-review .admin-card-head { align-items: flex-start; }
+.certificate-exam-review .admin-card-head p { margin: 4px 0 0; color: var(--admin-muted); font-size: 13px; }
+.certificate-review-history-note { margin: -7px 0 18px; padding: 10px 12px; border-left: 3px solid var(--admin-accent-warm); background: var(--admin-surface-soft); color: var(--admin-muted); font-size: 12.5px; line-height: 1.55; }
+.certificate-review-list { display: grid; gap: 14px; }
+.certificate-review-card { overflow: hidden; border: 1px solid var(--admin-line); border-left: 4px solid #94a3b8; border-radius: var(--admin-radius-md); background: #fff; }
+.certificate-review-card.is-correct { border-left-color: #21835a; }
+.certificate-review-card.is-incorrect { border-left-color: var(--admin-danger); }
+.certificate-review-card-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 17px 12px; border-bottom: 1px solid var(--admin-line); background: var(--admin-surface-soft); }
+.certificate-review-identifiers { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 12px; min-width: 0; }
+.certificate-review-identifiers strong { overflow-wrap: anywhere; color: var(--admin-ink); font: 600 13px/1.4 "JetBrains Mono", ui-monospace, Consolas, monospace; }
+.certificate-review-number { color: var(--admin-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; }
+.certificate-review-state { flex: 0 0 auto; padding: 5px 9px; border: 1px solid #cbd5e1; border-radius: 999px; background: #f8fafc; color: #475569; font-size: 11px; font-weight: 700; }
+.certificate-review-state.is-correct { border-color: #a7d7c0; background: #edf8f2; color: #176642; }
+.certificate-review-state.is-incorrect { border-color: #efb7b7; background: #fff1f1; color: #a52b2b; }
+.certificate-review-tags { display: flex; flex-wrap: wrap; gap: 7px; padding: 14px 17px 0; }
+.certificate-review-tags span { padding: 4px 8px; border: 1px solid var(--admin-line); border-radius: var(--admin-radius-sm); background: #fff; color: var(--admin-muted); font-size: 11.5px; font-weight: 600; }
+.certificate-review-question { margin: 13px 17px 16px; color: var(--admin-ink); font-size: 15px; font-weight: 600; line-height: 1.65; overflow-wrap: anywhere; }
+.certificate-review-image { display: block; width: auto; max-width: calc(100% - 34px); max-height: 360px; margin: 0 17px 16px; border: 1px solid var(--admin-line); border-radius: var(--admin-radius-sm); object-fit: contain; }
+.certificate-review-answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--admin-line); border-bottom: 1px solid var(--admin-line); }
+.certificate-review-answer { min-width: 0; padding: 14px 17px; }
+.certificate-review-answer + .certificate-review-answer { border-left: 1px solid var(--admin-line); }
+.certificate-review-answer > span,.certificate-review-solution > span,.certificate-review-points > span { display: block; margin-bottom: 5px; color: var(--admin-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.certificate-review-answer strong { display: block; color: var(--admin-ink); font-size: 13.5px; line-height: 1.55; overflow-wrap: anywhere; }
+.certificate-review-answer img { display: block; max-width: 100%; max-height: 220px; margin-top: 10px; border-radius: var(--admin-radius-sm); object-fit: contain; }
+.certificate-review-card.is-correct .student-answer { background: #f5fbf8; }
+.certificate-review-card.is-incorrect .student-answer { background: #fff8f8; }
+.certificate-review-answer.correct-answer { background: #f7faf9; }
+.certificate-review-solution { padding: 13px 17px; background: #fffdf8; }
+.certificate-review-solution p { margin: 0; color: var(--admin-ink); font-size: 13px; line-height: 1.6; white-space: pre-line; }
+.certificate-review-points { display: flex; align-items: center; justify-content: flex-end; gap: 9px; padding: 11px 17px; background: var(--admin-surface-soft); }
+.certificate-review-points > span { margin: 0; }
+.certificate-review-points strong { color: var(--admin-ink); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 680px) {
+  .knowledge-score-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .knowledge-certificate-warning { align-items: flex-start; flex-direction: column; }
+  .certificate-review-card-head { align-items: flex-start; }
+  .certificate-review-answers { grid-template-columns: 1fr; }
+  .certificate-review-answer + .certificate-review-answer { border-top: 1px solid var(--admin-line); border-left: 0; }
+}
 .certificate-admin-document-icon { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; border-radius: 10px; background: #eaf4fb; color: #0b5cab; font-size: 10px; font-weight: 900; letter-spacing: .03em; }
 .certificate-admin-document-link > span:nth-child(2) { display: block; min-width: 0; }
 .certificate-admin-document-link strong, .certificate-admin-document-link small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

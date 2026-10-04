@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\ExamAttemptStatus;
 use App\Enums\ExamScheduleStatus;
-use App\Enums\ExamStartMode;
 use App\Enums\GroupMembershipStatus;
 use App\Models\ExamSchedule;
 use App\Models\StudentSurvey;
@@ -12,10 +11,12 @@ use App\Models\User;
 
 class StudentExamFlowService
 {
+    public function __construct(private readonly ExamScheduleAvailabilityService $availability) {}
+
     public function assertStudentCanAccess(ExamSchedule $schedule, User $student): void
     {
         abort_unless($schedule->status === ExamScheduleStatus::Scheduled, 422, 'This class is no longer available.');
-        if (! $schedule->override_started_at && $schedule->end_date?->endOfDay()->isPast()) {
+        if ($this->availability->isPastForLogin($schedule)) {
             abort(422, 'This class is no longer available.');
         }
 
@@ -52,25 +53,16 @@ class StudentExamFlowService
 
     public function assertExamLaunchAvailable(ExamSchedule $schedule, User $student): void
     {
-        $this->assertSurveyCompleted($schedule, $student);
+        $this->assertStudentCanAccess($schedule, $student);
 
-        if (! $schedule->override_started_at && $schedule->end_date?->endOfDay()->isPast()) {
+        if ($this->availability->isPastForLogin($schedule)) {
             abort(422, 'This exam schedule has ended.');
         }
     }
 
     public function canStartExam(ExamSchedule $schedule): bool
     {
-        if ($schedule->override_started_at) {
-            return ! $schedule->override_ended_at;
-        }
-
-        if ($schedule->start_mode === ExamStartMode::Manual) {
-            return false;
-        }
-
-        return ! $schedule->start_date?->isFuture()
-            && ! $schedule->end_date?->endOfDay()->isPast();
+        return $this->availability->canStudentStart($schedule);
     }
 
     public function hasFinishedExam(ExamSchedule $schedule, User $student): bool
@@ -94,20 +86,12 @@ class StudentExamFlowService
             return null;
         }
 
-        if ($schedule->start_mode === ExamStartMode::Manual && ! $schedule->override_started_at) {
-            return 'A Proctor must start this exam before it can be opened.';
-        }
-
-        if (! $schedule->override_started_at && $schedule->start_date?->isFuture()) {
-            return 'This exam is available starting '.$schedule->start_date->format('F j, Y').'.';
-        }
-
-        return 'This exam schedule has ended.';
+        return $this->availability->studentStartBlockReason($schedule);
     }
 
     public function assertReadyForExam(ExamSchedule $schedule, User $student): void
     {
-        $this->assertSurveyCompleted($schedule, $student);
+        $this->assertStudentCanAccess($schedule, $student);
 
         if ($message = $this->finishedExamMessage($schedule, $student)) {
             abort(422, $message);

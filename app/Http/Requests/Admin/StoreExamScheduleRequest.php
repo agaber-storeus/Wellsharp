@@ -13,6 +13,9 @@ use Illuminate\Validation\Validator;
 
 class StoreExamScheduleRequest extends FormRequest
 {
+    public const STACK_OPTIONS = ['Surface', 'Subsea', 'Combined Surface and Subsea'];
+    public const SUPPLEMENT_OPTIONS = ['No Supplement Offered', 'Workover'];
+
     protected function prepareForValidation(): void
     {
         if (! $this->filled('exam_id') && $this->route('exam')) {
@@ -20,6 +23,17 @@ class StoreExamScheduleRequest extends FormRequest
         }
         if (! $this->filled('start_mode')) {
             $this->merge(['start_mode' => 'automatic']);
+        }
+        if ($this->has('class_id')) {
+            $this->merge(['class_id' => trim((string) $this->input('class_id'))]);
+        }
+        if ($this->has('stack_offered')) {
+            $this->merge(['stack_offered' => trim((string) $this->input('stack_offered')) ?: null]);
+        }
+        if (! $this->filled('supplement_offered')) {
+            $this->merge(['supplement_offered' => 'No Supplement Offered']);
+        } else {
+            $this->merge(['supplement_offered' => trim((string) $this->input('supplement_offered'))]);
         }
         if ($this->filled('training_provider_id') && ! $this->filled('training_provider_location_id')) {
             $locations = TrainingProviderLocation::query()
@@ -41,7 +55,15 @@ class StoreExamScheduleRequest extends FormRequest
     {
         return [
             'exam_id' => ['required', 'integer', 'exists:exams,id'],
+            'class_id' => [
+                'nullable',
+                'string',
+                'max:64',
+                Rule::unique('exam_schedules', 'class_id')->ignore($this->route('schedule')?->getKey()),
+            ],
             'group_id' => ['required', 'integer', 'exists:student_groups,id'],
+            'stack_offered' => ['nullable', 'string', Rule::in(self::STACK_OPTIONS)],
+            'supplement_offered' => ['required', 'string', Rule::in(self::SUPPLEMENT_OPTIONS)],
             'training_provider_id' => ['nullable', 'integer', Rule::exists('training_providers', 'id')],
             'training_provider_location_id' => ['nullable', 'integer', Rule::exists('training_provider_locations', 'id')],
             'start_date' => ['required', 'date_format:Y-m-d'],
@@ -52,6 +74,13 @@ class StoreExamScheduleRequest extends FormRequest
             'start_mode' => ['required', 'in:automatic,manual'],
             'proctor_id' => ['required', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::PROCTOR, 'Proctor')],
             'instructor_id' => ['required', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::INSTRUCTOR, 'Instructor')],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'class_id.unique' => 'Class ID has already been used. Please enter a unique Class ID.',
         ];
     }
 

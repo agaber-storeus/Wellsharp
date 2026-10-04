@@ -55,6 +55,9 @@ class SaveExamScheduleAction
                 $before = null;
             }
             $attributes = [
+                'class_id' => filled($data['class_id'] ?? null) ? trim((string) $data['class_id']) : null,
+                'stack_offered' => filled($data['stack_offered'] ?? null) ? trim((string) $data['stack_offered']) : null,
+                'supplement_offered' => filled($data['supplement_offered'] ?? null) ? trim((string) $data['supplement_offered']) : 'No Supplement Offered',
                 'exam_id' => $exam->getKey(), 'group_id' => $group->getKey(),
                 'training_provider_id' => $data['training_provider_id'] ?? null,
                 'training_provider_location_id' => $providerLocationId,

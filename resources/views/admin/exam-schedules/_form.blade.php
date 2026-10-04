@@ -1,5 +1,7 @@
 @php
     $providerLocations = $providers->mapWithKeys(fn ($provider) => [(string) $provider->id => $provider->locations->map(fn ($location) => ['id' => (string) $location->id, 'location' => $location->location])->values()->all()]);
+    $stackOptions = ['Surface', 'Subsea', 'Combined Surface and Subsea'];
+    $supplementOptions = ['No Supplement Offered', 'Workover'];
 @endphp
 <div class="admin-bento" x-data="{ providerId: @js((string) old('training_provider_id', $schedule->training_provider_id)), locationId: @js((string) old('training_provider_location_id', $schedule->training_provider_location_id)), providerLocations: @js($providerLocations), locations() { return this.providerLocations[this.providerId] || []; }, syncLocation() { const options = this.locations(); this.locationId = options.length === 1 ? options[0].id : ''; }, init() { if (!this.locations().some(location => location.id === this.locationId)) this.syncLocation(); } }"><div class="admin-bento-card admin-bento-card--wide">
     <div class="admin-card-head"><span class="admin-card-icon">🗓️</span><h3>Schedule details</h3></div>
@@ -16,6 +18,9 @@
         </select>
         <small class="muted">Only published exams can be scheduled. This same record is shown as a Class in the Proctor, Instructor, and Student interfaces.</small>
     </div>
+    <div class="field full"><x-admin.label for="class_id">Class ID</x-admin.label><input id="class_id" name="class_id" maxlength="64" value="{{ old('class_id', $schedule->class_id) }}"><small class="muted">Admin-entered Class identifier. Must be unique across all Exam Schedules.</small></div>
+    <div class="field"><x-admin.label for="stack_offered">Stack Offered</x-admin.label><select id="stack_offered" name="stack_offered"><option value="">Select stack</option>@foreach($stackOptions as $stackOption)<option value="{{ $stackOption }}" @selected(old('stack_offered', $schedule->stack_offered) === $stackOption)>{{ $stackOption }}</option>@endforeach</select></div>
+    <div class="field"><x-admin.label for="supplement_offered">Supplement Offered</x-admin.label><select id="supplement_offered" name="supplement_offered">@foreach($supplementOptions as $supplementOption)<option value="{{ $supplementOption }}" @selected(old('supplement_offered', $schedule->supplement_offered ?? 'No Supplement Offered') === $supplementOption)>{{ $supplementOption }}</option>@endforeach</select></div>
     <div class="field full">
         <x-admin.label for="group_id" required>Group</x-admin.label>
         <select id="group_id" name="group_id" required>

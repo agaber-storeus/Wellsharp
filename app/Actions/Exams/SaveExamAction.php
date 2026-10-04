@@ -102,6 +102,7 @@ class SaveExamAction
 
         $this->scheduler->execute(null, [
             'exam_id' => $exam->getKey(),
+            'class_id' => $data['class_id'] ?? null,
             'group_id' => $data['group_id'],
             'training_provider_id' => $data['training_provider_id'] ?? null,
             'training_provider_location_id' => $data['training_provider_location_id'] ?? null,

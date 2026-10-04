@@ -14,7 +14,7 @@ class ExamSchedule extends Model
 {
     use HasFactory, HasPublicUlid;
 
-    protected $fillable = ['exam_id', 'group_id', 'training_class_id', 'training_provider_id', 'training_provider_location_id', 'start_date', 'start_time', 'end_date', 'end_time', 'duration_minutes', 'status', 'start_mode', 'created_by_user_id', 'updated_by_user_id', 'override_started_at', 'override_ended_at', 'override_started_by_user_id', 'override_ended_by_user_id'];
+    protected $fillable = ['class_id', 'stack_offered', 'supplement_offered', 'exam_id', 'group_id', 'training_class_id', 'training_provider_id', 'training_provider_location_id', 'start_date', 'start_time', 'end_date', 'end_time', 'duration_minutes', 'status', 'start_mode', 'created_by_user_id', 'updated_by_user_id', 'override_started_at', 'override_ended_at', 'override_started_by_user_id', 'override_ended_by_user_id'];
 
     protected function casts(): array
     {

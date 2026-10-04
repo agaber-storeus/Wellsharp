@@ -4,12 +4,17 @@ namespace App\Actions\Auth;
 
 use App\Enums\UserStatus;
 use App\Models\LoginEvent;
+use App\Models\Role;
 use App\Models\User;
+use App\Services\StudentLoginEligibilityService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class AuthenticateUserAction
 {
+    public function __construct(private readonly StudentLoginEligibilityService $studentLoginEligibility) {}
+
     public function execute(string $identifier, string $password, ?string $ip, ?string $userAgent, ?string $correlationId): ?User
     {
         $submittedIdentifier = trim($identifier);
@@ -32,6 +37,13 @@ class AuthenticateUserAction
             $this->event($eventIdentifier, $user, 'inactive', $ip, $userAgent, $correlationId);
 
             return null;
+        }
+
+        $user->loadMissing('currentRole');
+        if ($user->currentRole?->key === Role::STUDENT && $message = $this->studentLoginEligibility->denialMessageFor($user)) {
+            $this->event($eventIdentifier, $user, 'student_exam_unavailable', $ip, $userAgent, $correlationId);
+
+            throw ValidationException::withMessages(['wellsharp_id' => $message]);
         }
 
         Auth::login($user);

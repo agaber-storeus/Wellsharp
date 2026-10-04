@@ -6,6 +6,7 @@ use App\Models\Enrollment;
 use App\Models\Exam;
 use App\Models\ExamSchedule;
 use App\Models\Group;
+use App\Models\GroupMembership;
 use App\Models\TrainingClass;
 use App\Models\TrainingProvider;
 use App\Models\User;
@@ -47,6 +48,11 @@ class RoleInterfaceTest extends TestCase
             'student' => 'student.dashboard',
         ] as $role => $dashboard) {
             $user = User::factory()->withRole($role)->create(['wellsharp_id' => strtoupper($role).'-LOGIN']);
+            if ($role === 'student') {
+                $group = Group::factory()->create();
+                GroupMembership::factory()->create(['group_id' => $group->id, 'student_user_id' => $user->id]);
+                ExamSchedule::factory()->ongoing()->create(['group_id' => $group->id]);
+            }
 
             $this->post(route('login.store'), ['wellsharp_id' => $user->wellsharp_id, 'password' => 'test-password-123'])
                 ->assertRedirect(route($dashboard));

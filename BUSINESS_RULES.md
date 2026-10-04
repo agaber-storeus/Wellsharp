@@ -60,6 +60,9 @@ Source: `app/Actions/Exams/StartExamAttemptAction::assertStudentCanStart()`.
 **BR-016** — A `start_mode=manual` schedule remains blocked until staff control records `override_started_at`. For an automatic schedule without an override, a student can only start within the schedule's `start_date`–`end_date` window (`start_date` future → blocked; `end_date` end-of-day past → blocked).
 Source: `StartExamAttemptAction::assertStudentCanStart()`.
 
+**BR-016a** — Student login and new-attempt start eligibility share the same exact Exam Schedule window: `start_date + start_time` through `end_date + end_time` in the application timezone. Explicit operational overrides take precedence: `override_ended_at` closes access immediately, while `override_started_at` opens access from that timestamp for both automatic and manual schedules, even earlier than configured start. Without overrides, automatic schedules use the configured exact window and manual schedules remain unavailable until started. Legacy schedules with null times keep the historical whole-day window (`00:00:00` start / `23:59:59` end). Attempt duration is not used as the login/start window, and already-started attempts are still governed by their own `expires_at`.
+Source: `ExamScheduleAvailabilityService`.
+
 **BR-017** — A student who already has a `submitted` attempt for a schedule cannot start another attempt for it — one finished attempt per schedule per student, no retakes via the normal flow.
 Source: `StartExamAttemptAction::execute()`.
 Note: README mentions demo data with "passing and failing retakes" — reconcile before assuming retakes are impossible in all paths; this rule applies to the `StartExamAttemptAction` path specifically.

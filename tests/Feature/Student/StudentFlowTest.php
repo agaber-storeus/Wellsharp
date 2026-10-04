@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\StudentExamFlowService;
 use App\Services\StudentSurveyDefinition;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class StudentFlowTest extends TestCase
@@ -321,6 +322,201 @@ class StudentFlowTest extends TestCase
             ->assertSee('available starting', false);
     }
 
+    public function test_start_attempt_is_blocked_before_exact_schedule_start(): void
+    {
+        Carbon::setTestNow('2026-10-04 09:29:00');
+        [$student, $schedule] = $this->readyStudentAndSchedule([
+            'start_date' => now()->toDateString(),
+            'start_time' => '09:30',
+            'end_date' => now()->toDateString(),
+            'end_time' => '11:00',
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+        $this->post(route('student.exams.start', $schedule))
+            ->assertStatus(422)
+            ->assertSee('This exam is available starting October 4, 2026 9:30 AM', false);
+
+        $this->assertDatabaseCount('exam_attempts', 0);
+    }
+
+    public function test_manual_schedule_start_attempt_is_blocked_until_manually_started_then_allowed_early(): void
+    {
+        Carbon::setTestNow('2026-10-04 10:00:00');
+        [$blockedStudent, $blockedSchedule] = $this->readyStudentAndSchedule([
+            'start_date' => now()->addDays(3)->toDateString(),
+            'start_time' => '09:00',
+            'end_date' => now()->addDays(4)->toDateString(),
+            'end_time' => '17:00',
+            'start_mode' => 'manual',
+            'override_started_at' => null,
+        ]);
+
+        $this->actingAs($blockedStudent)->withSession(['auth.session_version' => $blockedStudent->session_version]);
+        $this->post(route('student.exams.start', $blockedSchedule))
+            ->assertStatus(422)
+            ->assertSee('A Proctor must start this exam before it can be opened.', false);
+        $this->assertDatabaseCount('exam_attempts', 0);
+
+        [$startedStudent, $startedSchedule] = $this->readyStudentAndSchedule([
+            'start_date' => now()->addDays(3)->toDateString(),
+            'start_time' => '09:00',
+            'end_date' => now()->addDays(4)->toDateString(),
+            'end_time' => '17:00',
+            'start_mode' => 'manual',
+            'override_started_at' => now(),
+        ]);
+
+        $this->actingAs($startedStudent)->withSession(['auth.session_version' => $startedStudent->session_version]);
+        $this->post(route('student.exams.start', $startedSchedule))->assertRedirect();
+
+        $this->assertDatabaseHas('exam_attempts', [
+            'exam_schedule_id' => $startedSchedule->id,
+            'student_user_id' => $startedStudent->id,
+            'status' => 'in_progress',
+        ]);
+    }
+
+    public function test_automatic_schedule_start_attempt_is_allowed_after_manual_override_start(): void
+    {
+        Carbon::setTestNow('2026-10-04 10:00:00');
+        [$blockedStudent, $blockedSchedule] = $this->readyStudentAndSchedule([
+            'start_date' => now()->addDays(3)->toDateString(),
+            'start_time' => '09:00',
+            'end_date' => now()->addDays(4)->toDateString(),
+            'end_time' => '17:00',
+            'start_mode' => 'automatic',
+        ]);
+
+        $this->actingAs($blockedStudent)->withSession(['auth.session_version' => $blockedStudent->session_version]);
+        $this->post(route('student.exams.start', $blockedSchedule))
+            ->assertStatus(422)
+            ->assertSee('This exam is available starting', false);
+        $this->assertDatabaseCount('exam_attempts', 0);
+
+        [$startedStudent, $startedSchedule] = $this->readyStudentAndSchedule([
+            'start_date' => now()->addDays(3)->toDateString(),
+            'start_time' => '09:00',
+            'end_date' => now()->addDays(4)->toDateString(),
+            'end_time' => '17:00',
+            'start_mode' => 'automatic',
+            'override_started_at' => now(),
+        ]);
+
+        $this->actingAs($startedStudent)->withSession(['auth.session_version' => $startedStudent->session_version]);
+        $this->post(route('student.exams.start', $startedSchedule))->assertRedirect();
+
+        $this->assertDatabaseHas('exam_attempts', [
+            'exam_schedule_id' => $startedSchedule->id,
+            'student_user_id' => $startedStudent->id,
+            'status' => 'in_progress',
+        ]);
+    }
+
+    public function test_start_attempt_is_allowed_inside_exact_schedule_window(): void
+    {
+        Carbon::setTestNow('2026-10-04 09:30:00');
+        [$student, $schedule] = $this->readyStudentAndSchedule([
+            'start_date' => now()->toDateString(),
+            'start_time' => '09:30',
+            'end_date' => now()->toDateString(),
+            'end_time' => '11:00',
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+        $this->post(route('student.exams.start', $schedule))->assertRedirect();
+
+        $this->assertDatabaseHas('exam_attempts', [
+            'exam_schedule_id' => $schedule->id,
+            'student_user_id' => $student->id,
+            'status' => 'in_progress',
+        ]);
+    }
+
+    public function test_start_attempt_is_blocked_after_exact_schedule_end(): void
+    {
+        Carbon::setTestNow('2026-10-04 11:01:00');
+        [$student, $schedule] = $this->readyStudentAndSchedule([
+            'start_date' => now()->toDateString(),
+            'start_time' => '09:30',
+            'end_date' => now()->toDateString(),
+            'end_time' => '11:00',
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+        $this->post(route('student.exams.start', $schedule))
+            ->assertStatus(422)
+            ->assertSee('This exam schedule has ended.', false);
+
+        $this->assertDatabaseCount('exam_attempts', 0);
+    }
+
+    public function test_manually_ended_schedule_blocks_new_attempt_immediately(): void
+    {
+        Carbon::setTestNow('2026-10-04 10:00:00');
+        [$student, $schedule] = $this->readyStudentAndSchedule([
+            'start_date' => now()->toDateString(),
+            'start_time' => '09:00',
+            'end_date' => now()->addDay()->toDateString(),
+            'end_time' => '17:00',
+            'start_mode' => 'manual',
+            'status' => 'completed',
+            'override_started_at' => now()->subHour(),
+            'override_ended_at' => now()->subMinute(),
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+        $this->post(route('student.exams.start', $schedule))
+            ->assertStatus(422)
+            ->assertSee('This exam schedule is not available.', false);
+
+        $this->assertDatabaseCount('exam_attempts', 0);
+    }
+
+    public function test_start_attempt_legacy_schedule_without_times_keeps_whole_day_window(): void
+    {
+        Carbon::setTestNow('2026-10-04 23:30:00');
+        [$student, $schedule] = $this->readyStudentAndSchedule([
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->toDateString(),
+            'start_time' => null,
+            'end_time' => null,
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+        $this->post(route('student.exams.start', $schedule))->assertRedirect();
+
+        $this->assertDatabaseHas('exam_attempts', [
+            'exam_schedule_id' => $schedule->id,
+            'student_user_id' => $student->id,
+            'status' => 'in_progress',
+        ]);
+    }
+
+    public function test_already_started_attempt_is_not_ended_by_schedule_end_time(): void
+    {
+        Carbon::setTestNow('2026-10-04 10:50:00');
+        [$student, $schedule] = $this->readyStudentAndSchedule([
+            'start_date' => now()->toDateString(),
+            'start_time' => '09:30',
+            'end_date' => now()->toDateString(),
+            'end_time' => '11:00',
+            'duration_minutes' => 180,
+        ]);
+
+        $this->actingAs($student)->withSession(['auth.session_version' => $student->session_version]);
+        $this->post(route('student.exams.start', $schedule))->assertRedirect();
+        $attempt = $schedule->attempts()->firstOrFail();
+
+        Carbon::setTestNow('2026-10-04 11:05:00');
+
+        $this->get(route('student.attempts.show', $attempt))->assertOk();
+        $this->assertDatabaseHas('exam_attempts', [
+            'id' => $attempt->id,
+            'status' => 'in_progress',
+        ]);
+    }
+
     public function test_survey_form_does_not_prefill_answers_stored_for_the_student(): void
     {
         $this->seedRoles();
@@ -456,5 +652,54 @@ class StudentFlowTest extends TestCase
         $this->get(route('student.proctor', $schedule))->assertStatus(422);
         $this->get(route('student.confirm', $schedule))->assertStatus(422);
         $this->get(route('student.dashboard'))->assertDontSee('Unavailable Exam');
+    }
+
+    private function readyStudentAndSchedule(array $scheduleAttributes = []): array
+    {
+        $this->seedRoles();
+        $student = User::factory()->student()->create();
+        $course = Course::factory()->create();
+        $group = Group::create(['name' => 'Exact Window Group '.str()->ulid(), 'status' => 'active']);
+        GroupMembership::create([
+            'group_id' => $group->id,
+            'student_user_id' => $student->id,
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $exam = Exam::create([
+            'course_id' => $course->id,
+            'name' => 'Exact Window Exam '.str()->ulid(),
+            'question_order_mode' => 'static',
+            'status' => 'published',
+        ]);
+        $question = Question::create([
+            'course_id' => $course->id,
+            'question_text' => 'Exact window question',
+            'type' => 'input',
+            'difficulty' => 'easy',
+            'correct_answer_text' => 'Answer',
+        ]);
+        ExamQuestion::create(['exam_id' => $exam->id, 'question_id' => $question->id, 'display_order' => 1, 'points' => 1]);
+
+        $schedule = ExamSchedule::create(array_merge([
+            'exam_id' => $exam->id,
+            'group_id' => $group->id,
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->toDateString(),
+            'duration_minutes' => 60,
+            'status' => 'scheduled',
+            'start_mode' => 'automatic',
+        ], $scheduleAttributes));
+
+        StudentSurvey::create([
+            'student_user_id' => $student->id,
+            'exam_schedule_id' => $schedule->id,
+            'status' => 'completed',
+            'contact_confirmed_at' => now(),
+            'completed_at' => now(),
+        ]);
+
+        return [$student, $schedule];
     }
 }

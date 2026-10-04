@@ -32,6 +32,8 @@ class SaveExamScheduleAction
             $providerLocationId = $this->resolveProviderLocation($schedule, $data);
             $startDate = Carbon::createFromFormat('Y-m-d', $data['start_date'])->toDateString();
             $endDate = Carbon::createFromFormat('Y-m-d', $data['end_date'])->toDateString();
+            $startTime = filled($data['start_time'] ?? null) ? Carbon::createFromFormat('H:i', $data['start_time'])->format('H:i:s') : null;
+            $endTime = filled($data['end_time'] ?? null) ? Carbon::createFromFormat('H:i', $data['end_time'])->format('H:i:s') : null;
             if ($creating && ExamSchedule::query()
                 ->where('exam_id', $exam->getKey())
                 ->where('group_id', $group->getKey())
@@ -57,7 +59,9 @@ class SaveExamScheduleAction
                 'training_provider_id' => $data['training_provider_id'] ?? null,
                 'training_provider_location_id' => $providerLocationId,
                 'start_date' => $startDate,
+                'start_time' => $startTime,
                 'end_date' => $endDate,
+                'end_time' => $endTime,
                 'duration_minutes' => $data['duration_minutes'],
                 'start_mode' => $data['start_mode'] ?? 'automatic',
                 'updated_by_user_id' => auth()->id(),

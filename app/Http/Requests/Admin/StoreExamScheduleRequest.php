@@ -45,7 +45,9 @@ class StoreExamScheduleRequest extends FormRequest
             'training_provider_id' => ['nullable', 'integer', Rule::exists('training_providers', 'id')],
             'training_provider_location_id' => ['nullable', 'integer', Rule::exists('training_provider_locations', 'id')],
             'start_date' => ['required', 'date_format:Y-m-d'],
+            'start_time' => ['nullable', 'date_format:H:i'],
             'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'end_time' => ['nullable', 'date_format:H:i'],
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
             'start_mode' => ['required', 'in:automatic,manual'],
             'proctor_id' => ['required', 'integer', Rule::exists('users', 'id'), new ActiveStaffWithRole(Role::PROCTOR, 'Proctor')],
@@ -66,6 +68,13 @@ class StoreExamScheduleRequest extends FormRequest
             }
             if (! $this->filled('duration_minutes')) {
                 $validator->errors()->add('duration_minutes', 'Provide the time allowed for each student.');
+            }
+            if ($this->filled('start_date') && $this->filled('end_date')) {
+                $start = $this->input('start_date').' '.($this->input('start_time') ?: '00:00');
+                $end = $this->input('end_date').' '.($this->input('end_time') ?: '23:59');
+                if ($end < $start) {
+                    $validator->errors()->add('end_time', 'The exam end date and time must be after the start date and time.');
+                }
             }
 
             $providerId = $this->integer('training_provider_id');

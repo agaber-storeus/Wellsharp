@@ -68,12 +68,22 @@ class IadcExamQuestions2026Seeder extends Seeder
                         ['code' => 'I'.str_pad((string) $questionNumber, 4, '0', STR_PAD_LEFT)],
                         ['course_id' => $course->id, 'question_text' => $questionData['question'], 'type' => QuestionType::Mcq, 'difficulty' => QuestionDifficulty::Medium, 'default_marks' => $questionData['degree'] ?: 1, 'correct_answer_text' => $questionData['text_answer'], 'correct_answer_boolean' => null, 'solution_text' => null, 'is_active' => true],
                     );
-                    foreach (self::legacyOptionsFor((int) $questionData['id']) as $optionOrder => $optionData) {
+                    $deduplicatedOptions = self::deduplicateOptions(
+                        self::legacyOptionsFor((int) $questionData['id'])
+                    );
+
+                    foreach ($deduplicatedOptions as $optionOrder => $optionData) {
                         QuestionOption::query()->updateOrCreate(
                             ['question_id' => $question->id, 'display_order' => $optionOrder + 1],
                             ['option_text' => $optionData['answer'], 'is_correct' => $optionData['is_correct']],
                         );
                     }
+
+                    // Remove stale duplicate options left by an earlier seed run.
+                    QuestionOption::query()
+                        ->where('question_id', $question->id)
+                        ->where('display_order', '>', count($deduplicatedOptions))
+                        ->delete();
 
                     ExamQuestion::query()->updateOrCreate(
                         ['exam_id' => $exam->id, 'question_id' => $question->id],
@@ -88,6 +98,46 @@ class IadcExamQuestions2026Seeder extends Seeder
     public static function legacySubjects(): array
     {
         return array_map(static fn (array $subject): array => ['legacy_id' => $subject['legacy_id'], 'code' => $subject['code'], 'name' => $subject['name']], self::LEGACY_SUBJECTS);
+    }
+
+    /**
+     * Remove duplicate answer text within the same question while preserving
+     * the first display order. If duplicate rows disagree about correctness,
+     * the answer remains correct when any duplicate marks it as correct.
+     *
+     * @param  array<int, array{answer: string, is_correct: bool}>  $options
+     * @return array<int, array{answer: string, is_correct: bool}>
+     */
+    private static function deduplicateOptions(array $options): array
+    {
+        $deduplicated = [];
+        $indexByNormalizedAnswer = [];
+
+        foreach ($options as $option) {
+            $answer = trim((string) ($option['answer'] ?? ''));
+            $normalizedAnswer = mb_strtolower((string) preg_replace('/\s+/u', ' ', $answer));
+
+            // Keep genuinely empty legacy rows out of the selectable answers.
+            if ($normalizedAnswer === '') {
+                continue;
+            }
+
+            if (isset($indexByNormalizedAnswer[$normalizedAnswer])) {
+                $existingIndex = $indexByNormalizedAnswer[$normalizedAnswer];
+                $deduplicated[$existingIndex]['is_correct'] =
+                    $deduplicated[$existingIndex]['is_correct'] || (bool) ($option['is_correct'] ?? false);
+
+                continue;
+            }
+
+            $indexByNormalizedAnswer[$normalizedAnswer] = count($deduplicated);
+            $deduplicated[] = [
+                'answer' => $answer,
+                'is_correct' => (bool) ($option['is_correct'] ?? false),
+            ];
+        }
+
+        return $deduplicated;
     }
 
     /** @return array<int, array{answer: string, is_correct: bool}> */

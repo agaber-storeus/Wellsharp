@@ -10,10 +10,14 @@
         <x-admin.label for="exam_id" required>Exam</x-admin.label>
         <select id="exam_id" name="exam_id" required>
             <option value="">Select an exam</option>
-            @foreach($exams as $examOption)
+            @foreach($exams->groupBy(fn ($exam) => $exam->subject?->subjectCategory?->name ?? 'Uncategorized')->sortKeys() as $categoryName => $categoryExams)
+            <optgroup label="{{ $categoryName }}">
+            @foreach($categoryExams as $examOption)
                 <option value="{{ $examOption->id }}" @selected((string) old('exam_id', $selectedExamId ?? $schedule->exam_id) === (string) $examOption->id)>
                     {{ $examOption->name }} — {{ $examOption->subject->name }} ({{ $examOption->questions_count }} questions)
                 </option>
+            @endforeach
+            </optgroup>
             @endforeach
         </select>
         <small class="muted">Only published exams can be scheduled. This same record is shown as a Class in the Proctor, Instructor, and Student interfaces.</small>

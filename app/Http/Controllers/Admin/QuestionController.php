@@ -121,7 +121,7 @@ class QuestionController extends Controller
     public function createGlobal(): View
     {
         $this->authorize('create', Question::class);
-        $subjects = Course::query()->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get();
+        $subjects = Course::query()->with('subjectCategory')->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get();
 
         return view('admin.questions.create-global', [
             'subjects' => $subjects,
@@ -136,7 +136,7 @@ class QuestionController extends Controller
     public function importGlobal(): View
     {
         $this->authorize('viewAny', Question::class);
-        $subjects = Course::query()->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get();
+        $subjects = Course::query()->with('subjectCategory')->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get();
 
         return view('admin.questions.import-global', [
             'subjects' => $subjects,

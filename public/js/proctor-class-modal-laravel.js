@@ -214,22 +214,22 @@
     `;
   }
 
-  function classScoresMarkup(rows) {
+  function classScoresMarkup(rows, skillsApplicable) {
     return `
       <div x-data="classScoresTable(${attrJson(rows)})">
         <div class="scores-table-frame">
           <table class="scores-table class-scores-table">
           <thead><tr>
             <th>Name</th>
-            <th>Skills Score</th>
+            ${skillsApplicable === false ? "" : "<th>Skills Score</th>"}
             <th>Knowledge Exam</th>
             <th>Certificate</th>
           </tr></thead>
           <tbody>
-            <template x-for="row in rows" :key="(row.skillsScoreUrl || row.name)">
+            <template x-for="row in rows" :key="(row.enrollmentId || row.skillsScoreUrl || row.name)">
               <tr>
                 <td x-text="row.name"></td>
-                <td>
+                ${skillsApplicable === false ? "" : `<td>
                   <template x-if="!row.editing">
                     <span class="score-edit-cell">
                       <span x-text="row.skillsScore === null || row.skillsScore === undefined ? '—' : row.skillsScore"></span>
@@ -242,7 +242,7 @@
                       <a href="#" class="save-score" x-on:click.prevent="saveScore(row)">&#128190;</a>
                     </span>
                   </template>
-                </td>
+                </td>`}
                 <td>
                   <template x-if="row.state === 'notstarted'"><span>Not Started</span></template>
                   <template x-if="row.state === 'noshow'"><span>No Show</span></template>
@@ -263,7 +263,7 @@
                 </td>
               </tr>
             </template>
-            <tr x-show="!rows.length"><td colspan="4" class="scores-empty-cell">No trainees are enrolled in this Class.</td></tr>
+            <tr x-show="!rows.length"><td colspan="${skillsApplicable === false ? 3 : 4}" class="scores-empty-cell">No trainees are enrolled in this Class.</td></tr>
           </tbody>
           </table>
         </div>
@@ -629,7 +629,7 @@
     }
 
     return (config.scoreRows || []).map(function (row) {
-      var skillsScore = row.skillsScore !== null && row.skillsScore !== undefined ? escapeHtml(row.skillsScore) + "%" : "—";
+      var skillsScore = config.skillsApplicable === false || row.skillsApplicable === false ? "N/A" : (row.skillsScore !== null && row.skillsScore !== undefined ? escapeHtml(row.skillsScore) + "%" : "—");
       var state = printStateLabel(row.state);
       var certificate = row.certificateNumber ? "Issued · " + row.certificateNumber : "Not issued";
       var release = row.releasedAt ? "Released" : "Pending release";
@@ -709,7 +709,7 @@
     var config = getClassConfig();
 
     return modalShell("scores", [
-      classScoresMarkup(config.scoreRows || []),
+      classScoresMarkup(config.scoreRows || [], config.skillsApplicable),
       '<button class="print-btn export-results-btn export-results" type="button" data-print-modal data-print-type="results">Export Class Results</button>'
     ].join(""), "dash-content scores-mode");
   }
@@ -737,7 +737,7 @@
       "<dt>Score:</dt><dd>" + (hasScore ? escapeHtml(data.score) + "%" : "Pending") + "</dd>",
       "</dl>",
       "<h3>Instructions</h3>",
-      "<p>Thank you for completing the IADC Well Control Knowledge Assessment for the course. " + scoreLine + " If you passed your skills assessment you will be given your Certificate of Completion by your instructor, who will also review your missed questions with you.</p>",
+      "<p>Thank you for completing the IADC Well Control Knowledge Assessment for the course. " + scoreLine + (data.skillsApplicable === false ? " Skills Assessment is not applicable. Your Certificate of Completion can be issued when the Knowledge Exam and all other existing requirements are satisfied. Your instructor will review your missed questions with you." : " If you passed your skills assessment you will be given your Certificate of Completion by your instructor, who will also review your missed questions with you.") + "</p>",
       "<p>After your instructor reviews your exam results with you, you may choose to return to your computer to review each test question you missed on today's exam. To launch the review feature, log in using the same code you used at the beginning of the exam.</p>",
       "<p>Once you complete your review and you have received your Certificate, you are to log out of the testing system and may leave the testing center.</p>",
       "<h3>Topics for Review</h3>",

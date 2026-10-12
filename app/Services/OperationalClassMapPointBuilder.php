@@ -46,6 +46,7 @@ class OperationalClassMapPointBuilder
     /** @param Collection<int, TrainingClass> $classes */
     public function buildModalData(Collection $classes): array
     {
+        (new \Illuminate\Database\Eloquent\Collection($classes->all()))->loadMissing('course.subjectCategory');
         $attempts = $classes->flatMap(fn(TrainingClass $trainingClass) => $trainingClass->examSchedules->flatMap(fn($schedule) => $schedule->attempts));
         $certificates = Certificate::query()->with('documents')->whereIn('exam_attempt_id', $attempts->pluck('id'))->get()->keyBy('exam_attempt_id');
 
@@ -65,20 +66,22 @@ class OperationalClassMapPointBuilder
                 ->flatMap(fn($schedule) => $schedule->attempts)
                 ->groupBy('student_user_id');
             $primarySchedule = $this->primarySchedule($trainingClass);
+            $skillsApplicable = $trainingClass->course?->skillsAssessmentApplicable() ?? true;
 
             $scoreRows = $trainingClass->enrollments
                 ->sortBy(fn($enrollment) => $enrollment->student?->display_name ?: $enrollment->student?->wellsharp_id)
-                ->map(function ($enrollment) use ($certificates, $attemptsByStudent): array {
+                ->map(function ($enrollment) use ($certificates, $attemptsByStudent, $skillsApplicable): array {
                     $attempt = $attemptsByStudent->get($enrollment->student_user_id, collect())
                         ->sortByDesc('attempt_number')
                         ->first();
                     $certificate = $attempt ? $certificates->get($attempt->id) : null;
 
-                    return $this->scoreRow($enrollment, $attempt, $certificate);
+                    return $this->scoreRow($enrollment, $attempt, $certificate, $skillsApplicable);
                 })->values()->all();
 
             return [
                 $trainingClass->public_id => [
+                    'skillsApplicable' => $skillsApplicable,
                     'details' => [
                         ['Class ID:', $primarySchedule?->class_id ?: ''],
                         ['Class Title or ID:', $trainingClass->displayTitle()],
@@ -134,7 +137,7 @@ class OperationalClassMapPointBuilder
      * the row's Certificate cell without a page reload) build from, so the
      * two paths can never drift into different shapes.
      */
-    private function scoreRow(Enrollment $enrollment, ?ExamAttempt $attempt, ?Certificate $certificate): array
+    private function scoreRow(Enrollment $enrollment, ?ExamAttempt $attempt, ?Certificate $certificate, bool $skillsApplicable): array
     {
         $state = $attempt ? match ($attempt->status->value) {
             'submitted' => 'complete',
@@ -148,8 +151,10 @@ class OperationalClassMapPointBuilder
 
         return [
             'name' => $enrollment->student?->display_name ?: $enrollment->student?->wellsharp_id ?: 'Unknown trainee',
-            'skillsScore' => $enrollment->skills_score,
-            'skillsScoreUrl' => route($isProctor ? 'proctor.enrollments.skills-score' : 'instructor.enrollments.skills-score', $enrollment),
+            'enrollmentId' => $enrollment->public_id,
+            'skillsApplicable' => $skillsApplicable,
+            'skillsScore' => $skillsApplicable ? $enrollment->skills_score : null,
+            'skillsScoreUrl' => $skillsApplicable ? route($isProctor ? 'proctor.enrollments.skills-score' : 'instructor.enrollments.skills-score', $enrollment) : null,
             'score' => $result ? number_format((float) $result['final_knowledge_score'], 2, '.', '') : null,
             'passed' => $result['final_passed'] ?? null,
             'state' => $state,
@@ -180,7 +185,7 @@ class OperationalClassMapPointBuilder
             ? Certificate::query()->with('documents')->where('exam_attempt_id', $attempt->id)->first()
             : null;
 
-        return $this->scoreRow($enrollment, $attempt, $certificate);
+        return $this->scoreRow($enrollment, $attempt, $certificate, $enrollment->trainingClass?->course?->skillsAssessmentApplicable() ?? true);
     }
 
     private function dateRange(TrainingClass $trainingClass): string

@@ -200,8 +200,9 @@ class ExamController extends Controller
     private function examSubjects(): Collection
     {
         return Course::query()
-            ->where('status', 'active')
-            ->with(['questions' => fn ($query) => $query->where('is_active', true)->with('options')->orderBy('question_text')])
+            ->where(fn ($query) => $query->where('status', 'active')
+                ->when(request()->route('exam')?->course_id ?? request()->route('course')?->id, fn ($selected, $id) => $selected->orWhere('id', $id)))
+            ->with(['subjectCategory', 'questions' => fn ($query) => $query->where('is_active', true)->with('options')->orderBy('question_text')])
             ->orderBy('name')
             ->get();
     }

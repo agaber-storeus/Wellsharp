@@ -253,6 +253,10 @@ class AdminDashboardService
         $canonicalResults = $this->knowledgeResults->resolveMany($scoredAttempts);
 
         $skillsScores = DB::table('enrollments')
+            ->join('classes', 'classes.id', '=', 'enrollments.class_id')
+            ->join('courses', 'courses.id', '=', 'classes.course_id')
+            ->leftJoin('subject_categories', 'subject_categories.id', '=', 'courses.subject_category_id')
+            ->where(fn ($query) => $query->whereNull('subject_categories.code')->orWhere('subject_categories.code', '!=', 'well-servicing'))
             ->whereNotNull('skills_score')
             ->selectRaw('COUNT(*) as recorded, AVG(skills_score) as average, MIN(skills_score) as lowest, MAX(skills_score) as highest')
             ->first();

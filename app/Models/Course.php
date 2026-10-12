@@ -14,7 +14,17 @@ class Course extends Model
 {
     use HasFactory, HasPublicUlid;
 
-    protected $fillable = ['code', 'name', 'description', 'course_level_id', 'status'];
+    protected $fillable = ['code', 'name', 'description', 'course_level_id', 'subject_category_id', 'status'];
+
+    public function subjectCategory(): BelongsTo
+    {
+        return $this->belongsTo(SubjectCategory::class);
+    }
+
+    public function skillsAssessmentApplicable(): bool
+    {
+        return $this->subjectCategory?->code !== 'well-servicing';
+    }
 
     protected function casts(): array
     {

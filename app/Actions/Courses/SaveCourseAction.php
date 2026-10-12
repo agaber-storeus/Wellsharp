@@ -23,11 +23,15 @@ class SaveCourseAction
                     'description' => $data['description'] ?? null,
                     'course_level_id' => $data['course_level_id'] ?? null,
                     'status' => CourseStatus::Active,
+                    'subject_category_id' => $data['subject_category_id'] ?? null,
                 ]);
                 $before = null;
             } else {
                 $course = Course::query()->lockForUpdate()->findOrFail($course->getKey());
                 $before = $course->load('level', 'stacks', 'supplements', 'languages')->toArray();
+                if (array_key_exists('subject_category_id', $data)) {
+                    $course->subject_category_id = $data['subject_category_id'];
+                }
                 $course->update([
                     'code' => strtoupper(trim($data['code'])),
                     'name' => $data['name'],

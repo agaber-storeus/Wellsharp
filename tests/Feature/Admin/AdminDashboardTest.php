@@ -23,6 +23,21 @@ class AdminDashboardTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_skills_statistics_exclude_well_servicing_but_preserve_stored_scores(): void
+    {
+        $this->seedRoles();
+        $this->actingAs(User::factory()->admin()->create());
+        $category = \App\Models\SubjectCategory::where('code', 'well-servicing')->firstOrFail();
+        $course = Course::factory()->create(['subject_category_id' => $category->id]);
+        $servicing = TrainingClass::factory()->create(['course_id' => $course->id]);
+        $historical = Enrollment::factory()->create(['class_id' => $servicing->id, 'skills_score' => 99]);
+        Enrollment::factory()->create(['skills_score' => 60]);
+        $stats = app(AdminDashboardService::class)->build()['skills_assessments'];
+        $this->assertSame(1, $stats['recorded']);
+        $this->assertSame(60.0, $stats['average']);
+        $this->assertSame(99, $historical->fresh()->skills_score);
+    }
+
     public function test_admin_can_load_the_dashboard(): void
     {
         $this->seedRoles();

@@ -64,7 +64,7 @@ class ExamScheduleController extends Controller
         $subjectId = request('course_id');
         $examId = $examId ?: $exam?->getKey();
         $schedules = $this->filteredQuery(request()->merge(['exam_id' => $examId]))->latest('exam_schedules.created_at')->paginate(25)->withQueryString();
-        $exams = Exam::query()->with('subject')->where('status', 'published')->orderBy('name')->get();
+        $exams = Exam::query()->with('subject.subjectCategory')->where('status', 'published')->orderBy('name')->get();
         $groups = Group::query()->where('status', 'active')->orderBy('name')->get();
         $subjects = Course::query()->where('status', 'active')->orderBy('name')->get();
 
@@ -77,7 +77,7 @@ class ExamScheduleController extends Controller
     public function create(?Exam $exam = null): View
     {
         $this->authorize('create', ExamSchedule::class);
-        $exams = Exam::query()->with(['subject'])->withCount('questions')->where('status', 'published')->orderBy('name')->get();
+        $exams = Exam::query()->with(['subject.subjectCategory'])->withCount('questions')->where('status', 'published')->orderBy('name')->get();
         $groups = Group::query()->where('status', 'active')->orderBy('name')->get();
         $providers = TrainingProvider::query()->with(['locations' => fn ($query) => $query->where('is_active', true)->orderBy('location')])->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get();
 
@@ -95,7 +95,7 @@ class ExamScheduleController extends Controller
     public function edit(ExamSchedule $schedule): View
     {
         $this->authorize('update', $schedule);
-        $exams = Exam::query()->with('subject')->withCount('questions')->where('status', 'published')->orderBy('name')->get();
+        $exams = Exam::query()->with('subject.subjectCategory')->withCount('questions')->where('status', 'published')->orderBy('name')->get();
         $groups = Group::query()->where('status', 'active')->orderBy('name')->get();
         $providers = TrainingProvider::query()->with(['locations' => fn ($query) => $query->where(fn ($locations) => $locations->where('is_active', true)->orWhere('id', $schedule->training_provider_location_id))->orderBy('location')])->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get();
 

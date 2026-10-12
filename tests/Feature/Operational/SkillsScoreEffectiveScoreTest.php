@@ -20,6 +20,7 @@ use App\Models\GroupMembership;
 use App\Models\Question;
 use App\Models\TrainingClass;
 use App\Models\User;
+use App\Models\SubjectCategory;
 use App\Policies\EnrollmentPolicy;
 use App\Services\OperationalClassMapPointBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -29,6 +30,92 @@ use Tests\TestCase;
 class SkillsScoreEffectiveScoreTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_well_servicing_without_skills_can_release_and_issue_a_passing_knowledge_certificate(): void
+    {
+        $data = $this->makeSubmittedAttempt(70, 9, categoryCode: 'well-servicing');
+        $proctor = $data['trainingClass']->proctor;
+        $this->actingAs($proctor)->withSession(['auth.session_version' => $proctor->session_version]);
+        $this->post(route('proctor.analytics.attempts.release', $data['attempt']))->assertRedirect();
+        $this->assertNotNull($data['attempt']->fresh()->released_at);
+        $certificate = Certificate::where('exam_attempt_id', $data['attempt']->id)->firstOrFail();
+        $this->assertSame(90.0, (float) $certificate->score);
+        $this->assertNull($data['enrollment']->fresh()->skills_score);
+        $this->getJson(route('proctor.analytics.attempts.summary', $data['attempt']))->assertOk()
+            ->assertJsonPath('skillsApplicable', false)->assertJsonPath('passed', true);
+    }
+
+    public function test_well_servicing_failed_or_incomplete_knowledge_remains_ineligible(): void
+    {
+        $failed = $this->makeSubmittedAttempt(70, 3, categoryCode: 'well-servicing');
+        $this->assertNull(app(IssueCertificateAction::class)->execute($failed['attempt']));
+        $incomplete = $this->makeSubmittedAttempt(70, 9, categoryCode: 'well-servicing');
+        $incomplete['attempt']->update(['status' => 'in_progress', 'submitted_at' => null, 'score' => 90]);
+        $this->assertFalse(app(\App\Services\KnowledgeResultService::class)->resolve($incomplete['attempt']->fresh())['certificate_eligible']);
+        $this->assertNull(app(IssueCertificateAction::class)->execute($incomplete['attempt']));
+        $this->assertDatabaseCount('certificates', 0);
+    }
+
+    public function test_drilling_and_uncategorized_preserve_existing_knowledge_only_eligibility(): void
+    {
+        foreach (['drilling-operations', null] as $category) {
+            $passing = $this->makeSubmittedAttempt(70, 9, categoryCode: $category);
+            $this->assertTrue($passing['trainingClass']->course->skillsAssessmentApplicable());
+            $this->assertNull($passing['enrollment']->skills_score);
+            $this->assertNotNull(app(IssueCertificateAction::class)->execute($passing['attempt']));
+            $failed = $this->makeSubmittedAttempt(70, 3, categoryCode: $category);
+            $this->assertNull(app(IssueCertificateAction::class)->execute($failed['attempt']));
+        }
+    }
+
+    public function test_well_servicing_skill_edits_are_rejected_for_both_roles_and_preserve_historical_scores(): void
+    {
+        $data = $this->makeSubmittedAttempt(70, 9, categoryCode: 'well-servicing');
+        $data['enrollment']->update(['skills_score' => 82]);
+        foreach (['proctor', 'instructor'] as $role) {
+            $actor = $data['trainingClass']->{$role};
+            $this->actingAs($actor)->withSession(['auth.session_version' => $actor->session_version]);
+            $this->postJson(route($role.'.enrollments.skills-score', $data['enrollment']), ['skills_score' => null])
+                ->assertUnprocessable()->assertJsonValidationErrors('skills_score');
+            $this->assertSame(82, $data['enrollment']->fresh()->skills_score);
+            $this->get(route($role.'.classes'))->assertOk()
+                ->assertViewHas('classModalData', fn ($rows) => $rows[$data['trainingClass']->public_id]['skillsApplicable'] === false);
+        }
+        $this->assertDatabaseMissing('audit_events', ['action' => 'enrollment.skills_score_updated']);
+        $this->assertDatabaseCount('certificates', 0);
+    }
+
+    public function test_applicability_uses_category_code_not_subject_or_category_name(): void
+    {
+        $this->seedRoles();
+        $category = SubjectCategory::where('code', 'well-servicing')->firstOrFail();
+        $category->update(['name' => 'Renamed category']);
+        $course = Course::factory()->create(['name' => 'Drilling Operations', 'subject_category_id' => $category->id]);
+        $this->assertFalse($course->skillsAssessmentApplicable());
+        $course = Course::factory()->create(['name' => 'Well Servicing', 'subject_category_id' => null]);
+        $this->assertTrue($course->skillsAssessmentApplicable());
+    }
+
+    public function test_category_changes_preserve_historical_certificate_and_mask_only_skills_display(): void
+    {
+        $data = $this->makeSubmittedAttempt(70, 9, categoryCode: 'drilling-operations');
+        $data['enrollment']->update(['skills_score' => 82]);
+        $certificate = app(IssueCertificateAction::class)->execute($data['attempt']);
+        $snapshot = $certificate->fresh()->toArray();
+        $this->actingAs($data['trainingClass']->proctor);
+        $builder = app(OperationalClassMapPointBuilder::class);
+        $this->assertSame(82, $builder->scoreRowForEnrollment($data['enrollment']->fresh())['skillsScore']);
+        $data['trainingClass']->course->update(['subject_category_id' => SubjectCategory::where('code', 'well-servicing')->firstOrFail()->id]);
+        $row = $builder->scoreRowForEnrollment($data['enrollment']->fresh());
+        $this->assertFalse($row['skillsApplicable']);
+        $this->assertSame($data['enrollment']->public_id, $row['enrollmentId']);
+        $this->assertNull($row['skillsScore']);
+        $this->assertNull($row['skillsScoreUrl']);
+        $this->assertNotNull($row['certificateDownloadUrl']);
+        $this->assertTrue($row['passed']);
+        $this->assertSame(82, $data['enrollment']->fresh()->skills_score);
+        $this->assertSame($snapshot, $certificate->fresh()->toArray());
+    }
 
     public function test_failed_knowledge_exam_with_high_skills_score_remains_failed_without_certificate(): void
     {
@@ -379,11 +466,11 @@ class SkillsScoreEffectiveScoreTest extends TestCase
     /**
      * @return array{attempt: ExamAttempt, enrollment: Enrollment, exam: Exam, student: User, trainingClass: TrainingClass}
      */
-    private function makeSubmittedAttempt(int $passingScore, int $correctCount, int $totalQuestions = 10, ?User $student = null): array
+    private function makeSubmittedAttempt(int $passingScore, int $correctCount, int $totalQuestions = 10, ?User $student = null, ?string $categoryCode = null): array
     {
         $this->seedRoles();
         $student = $student ?: User::factory()->student()->create();
-        $course = Course::factory()->create();
+        $course = Course::factory()->create(['subject_category_id' => $categoryCode ? SubjectCategory::where('code', $categoryCode)->firstOrFail()->id : null]);
         $exam = Exam::create([
             'course_id' => $course->id,
             'name' => 'Knowledge Score Exam',

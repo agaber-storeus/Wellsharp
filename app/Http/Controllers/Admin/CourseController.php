@@ -12,6 +12,7 @@ use App\Models\CourseLevel;
 use App\Models\Language;
 use App\Models\Stack;
 use App\Models\Supplement;
+use App\Models\SubjectCategory;
 use App\Services\AuditRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +32,7 @@ class CourseController extends Controller
         $allowedSorts = ['code', 'name', 'level', 'status', 'created_at'];
         $sort = in_array($sort, $allowedSorts, true) ? $sort : 'created_at';
 
+        $this->applyCategoryGrouping($query, $request);
         if ($sort === 'level') {
             $query->leftJoin('course_levels as course_level_sort', 'course_level_sort.id', '=', 'courses.course_level_id')
                 ->addSelect('courses.*')
@@ -52,6 +54,7 @@ class CourseController extends Controller
         $this->authorize('viewAny', Course::class);
         $query = $this->filteredQuery($request);
         [$sort, $direction] = $this->sortValues($request);
+        $this->applyCategoryGrouping($query, $request);
         $this->applySort($query, $sort, $direction);
         $courses = $query->paginate(self::PER_PAGE, ['*'], 'page', $this->safePage($query, $request))->withQueryString();
         $initialCourses = $courses->getCollection()->map(fn (Course $course): array => $this->coursePayload($course))->values();
@@ -64,6 +67,9 @@ class CourseController extends Controller
             'status' => request('status'),
             'sort' => $sort,
             'direction' => $direction,
+            'categories' => SubjectCategory::orderBy('name')->get(),
+            'categoryId' => $request->input('subject_category_id', ''),
+            'groupByCategory' => $request->boolean('group_by_category'),
         ]);
     }
 
@@ -86,7 +92,7 @@ class CourseController extends Controller
     {
         $this->authorize('view', $course);
 
-        return view('admin.courses.show', ['course' => $course->load('level', 'stacks', 'supplements', 'languages')]);
+        return view('admin.courses.show', ['course' => $course->load('subjectCategory', 'level', 'stacks', 'supplements', 'languages')]);
     }
 
     public function edit(Course $course): View
@@ -136,6 +142,7 @@ class CourseController extends Controller
     private function formData(): array
     {
         return [
+            'categories' => SubjectCategory::orderBy('name')->get(),
             'levels' => CourseLevel::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
             'stacks' => Stack::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
             'supplements' => Supplement::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
@@ -147,8 +154,11 @@ class CourseController extends Controller
     {
         $search = trim((string) $request->input('search'));
         $status = $request->input('status');
+        $categoryId = $request->input('subject_category_id');
 
-        return Course::query()->with(['level'])
+        return Course::query()->with(['level', 'subjectCategory'])
+            ->when($categoryId === 'uncategorized', fn ($query) => $query->whereNull('courses.subject_category_id'))
+            ->when($categoryId && $categoryId !== 'uncategorized', fn ($query) => $query->where('courses.subject_category_id', $categoryId))
             ->when($search, fn ($query) => $query->where(function ($query) use ($search): void {
                 $query->where('courses.code', 'like', "%{$search}%")
                     ->orWhere('courses.name', 'like', "%{$search}%");
@@ -163,6 +173,14 @@ class CourseController extends Controller
         $lastPage = max(1, (int) ceil($total / self::PER_PAGE));
 
         return min($requested, $lastPage);
+    }
+
+    private function applyCategoryGrouping($query, Request $request): void
+    {
+        if ($request->boolean('group_by_category')) {
+            $query->leftJoin('subject_categories as category_group', 'category_group.id', '=', 'courses.subject_category_id')
+                ->addSelect('courses.*')->orderByRaw('category_group.name IS NULL')->orderBy('category_group.name');
+        }
     }
 
     /** @return array{0: string, 1: string} */
@@ -194,6 +212,7 @@ class CourseController extends Controller
             'id' => $course->getKey(),
             'code' => $course->code,
             'name' => $course->name,
+            'category' => $course->subjectCategory?->name ?? 'Uncategorized',
             'level' => $course->level?->name ?: 'Not assigned',
             'status' => $course->status->value,
             'status_label' => $course->status->label(),

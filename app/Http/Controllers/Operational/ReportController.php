@@ -125,6 +125,7 @@ class ReportController extends Controller
             'knowledgeScore' => $knowledgeResult['calculated_score'] !== null ? number_format($knowledgeResult['calculated_score'], 0) : null,
             'score' => $knowledgeResult['final_knowledge_score'] !== null ? number_format($knowledgeResult['final_knowledge_score'], 0) : null,
             'passed' => $knowledgeResult['final_passed'],
+            'skillsApplicable' => $attempt->exam?->subject?->skillsAssessmentApplicable() ?? true,
             'topics' => $topics,
         ]);
     }

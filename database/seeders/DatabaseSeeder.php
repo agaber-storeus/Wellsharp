@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(SubjectCategoriesSeeder::class);
         foreach ([[Role::ADMIN, 'Admin', 'Full administrative access'], [Role::PROCTOR, 'Proctor', 'Assigned examination operations'], [Role::INSTRUCTOR, 'Instructor', 'Assigned class monitoring and requests'], [Role::STUDENT, 'Student', 'Assigned learning and assessment access']] as [$key, $name, $description]) {
             Role::updateOrCreate(['key' => $key], compact('name', 'description'));
         }

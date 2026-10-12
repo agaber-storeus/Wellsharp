@@ -197,7 +197,7 @@ body.admin-body{font-family:Inter,system-ui,sans-serif;font-size:var(--admin-tex
 .btn.danger:hover{background:var(--admin-danger-soft)}
 .btn.ghost{border:1px dashed var(--admin-line);background:transparent;color:var(--admin-muted)}
 .btn.ghost:hover{border-style:solid;color:var(--admin-ink)}
-.btn:focus-visible{outline:3px solid var(--admin-focus-ring);outline-offset:2px}
+.btn:focus-visible{outline:3px solid var(--admin-blue);outline-offset:2px}
 
 /* ================= Status badges (semantic, keyed by literal enum value) ================= */
 .badge{border-radius:999px;background:var(--admin-surface-soft);color:var(--admin-ink);font-weight:var(--admin-weight-semibold)}
@@ -214,6 +214,40 @@ body.admin-body{font-family:Inter,system-ui,sans-serif;font-size:var(--admin-tex
 /* ================= Filters / search ================= */
 .search input,.card select,.card input,.card textarea{border-color:#ddc9a8}
 .search input:focus,.card select:focus,.card input:focus,.card textarea:focus{border-color:var(--admin-accent-warm);box-shadow:0 0 0 3px rgba(226,105,26,.14)}
+
+/* Filters share control sizing; choice inputs keep their native proportions. */
+.admin-content .search{flex-wrap:wrap;align-items:center;gap:12px}
+.admin-content .search>input:not([type=checkbox]):not([type=radio]){flex:1 1 220px;width:auto;max-width:none;min-height:44px}
+.admin-content .search>.admin-dropdown,.admin-content .search>select{flex:1 1 160px;min-width:0;max-width:100%}
+.admin-content .search>.btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.admin-content .filter-checkbox,.admin-content .check-grid label{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin:0;cursor:pointer;line-height:1.4}
+.admin-content .filter-checkbox{flex:0 0 auto;font-size:13px;font-weight:var(--admin-weight-medium)}
+.admin-content input[type=checkbox],.admin-content input[type=radio]{flex:0 0 auto;width:16px;height:16px;min-height:0;max-width:none;padding:0;margin:0;accent-color:var(--admin-accent-warm);vertical-align:middle}
+.admin-content .wizard-switch input[type=checkbox]{width:42px;height:23px}
+.admin-content input[type=checkbox]:focus-visible,.admin-content input[type=radio]:focus-visible{outline:2px solid var(--admin-blue);outline-offset:3px}
+.admin-content .field{min-width:0}
+.admin-content .field>input:not([type=checkbox]):not([type=radio]),.admin-content .field>select,.admin-content .field>textarea{max-width:100%;min-width:0;width:100%}
+.admin-content .field small,.admin-content .alert,.admin-content .page-head>div,.admin-content .admin-bento-card p{overflow-wrap:anywhere}
+.admin-content .page-head>div{min-width:0}
+.admin-content .table-wrap{max-width:100%;min-width:0}
+.admin-content .table td{overflow-wrap:anywhere}
+.admin-content .table th{ text-align:start }
+.admin-content .table td{ text-align:start }
+.admin-content .search .admin-dropdown-label{min-width:0}
+.admin-dropdown-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:start}
+.admin-dropdown-option{overflow-wrap:anywhere;white-space:normal;text-align:start}
+.admin-dropdown-group-label{padding:10px 12px 5px;color:var(--admin-muted);font-size:12px;font-weight:var(--admin-weight-semibold);overflow-wrap:anywhere}
+.admin-content .subject-category-heading th{position:static;color:var(--admin-ink);font-size:13px;text-transform:none;letter-spacing:0}
+.admin-content .admin-dropdown-trigger[aria-invalid=true]{border-color:var(--admin-danger)}
+.wizard-panel:has(.admin-dropdown.is-open){overflow:visible}
+[dir=rtl] .admin-content select{padding-inline:14px 42px;background-position:left 15px center,right top!important}
+[dir=rtl] .admin-dropdown-trigger,[dir=rtl] .admin-dropdown-option{text-align:start}
+@media(max-width:600px){
+    .admin-content .search{flex-direction:row;align-items:stretch}
+    .admin-content .search>input:not([type=checkbox]):not([type=radio]),.admin-content .search>.admin-dropdown,.admin-content .search>select{flex-basis:100%;width:100%}
+    .admin-content .search>.filter-checkbox{flex-basis:100%}
+    .admin-content .search>.btn{flex:1 1 auto}
+}
 
 /* One final select rule prevents earlier background shorthand rules from
  * repeating the arrow image and gives every admin dropdown the same finish. */
@@ -250,7 +284,7 @@ body.admin-body{font-family:Inter,system-ui,sans-serif;font-size:var(--admin-tex
 .admin-dropdown-trigger:hover,.admin-dropdown.is-open .admin-dropdown-trigger{border-color:var(--admin-accent-warm);box-shadow:0 8px 22px rgba(226,105,26,.16)}
 .admin-dropdown-trigger:hover{transform:translateY(-1px)}
 .admin-dropdown.is-open .admin-dropdown-trigger::after{transform:rotate(225deg) translate(-1px,-1px)}
-.admin-dropdown-trigger:focus-visible{outline:3px solid var(--admin-focus-ring);outline-offset:2px}
+.admin-dropdown-trigger:focus-visible{outline:3px solid var(--admin-blue);outline-offset:2px}
 .admin-dropdown-trigger:disabled{cursor:not-allowed;opacity:.62;transform:none}
 .admin-dropdown-menu{position:absolute;z-index:120;top:calc(100% + 7px);left:0;right:0;max-height:280px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#d97932 rgba(226,105,26,.1);padding:6px;border:1px solid rgba(190,161,116,.72);border-radius:16px;background:linear-gradient(145deg,#fffdf8,#fff4df);box-shadow:0 18px 38px rgba(75,48,23,.2);animation:admin-dropdown-in .18s ease-out}
 .admin-dropdown-menu::-webkit-scrollbar{width:8px}
@@ -268,7 +302,7 @@ body.admin-body{font-family:Inter,system-ui,sans-serif;font-size:var(--admin-tex
 .admin-date-trigger{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;padding:10px 13px;border:1px solid rgba(190,161,116,.72);border-radius:14px;background:linear-gradient(135deg,#fffdf8,#fff7e8);color:var(--admin-ink);font:inherit;text-align:left;cursor:pointer;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
 .admin-date-trigger:hover,.admin-date-picker.is-open .admin-date-trigger{border-color:var(--admin-accent-warm);box-shadow:0 8px 22px rgba(226,105,26,.15)}
 .admin-date-trigger:hover{transform:translateY(-1px)}
-.admin-date-trigger:focus-visible{outline:3px solid var(--admin-focus-ring);outline-offset:2px}
+.admin-date-trigger:focus-visible{outline:3px solid var(--admin-blue);outline-offset:2px}
 .admin-date-trigger:disabled{cursor:not-allowed;opacity:.62;transform:none}
 .admin-date-trigger .is-placeholder{color:#68798a}
 .admin-date-icon{width:15px;height:15px;flex:0 0 auto;border:2px solid #a85b20;border-radius:3px;position:relative}

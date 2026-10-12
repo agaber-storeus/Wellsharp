@@ -104,7 +104,7 @@ class TrainingClassController extends Controller
     {
         $this->authorize('update', $trainingClass);
 
-        return view('admin.classes.edit', ['trainingClass' => $trainingClass, ...$this->formData()]);
+        return view('admin.classes.edit', ['trainingClass' => $trainingClass, ...$this->formData($trainingClass)]);
     }
 
     public function update(UpdateClassRequest $request, TrainingClass $trainingClass, AuditRecorder $audit): RedirectResponse
@@ -141,10 +141,13 @@ class TrainingClassController extends Controller
         return back()->with('status', 'Student withdrawn.');
     }
 
-    private function formData(): array
+    private function formData(?TrainingClass $trainingClass = null): array
     {
         return [
-            'courses' => Course::query()->where('status', 'active')->whereNull('archived_at')->orderBy('code')->get(),
+            'courses' => Course::query()->with('subjectCategory')
+                ->where(fn ($query) => $query->where(fn ($active) => $active->where('status', 'active')->whereNull('archived_at'))
+                    ->when($trainingClass?->course_id, fn ($selected) => $selected->orWhere('id', $trainingClass->course_id)))
+                ->orderBy('code')->get(),
             'providers' => TrainingProvider::query()->where('status', 'active')->whereNull('archived_at')->orderBy('name')->get(),
             'proctors' => $this->activeStaff(Role::PROCTOR),
             'instructors' => $this->activeStaff(Role::INSTRUCTOR),

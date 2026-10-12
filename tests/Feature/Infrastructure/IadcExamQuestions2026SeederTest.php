@@ -24,6 +24,8 @@ class IadcExamQuestions2026SeederTest extends TestCase
         $this->seed(IadcExamQuestions2026Seeder::class);
 
         $this->assertSame(11, (int) DB::table('courses')->count());
+        $this->assertSame(6, \App\Models\SubjectCategory::where('code', 'drilling-operations')->firstOrFail()->courses()->count());
+        $this->assertSame(5, \App\Models\SubjectCategory::where('code', 'well-servicing')->firstOrFail()->courses()->count());
         $this->assertSame(11, (int) DB::table('exams')->count());
         $this->assertSame(1387, (int) DB::table('questions')->count());
         $optionCount = (int) DB::table('question_options')->count();

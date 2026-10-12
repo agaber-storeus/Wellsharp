@@ -92,6 +92,7 @@ class IadcExamQuestions2026Seeder extends Seeder
                 }
             }
         });
+        $this->call(SubjectCategoriesSeeder::class);
     }
 
     /** @return array<int, array{legacy_id: int, code: string, name: string}> */

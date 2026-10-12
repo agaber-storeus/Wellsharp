@@ -28,15 +28,15 @@
 
 <div class="card" x-data="questionTable(@js(route('admin.questions.data')), @js($initialQuestions), @js(['current_page' => $questions->currentPage(), 'last_page' => $questions->lastPage(), 'total' => $questions->total(), 'from' => $questions->firstItem(), 'to' => $questions->lastItem()]))">
     <form class="search" x-on:submit.prevent="load(1)">
-        <input x-model="search" x-on:input.debounce.350ms="load(1)" name="search" placeholder="Search question" autocomplete="off">
-        <select x-model="courseId" x-on:change="load(1)" name="course_id"><option value="">All Subjects</option>@foreach($subjects as $subject)<option value="{{ $subject->id }}">{{ $subject->name }}</option>@endforeach</select>
-        <select x-model="type" x-on:change="load(1)" name="type"><option value="">All Types</option>@foreach($types as $item)<option value="{{ $item->value }}">{{ $item->label() }}</option>@endforeach</select>
-        <select x-model="difficulty" x-on:change="load(1)" name="difficulty"><option value="">All Difficulties</option>@foreach($difficulties as $item)<option value="{{ $item->value }}">{{ $item->label() }}</option>@endforeach</select>
-        <select x-model="status" x-on:change="load(1)" name="status"><option value="">All Statuses</option><option value="active">Active</option><option value="archived">Archived</option></select>
+        <input aria-label="Search" x-model="search" x-on:input.debounce.350ms="load(1)" name="search" placeholder="Search question" autocomplete="off">
+        <select aria-label="Subject" x-model="courseId" x-on:change="load(1)" name="course_id"><option value="">All Subjects</option>@foreach($subjects as $subject)<option value="{{ $subject->id }}">{{ $subject->name }}</option>@endforeach</select>
+        <select aria-label="Question type" x-model="type" x-on:change="load(1)" name="type"><option value="">All Types</option>@foreach($types as $item)<option value="{{ $item->value }}">{{ $item->label() }}</option>@endforeach</select>
+        <select aria-label="Difficulty" x-model="difficulty" x-on:change="load(1)" name="difficulty"><option value="">All Difficulties</option>@foreach($difficulties as $item)<option value="{{ $item->value }}">{{ $item->label() }}</option>@endforeach</select>
+        <select aria-label="Status" x-model="status" x-on:change="load(1)" name="status"><option value="">All Statuses</option><option value="active">Active</option><option value="archived">Archived</option></select>
         <button class="btn secondary" type="submit">Apply</button>
         <button class="btn secondary" type="button" x-show="hasFilters()" x-on:click="clearFilters()" x-cloak>Clear</button>
     </form>
-    <div class="question-error" x-show="error" x-text="error" x-cloak></div>
+    <div class="question-error" role="alert" x-show="error" x-text="error" x-cloak></div>
     <div class="table-wrap" x-bind:class="loading ? 'question-table-loading' : ''">
         <table class="table">
             <thead><tr><th><button class="question-sort" type="button" x-on:click="sortBy('question_text')">Question <span class="question-sort-icon" x-text="sortIcon('question_text')"></span></button></th><th>Images</th><th><button class="question-sort" type="button" x-on:click="sortBy('course_id')">Subject <span class="question-sort-icon" x-text="sortIcon('course_id')"></span></button></th><th><button class="question-sort" type="button" x-on:click="sortBy('type')">Type <span class="question-sort-icon" x-text="sortIcon('type')"></span></button></th><th><button class="question-sort" type="button" x-on:click="sortBy('difficulty')">Difficulty <span class="question-sort-icon" x-text="sortIcon('difficulty')"></span></button></th><th><button class="question-sort" type="button" x-on:click="sortBy('is_active')">Status <span class="question-sort-icon" x-text="sortIcon('is_active')"></span></button></th><th>Actions</th></tr></thead>
